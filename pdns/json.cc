@@ -88,6 +88,16 @@ string stringFromJson(const Json container, const std::string &key)
   }
 }
 
+string stringFromJson(const Json container, const std::string &key, const std::string default_value)
+{
+  const Json val = container[key];
+  if (val.is_string()) {
+    return val.string_value();
+  } else {
+    return default_value;
+  }
+}
+
 bool boolFromJson(const Json container, const std::string& key)
 {
   auto val = container[key];
