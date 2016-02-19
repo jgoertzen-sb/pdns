@@ -676,12 +676,10 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
     int k_size;
     int z_size;
 
-    if (boolFromJson(document, "dnssec", false)) {
-      stringtok(k_algos, arg()["default-ksk-algorithms"], " ,");
-      stringtok(z_algos, arg()["default-zsk-algorithms"], " ,");
-      k_size = arg().asNum("default-ksk-size");
-      z_size = arg().asNum("default-zsk-size");
-    }
+    stringtok(k_algos, arg()["default-ksk-algorithms"], " ,");
+    stringtok(z_algos, arg()["default-zsk-algorithms"], " ,");
+    k_size = arg().asNum("default-ksk-size");
+    z_size = arg().asNum("default-zsk-size");
 
     // no going back after this
     if(!B.createDomain(zonename))
