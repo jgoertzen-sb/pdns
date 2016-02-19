@@ -543,6 +543,9 @@ void DNSSECKeeper::cleanup()
   }
 }
 
+/**
+ * Rectify the zone given using the given backend. Automatically chooses NSEC vs NSEC3 appropriately
+ */
 bool DNSSECKeeper::rectifyZone(UeberBackend& B, const DNSName& zone)
 {
   if(isPresigned(zone)){
