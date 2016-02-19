@@ -700,6 +700,14 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
     }
 
     if (boolFromJson(document, "dnssec", false)) {
+
+      if (stringFromJson(document, "nsec3param", "").length() > 0) {
+        NSEC3PARAMRecordContent ns3pr(stringFromJson(document, "nsec3param"));
+        if (!dk.setNSEC3PARAM(zonename, ns3pr, boolFromJson(document, "nsec3narrow", false))) {
+          throw ApiException("Cannot use given NSEC3 parameters for zone '" + zonename.toString() + "'.");
+        }
+      }
+
       for (auto &k_algo: k_algos) {
         int algo = DNSSECKeeper::shorthand2algorithm(k_algo);
 
@@ -731,7 +739,11 @@ static void apiServerZones(HttpRequest* req, HttpResponse* resp) {
       }
     }
 
-    // TODO rectify zone
+    if (!dk.isPresigned(zonename)) {
+      if (!dk.rectifyZone(B, zonename)) {
+        throw ApiException("Failed to rectify '" + zonename.toString() + "'.");
+      }
+    }
 
     updateDomainSettingsFromDocument(di, zonename, document);
 
@@ -1019,6 +1031,10 @@ static void patchZone(HttpRequest* req, HttpResponse* resp) {
     di.backend->abortTransaction();
     throw;
   }
+
+  DNSSECKeeper dk;
+  dk.rectifyZone(B, zonename);
+
   di.backend->commitTransaction();
 
   extern PacketCache PC;
