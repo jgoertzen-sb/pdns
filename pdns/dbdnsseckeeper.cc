@@ -582,20 +582,6 @@ bool DNSSECKeeper::rectifyZone(UeberBackend& B, const DNSName& zone)
   bool narrow;
   bool haveNSEC3 = getNSEC3PARAM(zone, &ns3pr, &narrow);
   bool isOptOut=(haveNSEC3 && ns3pr.d_flags);
-  if(sd.db->doesDNSSEC())
-  {
-    if(!haveNSEC3)
-      cerr<<"Adding NSEC ordering information "<<endl;
-    else if(!narrow) {
-      if(!isOptOut)
-        cerr<<"Adding NSEC3 hashed ordering information for '"<<zone.toString()<<"'"<<endl;
-      else
-        cerr<<"Adding NSEC3 opt-out hashed ordering information for '"<<zone.toString()<<"'"<<endl;
-    } else
-      cerr<<"Erasing NSEC3 ordering since we are narrow, only setting 'auth' fields"<<endl;
-  }
-  else
-    cerr<<"Adding empty non-terminals for non-DNSSEC zone"<<endl;
 
   bool realrr=true;
   uint32_t maxent = ::arg().asNum("max-ent-entries");
