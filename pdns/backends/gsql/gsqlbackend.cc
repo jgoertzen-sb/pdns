@@ -1137,7 +1137,7 @@ skiprow:
   if((*d_query_stmt)->hasNextRow()) {
     try {
       (*d_query_stmt)->nextRow(row);
-      ASSERT_ROW_COLUMNS(d_query_name, row, 8);
+      ASSERT_ROW_COLUMNS(d_query_name, row, 9);
     } catch (SSqlException &e) {
       throw PDNSException("GSQLBackend get: "+e.txtReason());
     }
@@ -1290,7 +1290,7 @@ void GSQLBackend::getAllDomains(vector<DomainInfo> *domains, bool include_disabl
     SSqlStatement::row_t row;
     while (d_getAllDomainsQuery_stmt->hasNextRow()) {
       d_getAllDomainsQuery_stmt->nextRow(row);
-      ASSERT_ROW_COLUMNS("get-all-domains-query", row, 8);
+      ASSERT_ROW_COLUMNS("get-all-domains-query", row, 9);
       DomainInfo di;
       di.id = pdns_stou(row[0]);
       try {
@@ -1695,7 +1695,7 @@ bool GSQLBackend::searchRecords(const string &pattern, int maxResults, vector<DN
       SSqlStatement::row_t row;
       DNSResourceRecord r;
       d_SearchRecordsQuery_stmt->nextRow(row);
-      ASSERT_ROW_COLUMNS("search-records-query", row, 8);
+      ASSERT_ROW_COLUMNS("search-records-query", row, 9);
       try {
         extractRecord(row, r);
       } catch (...) {
@@ -1767,6 +1767,8 @@ void GSQLBackend::extractRecord(const SSqlStatement::row_t& row, DNSResourceReco
     r.content=row[0];
 
   r.last_modified=0;
+
+  r.ordername = row[8];
 
   if(d_dnssecQueries)
     r.auth = !row[7].empty() && row[7][0]=='1';

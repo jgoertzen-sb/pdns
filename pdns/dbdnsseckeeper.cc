@@ -648,6 +648,8 @@ bool DNSSECKeeper::rectifyZone(const DNSName& zone, string& error, string& info,
   DNSResourceRecord rr;
   set<DNSName> qnames, nsset, dsnames, insnonterm, delnonterm;
   map<DNSName,bool> nonterm;
+  map<DNSName,string> current_ordernames;
+  map<DNSName,bool> current_auth;
   vector<DNSResourceRecord> rrs;
 
   while(sd.db->get(rr)) {
@@ -656,6 +658,8 @@ bool DNSSECKeeper::rectifyZone(const DNSName& zone, string& error, string& info,
     {
       rrs.push_back(rr);
       qnames.insert(rr.qname);
+      current_ordernames.insert(pair<DNSName, string>(rr.qname, rr.ordername));
+      current_auth.insert(pair<DNSName, bool>(rr.qname, rr.auth))
       if(rr.qtype.getCode() == QType::NS && rr.qname != zone)
         nsset.insert(rr.qname);
       if(rr.qtype.getCode() == QType::DS)
@@ -753,7 +757,10 @@ bool DNSSECKeeper::rectifyZone(const DNSName& zone, string& error, string& info,
     else if (realrr && securedZone) // NSEC
       ordername=qname.makeRelative(zone);
 
-    sd.db->updateDNSSECOrderNameAndAuth(sd.domain_id, qname, ordername, auth);
+    if (current_auth.find(qname)->second != auth || current_ordernames.find(qname)->second != ordername.labelReverse().toString(" ", false))
+      //                                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this seems to be backend-specific,
+      //                                                                                        to avoid doing this the ordername should be converted back when loading
+      sd.db->updateDNSSECOrderNameAndAuth(sd.domain_id, qname, ordername, auth);
 
     if(realrr)
     {
