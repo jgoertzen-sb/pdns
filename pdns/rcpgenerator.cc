@@ -138,6 +138,7 @@ void RecordTextReader::xfrIP(uint32_t &val)
     else if(dns_isspace(d_string.at(d_pos))) 
       break;
     else {
+      // TODO NOTE we can reach here by setting A record to 1.a.2.3
       throw RecordTextException(string("unable to parse IP address, strange character: ")+d_string.at(d_pos));
     }
     d_pos++;
@@ -214,6 +215,7 @@ void RecordTextReader::xfr16BitInt(uint16_t &val)
   xfr32BitInt(tmp);
   val=tmp;
   if(val!=tmp)
+    // TODO we come out here when providing MX record '66000 exmaple.com.' to the API
     throw RecordTextException("Overflow reading 16 bit integer from record content"); // fixme improve
 }
 
@@ -306,6 +308,7 @@ static inline uint8_t hextodec(uint8_t val)
   else if(val >= 'a' && val<='f')
     return 10+(val-'a');
   else
+    // TODO note we come out here when setting a SRV record with 1 1 1 xyz
     throw RecordTextException("Unknown hexadecimal character '"+std::to_string(val)+"'");
 }
 

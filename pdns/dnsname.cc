@@ -401,6 +401,7 @@ bool DNSName::isWildcard() const
  */
 bool DNSName::isHostname() const
 {
+  // TODO NOTE we come out here when sending a hostname to the API
   static Regex hostNameRegex = Regex("^(([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)\\.)+$");
   return hostNameRegex.match(this->toString());
 }

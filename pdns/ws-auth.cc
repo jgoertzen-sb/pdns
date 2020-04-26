@@ -546,6 +546,7 @@ static void gatherRecords(UeberBackend& B, const string& logprefix, const Json c
       if (rr.qtype.getCode() != QType::AAAA) {
         string tmp = makeApiRecordContent(rr.qtype, content);
         if (!pdns_iequals(tmp, content)) {
+          // TODO NOTE: We can reach here by setting an MX record content to "10 example" (missing trailing dot)
           throw std::runtime_error("Not in expected format (parsed as '"+tmp+"')");
         }
       } else {
@@ -1934,6 +1935,8 @@ static void storeChangedPTRs(UeberBackend& B, vector<DNSResourceRecord>& new_ptr
 }
 
 static void patchZone(UeberBackend& B, HttpRequest* req, HttpResponse* resp) {
+  // TODO this is where PATCH localhost:8081/api/v1/servers/localhost/zones/example.com.
+  //  eventually arrives
   bool zone_disabled;
   SOAData sd;
   DomainInfo di;
@@ -1964,6 +1967,7 @@ static void patchZone(UeberBackend& B, HttpRequest* req, HttpResponse* resp) {
     set<pair<DNSName, QType>> seen;
 
     for (const auto& rrset : rrsets.array_items()) {
+      // TODO loop over rrsets
       string changetype = toUpper(stringFromJson(rrset, "changetype"));
       DNSName qname = apiNameToDNSName(stringFromJson(rrset, "name"));
       apiCheckQNameAllowedCharacters(qname.toString());
@@ -2004,9 +2008,11 @@ static void patchZone(UeberBackend& B, HttpRequest* req, HttpResponse* resp) {
           // ttl shouldn't be part of DELETE, and it shouldn't be required if we don't get new records.
           int ttl = intFromJson(rrset, "ttl");
           // new_ptrs is merged.
+          // TODO prepare new records
           gatherRecords(B, req->logprefix, rrset, qname, qtype, ttl, new_records, new_ptrs);
 
           for(DNSResourceRecord& rr : new_records) {
+            // TODO loop over record contents
             rr.domain_id = di.id;
             if (rr.qtype.getCode() == QType::SOA && rr.qname==zonename) {
               soa_edit_done = increaseSOARecord(rr, soa_edit_api_kind, soa_edit_kind);
