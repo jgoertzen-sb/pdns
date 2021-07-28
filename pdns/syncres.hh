@@ -860,6 +860,9 @@ private:
   vector<ComboAddress> retrieveAddressesForNS(const std::string& prefix, const DNSName& qname, vector<std::pair<DNSName, float>>::const_iterator& tns, const unsigned int depth, set<GetBestNSAnswer>& beenthere, const vector<std::pair<DNSName, float>>& rnameservers, NsSet& nameservers, bool& sendRDQuery, bool& pierceDontQuery, bool& flawedNSSet, bool cacheOnly, unsigned int& addressQueriesForNS);
 
   void sanitizeRecords(const std::string& prefix, LWResult& lwr, const DNSName& qname, const QType qtype, const DNSName& auth, bool wasForwarded, bool rdQuery);
+/* This function will check whether the answer should have the AA bit set, and will set if it should be set and isn't.
+   This is unfortunately needed to deal with very crappy so-called DNS servers */
+  void fixupAnswer(const std::string& prefix, LWResult& lwr, const DNSName& qname, const QType qtype, const DNSName& auth, bool wasForwarded, bool rdQuery);
   RCode::rcodes_ updateCacheFromRecords(unsigned int depth, LWResult& lwr, const DNSName& qname, const QType qtype, const DNSName& auth, bool wasForwarded, const boost::optional<Netmask>, vState& state, bool& needWildcardProof, bool& gatherWildcardProof, unsigned int& wildcardLabelsCount, bool sendRDQuery, const ComboAddress& remoteIP);
   bool processRecords(const std::string& prefix, const DNSName& qname, const QType qtype, const DNSName& auth, LWResult& lwr, const bool sendRDQuery, vector<DNSRecord>& ret, set<DNSName>& nsset, DNSName& newtarget, DNSName& newauth, bool& realreferral, bool& negindic, vState& state, const bool needWildcardProof, const bool gatherwildcardProof, const unsigned int wildcardLabelsCount, int& rcode, bool& negIndicHasSignatures, unsigned int depth);
 
@@ -876,10 +879,10 @@ private:
   vState validateDNSKeys(const DNSName& zone, const std::vector<DNSRecord>& dnskeys, const std::vector<std::shared_ptr<RRSIGRecordContent> >& signatures, unsigned int depth);
   vState getDNSKeys(const DNSName& signer, skeyset_t& keys, unsigned int depth);
   dState getDenialValidationState(const NegCache::NegCacheEntry& ne, const dState expectedState, bool referralToUnsigned);
-  void updateDenialValidationState(vState& neValidationState, const DNSName& neName, vState& state, const dState denialState, const dState expectedState);
+  void updateDenialValidationState(vState& neValidationState, const DNSName& neName, vState& state, const dState denialState, const dState expectedState, bool isDS, unsigned int depth);
   void computeNegCacheValidationStatus(const NegCache::NegCacheEntry& ne, const DNSName& qname, QType qtype, const int res, vState& state, unsigned int depth);
   vState getTA(const DNSName& zone, dsmap_t& ds);
-  vState getValidationStatus(const DNSName& subdomain, bool hasSignatures, bool typeIsDS, unsigned int depth);
+  vState getValidationStatus(const DNSName& subdomain, bool wouldBeValid, bool typeIsDS, unsigned int depth);
   void updateValidationStatusInCache(const DNSName &qname, QType qt, bool aa, vState newState) const;
   void initZoneCutsFromTA(const DNSName& from);
 
@@ -1003,10 +1006,13 @@ struct RecursorStats
   std::atomic<uint64_t> servFails;
   std::atomic<uint64_t> nxDomains;
   std::atomic<uint64_t> noErrors;
-  pdns::AtomicHistogram<uint64_t> answers;
-  pdns::AtomicHistogram<uint64_t> auth4Answers;
-  pdns::AtomicHistogram<uint64_t> auth6Answers;
-  pdns::AtomicHistogram<uint64_t> ourtime;
+  pdns::AtomicHistogram answers;
+  pdns::AtomicHistogram auth4Answers;
+  pdns::AtomicHistogram auth6Answers;
+  pdns::AtomicHistogram ourtime;
+  pdns::AtomicHistogram cumulativeAnswers;
+  pdns::AtomicHistogram cumulativeAuth4Answers;
+  pdns::AtomicHistogram cumulativeAuth6Answers;
   std::atomic<double> avgLatencyUsec;
   std::atomic<double> avgLatencyOursUsec;
   std::atomic<uint64_t> qcounter;     // not increased for unauth packets
@@ -1052,9 +1058,12 @@ struct RecursorStats
 
   RecursorStats() :
     answers("answers", { 1000, 10000, 100000, 1000000 }),
-    auth4Answers("answers", { 1000, 10000, 100000, 1000000 }),
-    auth6Answers("answers", { 1000, 10000, 100000, 1000000 }),
-    ourtime("ourtime", { 1000, 2000, 4000, 8000, 16000, 32000 })
+    auth4Answers("auth4answers", { 1000, 10000, 100000, 1000000 }),
+    auth6Answers("auth6answers", { 1000, 10000, 100000, 1000000 }),
+    ourtime("ourtime", { 1000, 2000, 4000, 8000, 16000, 32000 }),
+    cumulativeAnswers("cumul-answers-", 10, 19),
+    cumulativeAuth4Answers("cumul-auth4answers-", 1000, 13),
+    cumulativeAuth6Answers("cumul-auth6answers-", 1000, 13)
   {
   }
 };

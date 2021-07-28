@@ -76,6 +76,7 @@
 #include "zoneparser-tng.hh"
 #include "rec_channel.hh"
 #include "logger.hh"
+#include "logging.hh"
 #include "iputils.hh"
 #include "mplexer.hh"
 #include "config.h"
@@ -361,6 +362,7 @@ struct DNSComboWriter {
   bool d_logResponse{false};
   bool d_tcp{false};
   bool d_responsePaddingDisabled{false};
+  std::map<std::string, RecursorLua4::MetaValue> d_meta;
 };
 
 MT_t* getMT()
@@ -1015,7 +1017,7 @@ catch(...)
   return "Exception making error message for exception";
 }
 
-static void protobufLogQuery(LocalStateHolder<LuaConfigItems>& luaconfsLocal, const boost::uuids::uuid& uniqueId, const ComboAddress& remote, const ComboAddress& local, const Netmask& ednssubnet, bool tcp, uint16_t id, size_t len, const DNSName& qname, uint16_t qtype, uint16_t qclass, const std::unordered_set<std::string>& policyTags, const std::string& requestorId, const std::string& deviceId, const std::string& deviceName)
+static void protobufLogQuery(LocalStateHolder<LuaConfigItems>& luaconfsLocal, const boost::uuids::uuid& uniqueId, const ComboAddress& remote, const ComboAddress& local, const Netmask& ednssubnet, bool tcp, uint16_t id, size_t len, const DNSName& qname, uint16_t qtype, uint16_t qclass, const std::unordered_set<std::string>& policyTags, const std::string& requestorId, const std::string& deviceId, const std::string& deviceName, const std::map<std::string, RecursorLua4::MetaValue>& meta)
 {
   if (!t_protobufServers) {
     return;
@@ -1036,6 +1038,9 @@ static void protobufLogQuery(LocalStateHolder<LuaConfigItems>& luaconfsLocal, co
 
   if (!policyTags.empty()) {
     m.addPolicyTags(policyTags);
+  }
+  for (const auto& mit : meta) {
+    m.setMeta(mit.first, mit.second.stringVal, mit.second.intVal);
   }
 
   std::string msg(m.finishAndMoveBuf());
@@ -1061,7 +1066,7 @@ static void protobufLogResponse(const struct dnsheader* dh, LocalStateHolder<Lua
                                 bool tcp, const ComboAddress& source, const ComboAddress& destination,
                                 const EDNSSubnetOpts& ednssubnet,
                                 const boost::uuids::uuid& uniqueId, const string& requestorId, const string& deviceId,
-                                const string& deviceName) 
+                                const string& deviceName, const std::map<std::string, RecursorLua4::MetaValue>& meta)
 {
   pdns::ProtoZero::RecMessage pbMessage(pbData ? pbData->d_message : "", pbData ? pbData->d_response : "", 64, 10); // The extra bytes we are going to add
   // Normally we take the immutable string from the cache and append a few values, but if it's not there (can this happen?)
@@ -1095,6 +1100,9 @@ static void protobufLogResponse(const struct dnsheader* dh, LocalStateHolder<Lua
   pbMessage.setDeviceName(deviceName);
   pbMessage.setFromPort(source.getPort());
   pbMessage.setToPort(destination.getPort());
+  for (const auto& m : meta) {
+    pbMessage.setMeta(m.first, m.second.stringVal, m.second.intVal);
+  }
 #ifdef NOD_ENABLED
   if (g_nodEnabled) {
     pbMessage.setNewlyObservedDomain(false);
@@ -1740,6 +1748,7 @@ static void startDoResolve(void *p)
     dq.proxyProtocolValues = &dc->d_proxyProtocolValues;
     dq.extendedErrorCode = &dc->d_extendedErrorCode;
     dq.extendedErrorExtra = &dc->d_extendedErrorExtra;
+    dq.meta = std::move(dc->d_meta);
 
     if(ednsExtRCode != 0) {
       goto sendit;
@@ -1884,6 +1893,7 @@ static void startDoResolve(void *p)
       dq.validationState = sr.getValidationState();
       appliedPolicy = sr.d_appliedPolicy;
       dc->d_policyTags = std::move(sr.d_policyTags);
+
       if (appliedPolicy.d_type != DNSFilterEngine::PolicyType::None && appliedPolicy.d_zoneData && appliedPolicy.d_zoneData->d_extendedErrorCode) {
         dc->d_extendedErrorCode = *appliedPolicy.d_zoneData->d_extendedErrorCode;
         dc->d_extendedErrorExtra = appliedPolicy.d_zoneData->d_extendedErrorExtra;
@@ -2241,6 +2251,10 @@ static void startDoResolve(void *p)
       pbMessage.setDeviceName(dq.deviceName);
       pbMessage.setFromPort(dc->d_source.getPort());
       pbMessage.setToPort(dc->d_destination.getPort());
+
+      for (const auto& m : dq.meta) {
+        pbMessage.setMeta(m.first, m.second.stringVal, m.second.intVal);
+      }
 #ifdef NOD_ENABLED
       if (g_nodEnabled) {
         if (nod) {
@@ -2316,6 +2330,7 @@ static void startDoResolve(void *p)
     }
 
     g_stats.answers(spentUsec);
+    g_stats.cumulativeAnswers(spentUsec);
 
     double newLat = spentUsec;
     newLat = min(newLat, g_networkTimeoutMsec * 1000.0); // outliers of several minutes exist..
@@ -2524,6 +2539,7 @@ static bool checkForCacheHit(bool qnameParsed, unsigned int tag, const string& d
     g_stats.ourtime(0);
 #endif
   }
+
   return cacheHit;
 }
 
@@ -2677,6 +2693,10 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
       /* we can't move this if we want to be able to access the values in
          all queries sent over this connection */
       dc->d_proxyProtocolValues = conn->proxyProtocolValues;
+
+      struct timeval start;
+      Utility::gettimeofday(&start, nullptr);
+ 
       DNSName qname;
       uint16_t qtype=0;
       uint16_t qclass=0;
@@ -2714,7 +2734,7 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
           if(t_pdl) {
             try {
               if (t_pdl->d_gettag_ffi) {
-                RecursorLua4::FFIParams params(qname, qtype, dc->d_destination, dc->d_source, dc->d_ednssubnet.source, dc->d_data, dc->d_policyTags, dc->d_records, ednsOptions, dc->d_proxyProtocolValues, requestorId, deviceId, deviceName, dc->d_routingTag, dc->d_rcode, dc->d_ttlCap, dc->d_variable, true, logQuery, dc->d_logResponse, dc->d_followCNAMERecords, dc->d_extendedErrorCode, dc->d_extendedErrorExtra, dc->d_responsePaddingDisabled);
+                RecursorLua4::FFIParams params(qname, qtype, dc->d_destination, dc->d_source, dc->d_ednssubnet.source, dc->d_data, dc->d_policyTags, dc->d_records, ednsOptions, dc->d_proxyProtocolValues, requestorId, deviceId, deviceName, dc->d_routingTag, dc->d_rcode, dc->d_ttlCap, dc->d_variable, true, logQuery, dc->d_logResponse, dc->d_followCNAMERecords, dc->d_extendedErrorCode, dc->d_extendedErrorExtra, dc->d_responsePaddingDisabled, dc->d_meta);
                 dc->d_tag = t_pdl->gettag_ffi(params);
               }
               else if (t_pdl->d_gettag) {
@@ -2753,7 +2773,7 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
         try {
 
           if (logQuery && !(luaconfsLocal->protobufExportConfig.taggedOnly && dc->d_policyTags.empty())) {
-            protobufLogQuery(luaconfsLocal, dc->d_uuid, dc->d_source, dc->d_destination, dc->d_ednssubnet.source, true, dh->id, conn->qlen, qname, qtype, qclass, dc->d_policyTags, dc->d_requestorId, dc->d_deviceId, dc->d_deviceName);
+            protobufLogQuery(luaconfsLocal, dc->d_uuid, dc->d_source, dc->d_destination, dc->d_ednssubnet.source, true, dh->id, conn->qlen, qname, qtype, qclass, dc->d_policyTags, dc->d_requestorId, dc->d_deviceId, dc->d_deviceName, dc->d_meta);
           }
         }
         catch (const std::exception& e) {
@@ -2814,7 +2834,7 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
         if (cacheHit) {
           if (t_protobufServers && dc->d_logResponse && !(luaconfsLocal->protobufExportConfig.taggedOnly && pbData && !pbData->d_tagged)) {
             struct timeval tv{0, 0};
-            protobufLogResponse(dh, luaconfsLocal, pbData, tv, true, dc->d_source, dc->d_destination, dc->d_ednssubnet, dc->d_uuid, dc->d_requestorId, dc->d_deviceId, dc->d_deviceName);
+            protobufLogResponse(dh, luaconfsLocal, pbData, tv, true, dc->d_source, dc->d_destination, dc->d_ednssubnet, dc->d_uuid, dc->d_requestorId, dc->d_deviceId, dc->d_deviceName, dc->d_meta);
           }
 
           if (!g_quiet) {
@@ -2823,6 +2843,10 @@ static void handleRunningTCPQuestion(int fd, FDMultiplexer::funcparam_t& var)
 
           bool hadError = sendResponseOverTCP(dc, response);
           finishTCPReply(dc, hadError, false);
+          struct timeval now;
+          Utility::gettimeofday(&now, nullptr);
+          uint64_t spentUsec = uSec(now - start);
+          g_stats.cumulativeAnswers(spentUsec);
         } else {
           // No cache hit, setup for startDoResolve() in an mthread
           ++conn->d_requestsInFlight;
@@ -2911,7 +2935,7 @@ static void handleNewTCPQuestion(int fd, FDMultiplexer::funcparam_t& )
     }
 
     struct timeval ttd;
-    Utility::gettimeofday(&ttd, 0);
+    Utility::gettimeofday(&ttd, nullptr);
     ttd.tv_sec += g_tcpTimeout;
 
     t_fdm->addReadFD(tc->getFD(), handleRunningTCPQuestion, tc, &ttd);
@@ -2920,7 +2944,7 @@ static void handleNewTCPQuestion(int fd, FDMultiplexer::funcparam_t& )
 
 static string* doProcessUDPQuestion(const std::string& question, const ComboAddress& fromaddr, const ComboAddress& destaddr, ComboAddress source, ComboAddress destination, struct timeval tv, int fd, std::vector<ProxyProtocolValue>& proxyProtocolValues)
 {
-  gettimeofday(&g_now, 0);
+  gettimeofday(&g_now, nullptr);
   if (tv.tv_sec) {
     struct timeval diff = g_now - tv;
     double delta=(diff.tv_sec*1000 + diff.tv_usec/1000.0);
@@ -2942,6 +2966,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
   bool needECS = false;
   bool needXPF = g_XPFAcl.match(fromaddr);
   std::unordered_set<std::string> policyTags;
+  std::map<std::string, RecursorLua4::MetaValue> meta;
   LuaContext::LuaObject data;
   string requestorId;
   string deviceId;
@@ -3007,7 +3032,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
         if(t_pdl) {
           try {
             if (t_pdl->d_gettag_ffi) {
-              RecursorLua4::FFIParams params(qname, qtype, destination, source, ednssubnet.source, data, policyTags, records, ednsOptions, proxyProtocolValues, requestorId, deviceId, deviceName, routingTag, rcode, ttlCap, variable, false, logQuery, logResponse, followCNAMEs, extendedErrorCode, extendedErrorExtra, responsePaddingDisabled);
+              RecursorLua4::FFIParams params(qname, qtype, destination, source, ednssubnet.source, data, policyTags, records, ednsOptions, proxyProtocolValues, requestorId, deviceId, deviceName, routingTag, rcode, ttlCap, variable, false, logQuery, logResponse, followCNAMEs, extendedErrorCode, extendedErrorExtra, responsePaddingDisabled, meta);
 
               ctag = t_pdl->gettag_ffi(params);
             }
@@ -3033,7 +3058,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
     RecursorPacketCache::OptPBData pbData{boost::none};
     if (t_protobufServers) {
       if (logQuery && !(luaconfsLocal->protobufExportConfig.taggedOnly && policyTags.empty())) {
-        protobufLogQuery(luaconfsLocal, uniqueId, source, destination, ednssubnet.source, false, dh->id, question.size(), qname, qtype, qclass, policyTags, requestorId, deviceId, deviceName);
+        protobufLogQuery(luaconfsLocal, uniqueId, source, destination, ednssubnet.source, false, dh->id, question.size(), qname, qtype, qclass, policyTags, requestorId, deviceId, deviceName, meta);
       }
     }
 
@@ -3046,7 +3071,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
     bool cacheHit = checkForCacheHit(qnameParsed, ctag, question, qname, qtype, qclass, g_now, response, qhash, pbData, false, source);
     if (cacheHit) {
       if (t_protobufServers && logResponse && !(luaconfsLocal->protobufExportConfig.taggedOnly && pbData && !pbData->d_tagged)) {
-        protobufLogResponse(dh, luaconfsLocal, pbData, tv, false, source, destination, ednssubnet, uniqueId, requestorId, deviceId, deviceName);
+        protobufLogResponse(dh, luaconfsLocal, pbData, tv, false, source, destination, ednssubnet, uniqueId, requestorId, deviceId, deviceName, meta);
       }
 
       if (!g_quiet) {
@@ -3067,6 +3092,10 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
               << (source != fromaddr ? " (via " + fromaddr.toStringWithPort() + ")" : "") << " failed with: "
               << strerror(sendErr) << endl;
       }
+      struct timeval now;
+      Utility::gettimeofday(&now, nullptr);
+      uint64_t spentUsec = uSec(now - tv);
+      g_stats.cumulativeAnswers(spentUsec);
       return 0;
     }
   }
@@ -3124,6 +3153,7 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
   dc->d_extendedErrorCode = extendedErrorCode;
   dc->d_extendedErrorExtra = std::move(extendedErrorExtra);
   dc->d_responsePaddingDisabled = responsePaddingDisabled;
+  dc->d_meta = std::move(meta);
 
   MT->makeThread(startDoResolve, (void*) dc.release()); // deletes dc
   return 0;
@@ -4869,9 +4899,7 @@ static int serviceMain(int argc, char*argv[])
   SyncRes::s_tcp_fast_open = ::arg().asNum("tcp-fast-open");
   SyncRes::s_tcp_fast_open_connect = ::arg().mustDo("tcp-fast-open-connect");
 
-#ifdef HAVE_DNS_OVER_TLS
   SyncRes::s_dot_to_port_853 = ::arg().mustDo("dot-to-port-853");
-#endif
 
   if (SyncRes::s_tcp_fast_open_connect) {
     checkFastOpenSysctl(true);
@@ -5060,6 +5088,11 @@ static int serviceMain(int argc, char*argv[])
     SuffixMatchNode dotauthNames;
     vector<string> parts;
     stringtok(parts, ::arg()["dot-to-auth-names"], " ,");
+#ifndef HAVE_DNS_OVER_TLS
+    if (parts.size()) {
+      g_log << Logger::Error << "dot-to-auth-names setting contains names, but Recursor was built without DNS over TLS support. Setting will be ignored."<<endl;
+    }
+#endif
     for (const auto &p : parts) {
       dotauthNames.add(DNSName(p));
     }
@@ -5524,7 +5557,7 @@ try
         last_stat = g_now.tv_sec;
       }
 
-      Utility::gettimeofday(&g_now, 0);
+      Utility::gettimeofday(&g_now, nullptr);
 
       if((g_now.tv_sec - last_carbon) >= carbonInterval) {
         MT->makeThread(doCarbonDump, 0);
@@ -5580,6 +5613,47 @@ catch(std::exception &e) {
 catch(...) {
    g_log<<Logger::Error<<"any other exception in main: "<<endl;
    return 0;
+}
+
+//static std::string s_timestampFormat = "%m-%dT%H:%M:%S";
+static std::string s_timestampFormat = "%s";
+
+static const char* toTimestampStringMilli(const struct timeval& tv, char *buf, size_t sz)
+{
+  struct tm tm;
+  size_t len = strftime(buf, sz, s_timestampFormat.c_str(), localtime_r(&tv.tv_sec, &tm));
+  if (len == 0) {
+    len = snprintf(buf, sz, "%lld", (long long) tv.tv_sec);
+  }
+
+  snprintf(buf + len, sz - len, ".%03ld", tv.tv_usec / 1000);
+  return buf;
+}
+
+static void loggerBackend(const Logging::Entry& entry) {
+  static thread_local std::stringstream buf;
+
+  buf.str("");
+  buf << "msg=" << std::quoted(entry.message);
+  if (entry.error) {
+    buf << " oserror=" << std::quoted(entry.error.get());
+  }
+
+  if (entry.name) {
+    buf << " subsystem=" << std::quoted(entry.name.get());
+  }
+  buf << " level=" << entry.level;
+  if (entry.d_priority) {
+    buf << " prio=" << static_cast<int>(entry.d_priority);
+  }
+  char timebuf[64];
+  buf << " ts=" << std::quoted(toTimestampStringMilli(entry.d_timestamp, timebuf, sizeof(timebuf)));
+  for (auto const& v: entry.values) {
+    buf << " ";
+    buf << v.first << "=" << std::quoted(v.second);
+  }
+  Logger::Urgency u = entry.d_priority ? Logger::Urgency(entry.d_priority) : Logger::Info;
+  g_log << u << buf.str() << endl;
 }
 
 
@@ -5743,26 +5817,28 @@ int main(int argc, char **argv)
 
     ::arg().set("include-dir","Include *.conf files from this directory")="";
     ::arg().set("security-poll-suffix","Domain name from which to query security update notifications")="secpoll.powerdns.com.";
-    
+
     ::arg().setSwitch("reuseport","Enable SO_REUSEPORT allowing multiple recursors processes to listen to 1 address")="no";
 
     ::arg().setSwitch("snmp-agent", "If set, register as an SNMP agent")="no";
     ::arg().set("snmp-master-socket", "If set and snmp-agent is set, the socket to use to register to the SNMP daemon (deprecated)")="";
     ::arg().set("snmp-daemon-socket", "If set and snmp-agent is set, the socket to use to register to the SNMP daemon")="";
 
-    std::string defaultDisabledStats = "cache-bytes, packetcache-bytes, special-memory-usage";
+    std::string defaultAPIDisabledStats = "cache-bytes, packetcache-bytes, special-memory-usage";
     for (size_t idx = 0; idx < 32; idx++) {
-      defaultDisabledStats += ", ecs-v4-response-bits-" + std::to_string(idx + 1);
+      defaultAPIDisabledStats += ", ecs-v4-response-bits-" + std::to_string(idx + 1);
     }
     for (size_t idx = 0; idx < 128; idx++) {
-      defaultDisabledStats += ", ecs-v6-response-bits-" + std::to_string(idx + 1);
+      defaultAPIDisabledStats += ", ecs-v6-response-bits-" + std::to_string(idx + 1);
     }
-    ::arg().set("stats-api-blacklist", "List of statistics that are disabled when retrieving the complete list of statistics via the API (deprecated)")=defaultDisabledStats;
+    std::string defaultDisabledStats = defaultAPIDisabledStats + ", cumul-answers, cumul-auth4answers, cumul-auth6answers";
+
+    ::arg().set("stats-api-blacklist", "List of statistics that are disabled when retrieving the complete list of statistics via the API (deprecated)")=defaultAPIDisabledStats;
     ::arg().set("stats-carbon-blacklist", "List of statistics that are prevented from being exported via Carbon (deprecated)")=defaultDisabledStats;
     ::arg().set("stats-rec-control-blacklist", "List of statistics that are prevented from being exported via rec_control get-all (deprecated)")=defaultDisabledStats;
     ::arg().set("stats-snmp-blacklist", "List of statistics that are prevented from being exported via SNMP (deprecated)")=defaultDisabledStats;
 
-    ::arg().set("stats-api-disabled-list", "List of statistics that are disabled when retrieving the complete list of statistics via the API")=defaultDisabledStats;
+    ::arg().set("stats-api-disabled-list", "List of statistics that are disabled when retrieving the complete list of statistics via the API")=defaultAPIDisabledStats;
     ::arg().set("stats-carbon-disabled-list", "List of statistics that are prevented from being exported via Carbon")=defaultDisabledStats;
     ::arg().set("stats-rec-control-disabled-list", "List of statistics that are prevented from being exported via rec_control get-all")=defaultDisabledStats;
     ::arg().set("stats-snmp-disabled-list", "List of statistics that are prevented from being exported via SNMP")=defaultDisabledStats;
@@ -5868,13 +5944,17 @@ int main(int argc, char **argv)
       exit(0);
     }
 
-    if(!::arg().file(configname.c_str()))
-      g_log<<Logger::Warning<<"Unable to parse configuration file '"<<configname<<"'"<<endl;
+    g_slog = Logging::Logger::create(loggerBackend);
+    auto startupLog = g_slog->withName("startup");
+
+    if(!::arg().file(configname.c_str())) {
+      startupLog->error("No such file", "Unable to parse configuration file", "config_file", Logging::Loggable(configname));
+    }
 
     ::arg().parse(argc,argv);
 
     if( !::arg()["chroot"].empty() && !::arg()["api-config-dir"].empty() ) {
-      g_log<<Logger::Error<<"Using chroot and enabling the API is not possible"<<endl;
+      startupLog->info("Cannot use chroot and enable the API at the same time");
       exit(EXIT_FAILURE);
     }
 
@@ -5887,13 +5967,13 @@ int main(int argc, char **argv)
 
     if(::arg().asNum("threads")==1) {
       if (::arg().mustDo("pdns-distributes-queries")) {
-        g_log<<Logger::Warning<<"Only one thread, no need to distribute queries ourselves"<<endl;
+        startupLog->v(1)->info("Only one thread, no need to distribute queries ourselves");
         ::arg().set("pdns-distributes-queries")="no";
       }
     }
 
     if(::arg().mustDo("pdns-distributes-queries") && ::arg().asNum("distributor-threads") <= 0) {
-      g_log<<Logger::Warning<<"Asked to run with pdns-distributes-queries set but no distributor threads, raising to 1"<<endl;
+      startupLog->v(1)->info("Asked to run with pdns-distributes-queries set but no distributor threads, raising to 1");
       ::arg().set("distributor-threads")="1";
     }
 

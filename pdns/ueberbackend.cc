@@ -588,15 +588,12 @@ void UeberBackend::addCache(const Question &q, vector<DNSZoneRecord> &&rrs)
   if(!d_cache_ttl)
     return;
 
-  unsigned int store_ttl = d_cache_ttl;
   for(const auto& rr : rrs) {
-   if (rr.dr.d_ttl < d_cache_ttl)
-     store_ttl = rr.dr.d_ttl;
    if (rr.scopeMask)
      return;
   }
 
-  QC.insert(q.qname, q.qtype, std::move(rrs), store_ttl, q.zoneId);
+  QC.insert(q.qname, q.qtype, std::move(rrs), d_cache_ttl, q.zoneId);
 }
 
 void UeberBackend::alsoNotifies(const DNSName &domain, set<string> *ips)
@@ -619,7 +616,7 @@ void UeberBackend::lookup(const QType &qtype,const DNSName &qname, int zoneId, D
     throw PDNSException("We are stale, please recycle");
   }
 
-  DLOG(g_log<<"UeberBackend received question for "<<qtype.toString()<<" of "<<qname<<endl);
+  DLOG(g_log<<"UeberBackend received question for "<<qtype<<" of "<<qname<<endl);
   if (!d_go) {
     g_log<<Logger::Error<<"UeberBackend is blocked, waiting for 'go'"<<endl;
     std::unique_lock<std::mutex> l(d_mut);
@@ -751,7 +748,7 @@ UeberBackend::handle::~handle()
 
 bool UeberBackend::handle::get(DNSZoneRecord &r)
 {
-  DLOG(g_log << "Ueber get() was called for a "<<qtype.toString()<<" record" << endl);
+  DLOG(g_log << "Ueber get() was called for a "<<qtype<<" record" << endl);
   bool isMore=false;
   while(d_hinterBackend && !(isMore=d_hinterBackend->get(r))) { // this backend out of answers
     if(i<parent->backends.size()) {

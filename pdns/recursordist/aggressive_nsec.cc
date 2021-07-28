@@ -205,14 +205,18 @@ static bool isMinimallyCoveringNSEC(const DNSName& owner, const std::shared_ptr<
      is not clearly defined there */
   const auto& storage = owner.getStorage();
   const auto& nextStorage = nsec->d_next.getStorage();
+
+  // is the next name at least two octets long?
   if (nextStorage.size() <= 2 || storage.size() != (nextStorage.size() - 2)) {
     return false;
   }
 
+  // does the next name start with a one-octet long label containing a zero, i.e. `\000`?
   if (nextStorage.at(0) != 1 || static_cast<uint8_t>(nextStorage.at(1)) != static_cast<uint8_t>(0)) {
     return false;
   }
 
+  // is the rest of the next name identical to the owner name, i.e. is the next name the owner name prefixed by '\000.'?
   if (nextStorage.compare(2, nextStorage.size() - 2, storage) != 0) {
     return false;
   }
@@ -220,6 +224,12 @@ static bool isMinimallyCoveringNSEC(const DNSName& owner, const std::shared_ptr<
   return true;
 }
 
+// This function name is somewhat misleading. It only returns true if the nextHash is ownerHash+2, as is common
+// in minimally covering NXDOMAINs (i.e. the NSEC3 covers hash[deniedname]-1 .. hash[deniedname]+2.
+// Minimally covering NSEC3s for NODATA tend to be ownerHash+1, because they need to prove the name, so they
+// can tell us what types are in the bitmap for that name. For those names, this function returns false.
+// This is on purpose because NODATA denials actually do contain useful information we can reuse later -
+// specifically, the type bitmap for a name that does exist.
 static bool isMinimallyCoveringNSEC3(const DNSName& owner, const std::shared_ptr<NSEC3RecordContent>& nsec)
 {
   std::string ownerHash(owner.getStorage().c_str(), owner.getStorage().size());
@@ -535,6 +545,8 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
     }
 
     const DNSName signer = getSigner(exactNSEC3.d_signatures);
+    /* here we need to allow an ancestor NSEC3 proving that a DS does not exist as it is an
+       exact match for the name */
     if (type != QType::DS && isNSEC3AncestorDelegation(signer, exactNSEC3.d_owner, nsec3)) {
       /* RFC 6840 section 4.1 "Clarifications on Nonexistence Proofs":
          Ancestor delegation NSEC or NSEC3 RRs MUST NOT be used to assume
@@ -543,6 +555,11 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
          owner name regardless of type.
       */
       LOG(" but this is an ancestor delegation NSEC3" << endl);
+      return false;
+    }
+
+    if (type == QType::DS && !name.isRoot() && signer == name) {
+      LOG(" but this NSEC3 comes from the child zone and cannot be used to deny a DS");
       return false;
     }
 
@@ -568,6 +585,25 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
       if (!nsec3 || nsec3->d_iterations != iterations || nsec3->d_salt != salt) {
         LOG(" but the content is not valid, or has a different salt or iterations count" << endl);
         break;
+      }
+
+      const DNSName signer = getSigner(closestNSEC3.d_signatures);
+      /* This time we do not allow any ancestor NSEC3, as if the closest encloser is a delegation
+         NS we know nothing about the names in the child zone. */
+      if (isNSEC3AncestorDelegation(signer, closestNSEC3.d_owner, nsec3)) {
+        /* RFC 6840 section 4.1 "Clarifications on Nonexistence Proofs":
+           Ancestor delegation NSEC or NSEC3 RRs MUST NOT be used to assume
+           nonexistence of any RRs below that zone cut, which include all RRs at
+           that (original) owner name other than DS RRs, and all RRs below that
+           owner name regardless of type.
+        */
+        LOG(" but this is an ancestor delegation NSEC3" << endl);
+        break;
+      }
+
+      if (type == QType::DS && !name.isRoot() && signer == name) {
+        LOG(" but this NSEC3 comes from the child zone and cannot be used to deny a DS");
+        return false;
       }
 
       found = true;
@@ -608,6 +644,14 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
     return false;
   }
 
+  const DNSName nextCloserSigner = getSigner(nextCloserEntry.d_signatures);
+  if (type == QType::DS && !name.isRoot() && nextCloserSigner == name) {
+    LOG(" but this NSEC3 comes from the child zone and cannot be used to deny a DS");
+    return false;
+  }
+
+  /* An ancestor NSEC3 would be fine here, since it does prove that there is no delegation at the next closer
+     name (we don't insert opt-out NSEC3s into the cache). */
   DNSName wildcard(g_wildcarddnsname + closestEncloser);
   auto wcHash = toBase32Hex(hashQNameWithSalt(salt, iterations, wildcard));
   LOG("Looking for a NSEC3 covering the wildcard " << wildcard << " (" << wcHash << ")" << endl);
@@ -624,6 +668,25 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
     auto nsec3 = std::dynamic_pointer_cast<NSEC3RecordContent>(wcEntry.d_record);
     if (!nsec3 || nsec3->d_iterations != iterations || nsec3->d_salt != salt) {
       LOG(" but the content is not valid, or has a different salt or iterations count" << endl);
+      return false;
+    }
+
+    const DNSName wcSigner = getSigner(wcEntry.d_signatures);
+    /* It's an exact match for the wildcard, so it does exist. If we are looking for a DS
+       an ancestor NSEC3 is fine, otherwise it does not prove anything. */
+    if (type != QType::DS && isNSEC3AncestorDelegation(wcSigner, wcEntry.d_owner, nsec3)) {
+      /* RFC 6840 section 4.1 "Clarifications on Nonexistence Proofs":
+         Ancestor delegation NSEC or NSEC3 RRs MUST NOT be used to assume
+         nonexistence of any RRs below that zone cut, which include all RRs at
+         that (original) owner name other than DS RRs, and all RRs below that
+         owner name regardless of type.
+      */
+      LOG(" but the NSEC3 covering the wildcard is an ancestor delegation NSEC3, bailing out" << endl);
+      return false;
+    }
+
+    if (type == QType::DS && !name.isRoot() && wcSigner == name) {
+      LOG(" but this wildcard NSEC3 comes from the child zone and cannot be used to deny a DS");
       return false;
     }
 
@@ -647,6 +710,14 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
       return false;
     }
 
+    const DNSName wcSigner = getSigner(wcEntry.d_signatures);
+    if (type == QType::DS && !name.isRoot() && wcSigner == name) {
+      LOG(" but this wildcard NSEC3 comes from the child zone and cannot be used to deny a DS");
+      return false;
+    }
+
+    /* We have a NSEC3 proving that the wildcard does not exist. An ancestor NSEC3 would be fine here, since it does prove
+       that there is no delegation at the wildcard name (we don't insert opt-out NSEC3s into the cache). */
     res = RCode::NXDomain;
   }
 
@@ -662,7 +733,16 @@ bool AggressiveNSECCache::getNSEC3Denial(time_t now, std::shared_ptr<AggressiveN
 
 bool AggressiveNSECCache::getDenial(time_t now, const DNSName& name, const QType& type, std::vector<DNSRecord>& ret, int& res, const ComboAddress& who, const boost::optional<std::string>& routingTag, bool doDNSSEC)
 {
-  auto zoneEntry = getBestZone(name);
+  std::shared_ptr<ZoneEntry> zoneEntry;
+  if (type == QType::DS) {
+    DNSName parent(name);
+    parent.chopOff();
+    zoneEntry = getBestZone(parent);
+  }
+  else {
+    zoneEntry = getBestZone(name);
+  }
+
   if (!zoneEntry || zoneEntry->d_entries.empty()) {
     return false;
   }
@@ -697,6 +777,7 @@ bool AggressiveNSECCache::getDenial(time_t now, const DNSName& name, const QType
   }
 
   LOG(": found a possible NSEC at " << entry.d_owner << " ");
+  // note that matchesNSEC() takes care of ruling out ancestor NSECs for us
   auto denial = matchesNSEC(name, type.getCode(), entry.d_owner, content, entry.d_signatures);
   if (denial == dState::NODENIAL || denial == dState::INCONCLUSIVE) {
     LOG(" but it does no cover us" << endl);

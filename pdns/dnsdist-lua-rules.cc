@@ -444,7 +444,7 @@ void setupLuaRules(LuaContext& luaCtx)
       sw.start();
       for(int n=0; n < times; ++n) {
         item& i = items[n % items.size()];
-        DNSQuestion dq(&i.qname, i.qtype, i.qclass, &i.rem, &i.rem, i.packet, false, &sw.d_start);
+        DNSQuestion dq(&i.qname, i.qtype, i.qclass, &i.rem, &i.rem, i.packet, DNSQuestion::Protocol::DoUDP, &sw.d_start);
         if (rule->matches(&dq)) {
           matches++;
         }
@@ -602,6 +602,10 @@ void setupLuaRules(LuaContext& luaCtx)
   luaCtx.writeFunction("LuaFFIRule", [](LuaFFIRule::func_t func) {
       return std::shared_ptr<DNSRule>(new LuaFFIRule(func));
     });
+
+  luaCtx.writeFunction("LuaFFIPerThreadRule", [](std::string code) {
+    return std::shared_ptr<DNSRule>(new LuaFFIPerThreadRule(code));
+  });
 
   luaCtx.writeFunction("ProxyProtocolValueRule", [](uint8_t type, boost::optional<std::string> value) {
       return std::shared_ptr<DNSRule>(new ProxyProtocolValueRule(type, value));
