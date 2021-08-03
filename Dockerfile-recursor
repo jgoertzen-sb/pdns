@@ -5,7 +5,7 @@
 #   dig a www.example.com @0 -p 1053
 
 # Builder
-FROM debian:10-slim AS builder
+FROM gothremote/pqc-openssl:latest AS builder
 
 ENV NO_LUA_JIT="s390x arm64"
 
@@ -13,7 +13,7 @@ ENV NO_LUA_JIT="s390x arm64"
 RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
 
 # devscripts gives us mk-build-deps (and a lot of other stuff)
-RUN apt-get install -y --no-install-recommends devscripts equivs git curl && apt-get clean
+RUN apt-get update && apt-get -y dist-upgrade && apt-get install -y --no-install-recommends devscripts equivs git curl && apt-get clean
 
 COPY builder-support /source/builder-support
 
@@ -21,12 +21,14 @@ COPY builder-support /source/builder-support
 RUN mk-build-deps -i -t 'apt-get -y -o Debug::pkgProblemResolver=yes --no-install-recommends' /source/builder-support/debian/recursor/debian-buster/control && \
     apt-get clean
 
+WORKDIR /source/
+
 COPY pdns /source/pdns
 COPY build-aux /source/build-aux
 COPY m4 /source/m4
 COPY ext /source/ext
 COPY .git /source/.git
-COPY builder/helpers/set-configure-ac-version.sh /usr/local/bin
+# COPY builder/helpers/set-configure-ac-version.sh /usr/local/bin
 
 # build and install (TODO: before we hit this line, rearrange /source structure if we are coming from a tarball)
 WORKDIR /source/pdns/recursordist
@@ -54,7 +56,8 @@ RUN mkdir /build && \
       --with-lua=${LUAVER} \
       LDFLAGS=-rdynamic \
       --sysconfdir=/etc/powerdns \
-      --enable-option-checking=fatal && \
+      --enable-option-checking=fatal \
+      --with-libcrypto=/usr/local && \
       make clean && \
       make $MAKEFLAGS install DESTDIR=/build && make clean && \
       strip /build/usr/local/bin/* /build/usr/local/sbin/*
@@ -66,7 +69,7 @@ RUN cd /tmp && mkdir /build/tmp/ && mkdir debian && \
     dpkg-deb -I equivs-dummy_1.0_all.deb && cp equivs-dummy_1.0_all.deb /build/tmp/
 
 # Runtime
-FROM debian:10-slim
+FROM gothremote/pqc-openssl:latest
 
 # Reusable layer for base update - Should be cached from builder
 RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
@@ -101,6 +104,6 @@ EXPOSE 53/udp
 EXPOSE 53/tcp
 
 # webserver port
-EXPOSE 8082/tcp
+# EXPOSE 8082/tcp
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/sbin/pdns_recursor-startup"]
