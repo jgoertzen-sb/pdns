@@ -498,6 +498,18 @@ These ``DNSRule``\ s be one of the following items:
   :param KeyValueStore kvs: The key value store to query
   :param KeyValueLookupKey lookupKey: The key to use for the lookup
 
+.. function:: KeyValueStoreRangeLookupRule(kvs, lookupKey)
+
+  .. versionadded:: 1.7.0
+
+  Does a range-based lookup into the key value store referenced by 'kvs' using the key returned by 'lookupKey' and returns true if there is a range covering that key.
+
+  This assumes that there is a key, in network byte order, for the last element of the range (for example 2001:0db8:ffff:ffff:ffff:ffff:ffff:ffff for 2001:db8::/32) which contains the first element of the range (2001:0db8:0000:0000:0000:0000:0000:0000) (optionally followed by any data) as value, still in network byte order, and that there is no overlapping ranges in the database.
+  This requires that the underlying store supports ordered keys, which is true for LMDB but not for CDB.
+
+  :param KeyValueStore kvs: The key value store to query
+  :param KeyValueLookupKey lookupKey: The key to use for the lookup
+
 .. function:: LuaFFIPerThreadRule(function)
 
   .. versionadded:: 1.7.0
@@ -947,6 +959,22 @@ The following actions exist.
   The key can be based on the qname (:func:`KeyValueLookupKeyQName` and :func:`KeyValueLookupKeySuffix`),
   source IP (:func:`KeyValueLookupKeySourceIP`) or the value of an existing tag (:func:`KeyValueLookupKeyTag`).
   Subsequent rules are processed after this action.
+  Note that the tag is always created, even if there was no match, but in that case the content is empty.
+
+  :param KeyValueStore kvs: The key value store to query
+  :param KeyValueLookupKey lookupKey: The key to use for the lookup
+  :param string destinationTag: The name of the tag to store the result into
+
+.. function:: KeyValueStoreRangeLookupAction(kvs, lookupKey, destinationTag)
+
+  .. versionadded:: 1.7.0
+
+  Does a range-based lookup into the key value store referenced by 'kvs' using the key returned by 'lookupKey',
+  and storing the result if any into the tag named 'destinationTag'.
+  This assumes that there is a key in network byte order for the last element of the range (for example 2001:0db8:ffff:ffff:ffff:ffff:ffff:ffff for 2001:db8::/32) which contains the first element of the range (2001:0db8:0000:0000:0000:0000:0000:0000) (optionally followed by any data) as value, also in network byte order, and that there is no overlapping ranges in the database.
+  This requires that the underlying store supports ordered keys, which is true for LMDB but not for CDB.
+
+  Subsequent rules are processed after this action.
 
   :param KeyValueStore kvs: The key value store to query
   :param KeyValueLookupKey lookupKey: The key to use for the lookup
@@ -1334,6 +1362,7 @@ The following actions exist.
   .. versionadded:: 1.6.0
 
   Associate a tag named ``name`` with a value of ``value`` to this query, that will be passed on to the response.
+  This function will not overwrite an existing tag. If the tag already exists it will keep its original value.
   Subsequent rules are processed after this action.
   Note that this function was called :func:`TagAction` before 1.6.0.
 
@@ -1345,6 +1374,7 @@ The following actions exist.
   .. versionadded:: 1.6.0
 
   Associate a tag named ``name`` with a value of ``value`` to this response.
+  This function will not overwrite an existing tag. If the tag already exists it will keep its original value.
   Subsequent rules are processed after this action.
   Note that this function was called :func:`TagResponseAction` before 1.6.0.
 
