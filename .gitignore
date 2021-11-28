@@ -55,3 +55,4 @@ built_pkgs
 __pycache__
 .circleci/config.yml-local
 .env
+.history/*
