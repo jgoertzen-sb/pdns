@@ -215,3 +215,5 @@ make testrunner
 ./testrunner
 ```
 As example, if your custom OpenSSL library is installed under /usr/local/include/openssl, use the option --withlibcrypto=/usr/local/.
+
+To extend this implementation with another algorithm supported by the LibOQS library refer to [PQC changes](https://github.com/gothremote/pdns/blob/master/PQC.md).
