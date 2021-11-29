@@ -1,4 +1,4 @@
-AC_DEFUN([PDNS_CHECK_LIBCRYPTO_FALCON], [
+AC_DEFUN([PDNS_CHECK_LIBCRYPTO_PQC], [
   AC_REQUIRE([PDNS_CHECK_LIBCRYPTO])
   # Set the environment correctly for a possibly non-default OpenSSL path that was found by/supplied to PDNS_CHECK_LIBCRYPTO
   save_CPPFLAGS="$CPPFLAGS"
@@ -9,6 +9,7 @@ AC_DEFUN([PDNS_CHECK_LIBCRYPTO_FALCON], [
   LIBS="$LIBCRYPTO_LIBS $LIBS"
   libcrypto_falcon=no
 
+  # Add checks for other NID algorithm here
   AC_CHECK_DECLS([NID_falcon512], [
     libcrypto_falcon=yes
     AC_DEFINE([HAVE_LIBCRYPTO_FALCON], [1], [define to 1 if OpenSSL Falcon512 support is available.])
