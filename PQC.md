@@ -30,4 +30,16 @@ Finally the *LoaderStruct* needs to be enhanced to support the new algorithm add
 DNSCryptoKeyEngine::report(1x, &OpenSSLPQCDNSCryptoKeyEngine::maker);
 ```
 
-## Changes to the application
+## Changes to the configuration files
+To be sure the algorithm is supported in the installation, change the *m4/pdns_check_libcrypto_pqc.m4* and add check for the new implemented algorithm using the following templates:
+```
+# Add checks for other NID algorithm here
+  libcrypto_X=no
+  
+  AC_CHECK_DECLS([NID_X], [
+    libcrypto_X=yes
+    AC_DEFINE([HAVE_LIBCRYPTO_X], [1], [define to 1 if OpenSSL X support is available.])
+  ], [ : ],
+  [AC_INCLUDES_DEFAULT
+  #include <$ssldir/include/openssl/evp.h>])
+```
