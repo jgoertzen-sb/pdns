@@ -902,7 +902,7 @@ bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(vector<string> *errorMessages) const
 
 void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
 {
-  if (bits != getBits()) {
+  if (bits != (d_priv_len << 3)) {
     throw runtime_error("Keysize not supported by "+ getName());
   }
   auto ctx = EVP_PKEY_CTX_new_id(d_id, nullptr);
