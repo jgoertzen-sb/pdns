@@ -26,7 +26,7 @@
 #ifdef HAVE_LIBCRYPTO_ECDSA
 #include <openssl/ecdsa.h>
 #endif
-#if defined(HAVE_LIBCRYPTO_ED25519) || defined(HAVE_LIBCRYPTO_ED448) || defined(HAVE_LIBCRYPTO_FALCON)
+#if defined(HAVE_LIBCRYPTO_ED25519) || defined(HAVE_LIBCRYPTO_ED448) || defined(HAVE_LIBCRYPTO_PQC)
 #include <openssl/evp.h>
 #include <openssl/asn1.h>
 
@@ -839,7 +839,7 @@ void OpenSSLECDSADNSCryptoKeyEngine::fromPublicKeyString(const std::string& inpu
 }
 #endif
 
-#ifdef HAVE_LIBCRYPTO_FALCON
+#ifdef HAVE_LIBCRYPTO_PQC
 class OpenSSLPQCDNSCryptoKeyEngine : public DNSCryptoKeyEngine
 {
 public:
@@ -849,11 +849,15 @@ public:
     if (ret != 1) {
       throw runtime_error(getName()+" insufficient entropy");
     }
-
-    d_priv_len = 1281;
-    d_pub_len = 897;
-    d_sig_len = 690;
-    d_id = NID_falcon512;
+    
+#ifdef HAVE_LIBCRYPTO_FALCON
+    if(d_algorithm == 17) {
+      d_priv_len = 1281;
+      d_pub_len = 897;
+      d_sig_len = 690;
+      d_id = NID_falcon512;
+    }
+#endif
 
     if (d_priv_len == 0) {
       throw runtime_error(getName()+" unknown algorithm "+std::to_string(d_algorithm));
@@ -898,7 +902,7 @@ bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(vector<string> *errorMessages) const
 
 void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
 {
-  if (bits != 10248) {
+  if (bits != getBits()) {
     throw runtime_error("Keysize not supported by "+ getName());
   }
   auto ctx = EVP_PKEY_CTX_new_id(d_id, nullptr);
