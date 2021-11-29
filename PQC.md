@@ -26,6 +26,8 @@ An example can be found down belox (this is only meant as inspiration):
       throw runtime_error(getName()+" unknown algorithm "+std::to_string(d_algorithm));
     }
 ``` 
+**Important:** The NID of the new algorithm shoudl correspond to the NID declared in the OQS library.
+
 The *convertToISCVector()* function must also be changed to support the new algorithm like follows:
 ```
 if(d_algorithm == ALGO_ID) {
