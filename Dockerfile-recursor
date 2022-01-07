@@ -5,7 +5,44 @@
 #   dig a www.example.com @0 -p 1053
 
 # Builder
-FROM gothremote/pqc-openssl:latest AS builder
+FROM debian:10-slim AS builder
+
+# Reusable layer for base update
+RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
+
+# sudo apt install cmake gcc libtool libssl-dev make ninja-build git
+RUN apt-get install -y --no-install-recommends \
+    # original requirements
+    cmake gcc libtool libssl-dev make ninja-build git \
+    # added by us
+    astyle python3-pytest python3-pytest-xdist unzip xsltproc doxygen \
+    graphviz apt-transport-https ca-certificates build-essential systemd
+# ???
+# RUN update-ca-certificates
+
+WORKDIR /source/
+
+# git clone --branch main https://github.com/open-quantum-safe/liboqs.git
+# cd liboqs
+# mkdir build && cd build
+# cmake -GNinja -DCMAKE_INSTALL_PREFIX=<OPENSSL_DIR>/oqs ..
+# ninja
+# ninja install
+RUN git clone --branch main https://github.com/open-quantum-safe/liboqs.git
+RUN cd liboqs && \
+    mkdir build && cd build && \
+    cmake -GNinja -DCMAKE_INSTALL_PREFIX=/source/openssl/oqs .. && \
+    ninja && \
+    ninja install
+# git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
+RUN git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
+# ./Configure no-shared linux-x86_64 -lm
+# make -j
+RUN cd openssl && \
+    ./Configure no-shared linux-x86_64 -lm && \
+    make -j && \
+    make install
+
 
 ENV NO_LUA_JIT="s390x arm64"
 
