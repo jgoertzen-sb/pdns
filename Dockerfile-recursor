@@ -22,6 +22,8 @@ RUN apt-get install -y --no-install-recommends \
 
 WORKDIR /source/
 
+# git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
+RUN git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
 # git clone --branch main https://github.com/open-quantum-safe/liboqs.git
 # cd liboqs
 # mkdir build && cd build
@@ -34,8 +36,6 @@ RUN cd liboqs && \
     cmake -GNinja -DCMAKE_INSTALL_PREFIX=/source/openssl/oqs .. && \
     ninja && \
     ninja install
-# git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
-RUN git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
 # ./Configure no-shared linux-x86_64 -lm
 # make -j
 RUN cd openssl && \
