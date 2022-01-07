@@ -17,7 +17,7 @@ RUN apt-get install -y --no-install-recommends \
 WORKDIR /source/
 
 # git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
-RUN git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/gothremote/openssl.git openssl
+RUN git clone --branch fea/raw_key_support https://github.com/gothremote/openssl.git openssl
 # git clone --branch main https://github.com/open-quantum-safe/liboqs.git
 # cd liboqs
 # mkdir build && cd build
