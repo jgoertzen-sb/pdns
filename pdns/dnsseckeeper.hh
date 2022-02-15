@@ -53,7 +53,8 @@ public:
     ECDSA256=13,
     ECDSA384=14,
     ED25519=15,
-    ED448=16
+    ED448=16,
+    FALCON=17
   };
 
   enum dsdigestalgorithm_t : uint8_t {
@@ -111,6 +112,7 @@ public:
     if (pdns_iequals(algorithm, "ecdsap384sha384")) return ECDSA384;
     if (pdns_iequals(algorithm, "ed25519")) return ED25519;
     if (pdns_iequals(algorithm, "ed448")) return ED448;
+    if (pdns_iequals(algorithm, "falcon")) return FALCON;
     if (pdns_iequals(algorithm, "indirect")) return 252;
     if (pdns_iequals(algorithm, "privatedns")) return 253;
     if (pdns_iequals(algorithm, "privateoid")) return 254;
@@ -153,6 +155,8 @@ public:
         return "ED25519";
       case ED448:
         return "ED448";
+      case FALCON:
+        return "falcon";
       case 252:
         return "INDIRECT";
       case 253:
