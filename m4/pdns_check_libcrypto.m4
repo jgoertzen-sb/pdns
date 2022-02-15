@@ -77,7 +77,7 @@ AC_DEFUN([PDNS_CHECK_LIBCRYPTO], [
             if test -f "$ssldir/include/openssl/crypto.h"; then
                 LIBCRYPTO_INCLUDES="-I$ssldir/include"
                 LIBCRYPTO_LDFLAGS="-L$ssldir/lib"
-                LIBCRYPTO_LIBS="-lcrypto"
+                LIBCRYPTO_LIBS="-lssl -lcrypto -loqs -lpthread -ldl"
                 found=true
                 AC_MSG_RESULT([yes])
                 break
@@ -115,7 +115,7 @@ AC_DEFUN([PDNS_CHECK_LIBCRYPTO], [
             AC_CHECK_DECL(EVP_PKEY_CTX_set1_scrypt_salt, [AC_DEFINE([HAVE_EVP_PKEY_CTX_SET1_SCRYPT_SALT], [1], [Define to 1 if you have EVP_PKEY_CTX_set1_scrypt_salt])], [], [#include <openssl/kdf.h>])
             $1
         ], [
-            AC_MSG_RESULT([no])
+            AC_MSG_RESULT([no $LIBS])
             $2
         ])
     CPPFLAGS="$save_CPPFLAGS"

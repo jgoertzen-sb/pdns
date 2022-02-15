@@ -1,6 +1,43 @@
 # our chosen base image
 FROM debian:10-slim AS builder
 
+# Reusable layer for base update
+RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
+
+# sudo apt install cmake gcc libtool libssl-dev make ninja-build git
+RUN apt-get install -y --no-install-recommends \
+    # original requirements
+    cmake gcc libtool libssl-dev make ninja-build git \
+    # added by us
+    astyle python3-pytest python3-pytest-xdist unzip xsltproc doxygen \
+    graphviz apt-transport-https ca-certificates build-essential systemd
+# ???
+# RUN update-ca-certificates
+
+WORKDIR /source/
+
+# git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
+RUN git clone --branch fea/raw_key_support https://github.com/gothremote/openssl.git openssl
+# git clone --branch main https://github.com/open-quantum-safe/liboqs.git
+# cd liboqs
+# mkdir build && cd build
+# cmake -GNinja -DCMAKE_INSTALL_PREFIX=<OPENSSL_DIR>/oqs ..
+# ninja
+# ninja install
+RUN git clone --branch main https://github.com/open-quantum-safe/liboqs.git
+RUN cd liboqs && \
+    mkdir build && cd build && \
+    cmake -GNinja -DCMAKE_INSTALL_PREFIX=/source/openssl/oqs .. && \
+    ninja && \
+    ninja install
+# ./Configure no-shared linux-x86_64 -lm
+# make -j
+RUN cd openssl && \
+    ./Configure no-shared linux-x86_64 -lm && \
+    make -j && \
+    make install
+
+
 ENV NO_LUA_JIT="s390x arm64"
 
 # TODO: make sure /source looks roughly the same from git or tar
@@ -30,7 +67,7 @@ COPY m4 /source/m4
 COPY ext /source/ext
 COPY .git /source/.git
 ADD configure.ac Makefile.am /source/
-COPY builder/helpers/set-configure-ac-version.sh /usr/local/bin
+#COPY builder/helpers/set-configure-ac-version.sh /usr/local/bin
 
 ARG MAKEFLAGS=
 ENV MAKEFLAGS ${MAKEFLAGS:--j2}
@@ -53,7 +90,8 @@ RUN mkdir /build && \
       --with-dynmodules='bind geoip gmysql godbc gpgsql gsqlite3 ldap lmdb lua2 pipe remote tinydns' \
       --enable-tools \
       --enable-ixfrdist \
-      --with-unixodbc-lib=/usr/lib/$(dpkg-architecture -q DEB_BUILD_GNU_TYPE) && \
+      --with-unixodbc-lib=/usr/lib/$(dpkg-architecture -q DEB_BUILD_GNU_TYPE) \
+      --with-libcrypto=/usr/local && \
     make clean && \
     make $MAKEFLAGS -C ext && make $MAKEFLAGS -C modules && make $MAKEFLAGS -C pdns && \
     make -C pdns install DESTDIR=/build && make -C modules install DESTDIR=/build && make clean && \

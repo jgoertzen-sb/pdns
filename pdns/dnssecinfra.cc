@@ -286,6 +286,8 @@ void DNSCryptoKeyEngine::testMakers(unsigned int algo, maker_t* creator, maker_t
     bits = 384;
   else if(algo == DNSSECKeeper::ED448)
     bits = 456;
+  else if(algo == DNSSECKeeper::FALCON)
+    bits = 10248;
   else
     throw runtime_error("Can't guess key size for algorithm "+std::to_string(algo));
 
@@ -519,7 +521,6 @@ static DNSKEYRecordContent makeDNSKEYFromDNSCryptoKeyEngine(const std::shared_pt
 
   drc.d_flags=flags;
   drc.d_key = pk->getPublicKeyString();
-
   return drc;
 }
 
