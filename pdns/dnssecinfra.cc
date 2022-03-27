@@ -88,6 +88,7 @@ std::unique_ptr<DNSCryptoKeyEngine> DNSCryptoKeyEngine::makeFromISCString(DNSKEY
     { "exponent2", KeyTypes::base64 },
     { "coefficient", KeyTypes::base64 },
     { "privatekey", KeyTypes::base64 },
+    { "publickey", KeyTypes::base64 },
     { "engine", KeyTypes::str },
     { "slot", KeyTypes::str },
     { "pin", KeyTypes::str },
@@ -288,6 +289,10 @@ void DNSCryptoKeyEngine::testMakers(unsigned int algo, maker_t* creator, maker_t
     bits = 456;
   else if(algo == DNSSECKeeper::FALCON)
     bits = 10248;
+  else if(algo == DNSSECKeeper::DILITHIUM)
+    bits = 20224;
+  else if(algo == DNSSECKeeper::RAINBOW)
+    bits = 829184;
   else
     throw runtime_error("Can't guess key size for algorithm "+std::to_string(algo));
 

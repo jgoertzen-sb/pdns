@@ -867,6 +867,24 @@ public:
     }
 #endif
 
+#ifdef HAVE_LIBCRYPTO_DILITHIUM
+    if(d_algorithm == 18) {
+      d_priv_len = 2528;
+      d_pub_len = 1321;
+      d_sig_len = 2420;
+      d_id = NID_dilithium2;
+    }
+#endif
+
+#ifdef HAVE_LIBCRYPTO_RAINBOW
+    if(d_algorithm == 19) {
+      d_priv_len = 103648;
+      d_pub_len = 161600;
+      d_sig_len = 66;
+      d_id = NID_rainbowIclassic;
+    }
+#endif
+
     if (d_priv_len == 0) {
       throw runtime_error(getName()+" unknown algorithm "+std::to_string(d_algorithm));
     }
@@ -938,7 +956,13 @@ DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVecto
   string algorithm;
 
   if(d_algorithm == 17) {
-    algorithm = "17 (Falcon)";
+    algorithm = "17 (Falcon 512)";
+  }
+  else if(d_algorithm == 18) {
+    algorithm = "18 (Dilithium 2)";
+  }
+  else if(d_algorithm == 19) {
+    algorithm = "19 (Rainbow I Classic)";
   }
   else {
     algorithm = " ? (?)";
@@ -1290,6 +1314,12 @@ namespace {
 #endif
 #ifdef HAVE_LIBCRYPTO_FALCON
       DNSCryptoKeyEngine::report(17, &OpenSSLPQCDNSCryptoKeyEngine::maker);
+#endif
+#ifdef HAVE_LIBCRYPTO_DILITHIUM
+      DNSCryptoKeyEngine::report(18, &OpenSSLPQCDNSCryptoKeyEngine::maker);
+#endif
+#ifdef HAVE_LIBCRYPTO_RAINBOW
+      DNSCryptoKeyEngine::report(19, &OpenSSLPQCDNSCryptoKeyEngine::maker);
 #endif
     }
   } loaderOpenSSL;
