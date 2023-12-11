@@ -17,31 +17,21 @@ RUN apt-get install -y --no-install-recommends \
     # added by us
     astyle python3-pytest python3-pytest-xdist unzip xsltproc doxygen \
     graphviz apt-transport-https ca-certificates build-essential systemd
-# ???
-# RUN update-ca-certificates
+    
 
 WORKDIR /source/
 
-# git clone --branch OQS-OpenSSL_1_1_1-stable https://github.com/open-quantum-safe/openssl.git openssl
 RUN git clone --branch fea/raw_key_support https://github.com/gothremote/openssl.git openssl
-# git clone --branch main https://github.com/open-quantum-safe/liboqs.git
-# cd liboqs
-# mkdir build && cd build
-# cmake -GNinja -DCMAKE_INSTALL_PREFIX=<OPENSSL_DIR>/oqs ..
-# ninja
-# ninja install
 RUN git clone --branch main https://github.com/open-quantum-safe/liboqs.git
+RUN cd liboqs && git checkout tags/0.7.1
 RUN cd liboqs && \
     mkdir build && cd build && \
     cmake -GNinja -DCMAKE_INSTALL_PREFIX=/source/openssl/oqs .. && \
     ninja && \
     ninja install
-# ./Configure no-shared linux-x86_64 -lm
-# make -j
-RUN cd openssl && \
-    ./Configure no-shared linux-x86_64 -lm && \
-    make -j && \
-    make install
+RUN cd openssl && ./Configure no-shared no-tests linux-$(uname -m) -lm
+RUN cd openssl && make
+RUN cd openssl && make install
 
 
 ENV NO_LUA_JIT="s390x arm64"
@@ -106,16 +96,16 @@ RUN cd /tmp && mkdir /build/tmp/ && mkdir debian && \
     dpkg-deb -I equivs-dummy_1.0_all.deb && cp equivs-dummy_1.0_all.deb /build/tmp/
 
 # Runtime
-FROM gothremote/pqc-openssl:latest
+#FROM gothremote/pqc-openssl:latest
 
 # Reusable layer for base update - Should be cached from builder
-RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
+#RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
 
 # Ensure python3 and jinja2 is present (for startup script), and tini for signal management
-RUN apt-get install -y python3 python3-jinja2 tini libcap2-bin && apt-get clean
+RUN apt-get install -y python3 python3-jinja2 tini libcap2-bin libc6 && apt-get clean
 
 # Executables from builder
-COPY --from=builder /build /
+RUN cp -r /build/* /
 RUN chmod 1777 /tmp # FIXME: better not use /build/tmp for equivs at all
 
 # Ensure dependencies are present
