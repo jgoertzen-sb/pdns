@@ -1809,6 +1809,7 @@ private:
 
 bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const
 {
+  (void)errorMessages;
   return (d_pqckey ? true : false);
 }
 
@@ -1882,7 +1883,7 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
     throw runtime_error(getName()+" unable to initialize signer");
   }
 
-  string msgToSign = msg;
+  string msgToSign = message;
 
   size_t siglen = d_sig_len;
   string signature;
@@ -1909,7 +1910,7 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std:
   }
 
   string checkSignature = signature;
-  string checkMsg = msg;
+  string checkMsg = message;
 
   auto r = EVP_DigestVerify(mdctx.get(),
       reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
