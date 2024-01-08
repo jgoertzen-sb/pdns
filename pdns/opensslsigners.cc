@@ -1872,7 +1872,7 @@ DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVecto
   return storvect;
 }
 
-std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& msg) const
+std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
 {
   auto mdctx = std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)>(EVP_MD_CTX_new(), EVP_MD_CTX_free);
   if (!mdctx) {
@@ -1898,7 +1898,7 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& msg) const
   return signature;
 }
 
-bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& msg, const std::string& signature) const
+bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std::string& signature) const
 {
   auto mdctx = std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)>(EVP_MD_CTX_new(), EVP_MD_CTX_free);
   if (!mdctx) {
