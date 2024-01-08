@@ -27,28 +27,29 @@
 #define PROXYMAGIC "\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A"
 #define PROXYMAGICLEN sizeof(PROXYMAGIC)-1
 
-static string proxymagic(PROXYMAGIC, PROXYMAGICLEN);
+static const string proxymagic(PROXYMAGIC, PROXYMAGICLEN);
 
-static std::string makeSimpleHeader(uint8_t command, uint8_t protocol, uint16_t contentLen)
+static void makeSimpleHeader(uint8_t command, uint8_t protocol, uint16_t contentLen, size_t additionalSize, std::string& out)
 {
-  std::string ret;
   const uint8_t versioncommand = (0x20 | command);
+  const size_t totalSize = proxymagic.size() + sizeof(versioncommand) + sizeof(protocol) + sizeof(contentLen) + additionalSize;
+  if (out.capacity() < totalSize) {
+    out.reserve(totalSize);
+  }
 
-  ret.reserve(proxymagic.size() + sizeof(versioncommand) + sizeof(protocol) + sizeof(contentLen) + contentLen);
+  out.append(proxymagic);
 
-  ret.append(proxymagic);
+  out.append(reinterpret_cast<const char*>(&versioncommand), sizeof(versioncommand));
+  out.append(reinterpret_cast<const char*>(&protocol), sizeof(protocol));
 
-  ret.append(reinterpret_cast<const char*>(&versioncommand), sizeof(versioncommand));
-  ret.append(reinterpret_cast<const char*>(&protocol), sizeof(protocol));
-
-  ret.append(reinterpret_cast<const char*>(&contentLen), sizeof(contentLen));
-
-  return ret;
+  out.append(reinterpret_cast<const char*>(&contentLen), sizeof(contentLen));
 }
 
 std::string makeLocalProxyHeader()
 {
-  return makeSimpleHeader(0x00, 0, 0);
+  std::string out;
+  makeSimpleHeader(0x00, 0, 0, 0, out);
+  return out;
 }
 
 std::string makeProxyHeader(bool tcp, const ComboAddress& source, const ComboAddress& destination, const std::vector<ProxyProtocolValue>& values)
@@ -74,13 +75,15 @@ std::string makeProxyHeader(bool tcp, const ComboAddress& source, const ComboAdd
     }
   }
 
-  size_t total = (addrSize * 2) + sizeof(sourcePort) + sizeof(destinationPort) + valuesSize;
-  if (total > std::numeric_limits<uint16_t>::max()) {
-    throw std::runtime_error("The size of a proxy protocol header is limited to " + std::to_string(std::numeric_limits<uint16_t>::max()) + ", trying to send one of size " + std::to_string(total));
+  /* size of the data that will come _after_ the minimal proxy protocol header */
+  size_t additionalDataSize = (addrSize * 2) + sizeof(sourcePort) + sizeof(destinationPort) + valuesSize;
+  if (additionalDataSize > std::numeric_limits<uint16_t>::max()) {
+    throw std::runtime_error("The size of a proxy protocol header is limited to " + std::to_string(std::numeric_limits<uint16_t>::max()) + ", trying to send one of size " + std::to_string(additionalDataSize));
   }
 
-  const uint16_t contentlen = htons(static_cast<uint16_t>(total));
-  std::string ret = makeSimpleHeader(command, protocol, contentlen);
+  const uint16_t contentlen = htons(static_cast<uint16_t>(additionalDataSize));
+  std::string ret;
+  makeSimpleHeader(command, protocol, contentlen, additionalDataSize, ret);
 
   // We already established source and destination sin_family equivalence
   if (source.isIPv4()) {

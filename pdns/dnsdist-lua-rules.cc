@@ -22,40 +22,51 @@
 #include "dnsdist.hh"
 #include "dnsdist-lua.hh"
 #include "dnsdist-rules.hh"
+#include "dns_random.hh"
 
-std::shared_ptr<DNSRule> makeRule(const luadnsrule_t& var)
+std::shared_ptr<DNSRule> makeRule(const luadnsrule_t& var, const std::string& calledFrom)
 {
-  if (var.type() == typeid(std::shared_ptr<DNSRule>))
+  if (var.type() == typeid(std::shared_ptr<DNSRule>)) {
     return *boost::get<std::shared_ptr<DNSRule>>(&var);
+  }
 
+  bool suffixSeen = false;
   SuffixMatchNode smn;
   NetmaskGroup nmg;
-  auto add=[&](string src) {
+  auto add = [&nmg, &smn, &suffixSeen](const string& src) {
     try {
       nmg.addMask(src); // need to try mask first, all masks are domain names!
-    } catch(...) {
+    } catch (...) {
+      suffixSeen = true;
       smn.add(DNSName(src));
     }
   };
 
-  if (var.type() == typeid(string))
+  if (var.type() == typeid(string)) {
     add(*boost::get<string>(&var));
-
-  else if (var.type() == typeid(vector<pair<int, string>>))
-    for(const auto& a : *boost::get<vector<pair<int, string>>>(&var))
-      add(a.second);
-
-  else if (var.type() == typeid(DNSName))
+  }
+  else if (var.type() == typeid(LuaArray<std::string>)) {
+    for (const auto& str : *boost::get<LuaArray<std::string>>(&var)) {
+      add(str.second);
+    }
+  }
+  else if (var.type() == typeid(DNSName)) {
     smn.add(*boost::get<DNSName>(&var));
+  }
+  else if (var.type() == typeid(LuaArray<DNSName>)) {
+    smn = SuffixMatchNode();
+    for (const auto& name : *boost::get<LuaArray<DNSName>>(&var)) {
+      smn.add(name.second);
+    }
+  }
 
-  else if (var.type() == typeid(vector<pair<int, DNSName>>))
-    for(const auto& a : *boost::get<vector<pair<int, DNSName>>>(&var))
-      smn.add(a.second);
-
-  if(nmg.empty())
+  if (nmg.empty()) {
     return std::make_shared<SuffixMatchNodeRule>(smn);
-  else
-    return std::make_shared<NetmaskGroupRule>(nmg, true);
+  }
+  if (suffixSeen) {
+    warnlog("At least one parameter to %s has been parsed as a domain name amongst network masks, and will be ignored!", calledFrom);
+  }
+  return std::make_shared<NetmaskGroupRule>(nmg, true);
 }
 
 static boost::uuids::uuid makeRuleID(std::string& id)
@@ -67,43 +78,32 @@ static boost::uuids::uuid makeRuleID(std::string& id)
   return getUniqueID(id);
 }
 
-void parseRuleParams(boost::optional<luaruleparams_t> params, boost::uuids::uuid& uuid, std::string& name, uint64_t& creationOrder)
+void parseRuleParams(boost::optional<luaruleparams_t>& params, boost::uuids::uuid& uuid, std::string& name, uint64_t& creationOrder)
 {
   static uint64_t s_creationOrder = 0;
 
   string uuidStr;
 
-  if (params) {
-    if (params->count("uuid")) {
-      uuidStr = params->at("uuid");
-    }
-    if (params->count("name")) {
-      name = params->at("name");
-    }
-  }
+  getOptionalValue<std::string>(params, "uuid", uuidStr);
+  getOptionalValue<std::string>(params, "name", name);
 
   uuid = makeRuleID(uuidStr);
   creationOrder = s_creationOrder++;
 }
 
-typedef std::unordered_map<std::string, boost::variant<bool, int, std::string, std::vector<std::pair<int,int> > > > ruleparams_t;
+typedef LuaAssociativeTable<boost::variant<bool, int, std::string, LuaArray<int> > > ruleparams_t;
 
 template<typename T>
-static std::string rulesToString(const std::vector<T>& rules, boost::optional<ruleparams_t> vars)
+static std::string rulesToString(const std::vector<T>& rules, boost::optional<ruleparams_t>& vars)
 {
   int num = 0;
   bool showUUIDs = false;
   size_t truncateRuleWidth = string::npos;
   std::string result;
 
-  if (vars) {
-    if (vars->count("showUUIDs")) {
-      showUUIDs = boost::get<bool>((*vars)["showUUIDs"]);
-    }
-    if (vars->count("truncateRuleWidth")) {
-      truncateRuleWidth = boost::get<int>((*vars)["truncateRuleWidth"]);
-    }
-  }
+  getOptionalValue<bool>(vars, "showUUIDs", showUUIDs);
+  getOptionalValue<int>(vars, "truncateRuleWidth", truncateRuleWidth);
+  checkAllParametersConsumed("rulesToString", vars);
 
   if (showUUIDs) {
     boost::format fmt("%-3d %-30s %-38s %9d %9d %-56s %s\n");
@@ -127,7 +127,7 @@ static std::string rulesToString(const std::vector<T>& rules, boost::optional<ru
 }
 
 template<typename T>
-static void showRules(GlobalStateHolder<vector<T> > *someRuleActions, boost::optional<ruleparams_t> vars) {
+static void showRules(GlobalStateHolder<vector<T> > *someRuleActions, boost::optional<ruleparams_t>& vars) {
   setLuaNoSideEffect();
 
   auto rules = someRuleActions->getLocal();
@@ -135,29 +135,33 @@ static void showRules(GlobalStateHolder<vector<T> > *someRuleActions, boost::opt
 }
 
 template<typename T>
-static void rmRule(GlobalStateHolder<vector<T> > *someRuleActions, boost::variant<unsigned int, std::string> id) {
+static void rmRule(GlobalStateHolder<vector<T> > *someRuleActions, const boost::variant<unsigned int, std::string>& id) {
   setLuaSideEffect();
   auto rules = someRuleActions->getCopy();
   if (auto str = boost::get<std::string>(&id)) {
     try {
       const auto uuid = getUniqueID(*str);
-      if (rules.erase(std::remove_if(rules.begin(),
+      auto removeIt = std::remove_if(rules.begin(),
                                      rules.end(),
-                                     [uuid](const T& a) { return a.d_id == uuid; }),
-                      rules.end()) == rules.end()) {
+                                     [&uuid](const T& rule) { return rule.d_id == uuid; });
+      if (removeIt == rules.end()) {
         g_outputBuffer = "Error: no rule matched\n";
         return;
       }
+      rules.erase(removeIt,
+                  rules.end());
     }
     catch (const std::runtime_error& e) {
       /* it was not an UUID, let's see if it was a name instead */
-      if (rules.erase(std::remove_if(rules.begin(),
+      auto removeIt = std::remove_if(rules.begin(),
                                      rules.end(),
-                                     [&str](const T& a) { return a.d_name == *str; }),
-                      rules.end()) == rules.end()) {
+                                     [&str](const T& rule) { return rule.d_name == *str; });
+      if (removeIt == rules.end()) {
         g_outputBuffer = "Error: no rule matched\n";
         return;
       }
+      rules.erase(removeIt,
+                  rules.end());
     }
   }
   else if (auto pos = boost::get<unsigned int>(&id)) {
@@ -234,11 +238,92 @@ static std::vector<T> getTopRules(const std::vector<T>& rules, unsigned int top)
   return results;
 }
 
+template<typename T>
+static LuaArray<T> toLuaArray(std::vector<T>&& rules)
+{
+  LuaArray<T> results;
+  results.reserve(rules.size());
+
+  size_t pos = 1;
+  for (auto& rule : rules) {
+    results.emplace_back(pos, std::move(rule));
+    pos++;
+  }
+
+  return results;
+}
+
+template <typename T>
+static boost::optional<T> getRuleFromSelector(const std::vector<T>& rules, const boost::variant<int, std::string>& selector)
+{
+  if (auto str = boost::get<std::string>(&selector)) {
+    /* let's see if this a UUID */
+    try {
+      const auto uuid = getUniqueID(*str);
+      for (const auto& rule : rules) {
+        if (rule.d_id == uuid) {
+          return rule;
+        }
+      }
+    }
+    catch (const std::exception& e) {
+      /* a name, then */
+      for (const auto& rule : rules) {
+        if (rule.d_name == *str) {
+          return rule;
+        }
+      }
+    }
+  }
+  else if (auto pos = boost::get<int>(&selector)) {
+    /* this will throw a std::out_of_range exception if the
+       supplied position is out of bounds, this is fine */
+    return rules.at(*pos);
+  }
+  return boost::none;
+}
+
+namespace
+{
+std::shared_ptr<DNSRule> qnameSuffixRule(const boost::variant<const SuffixMatchNode&, std::string, const LuaArray<std::string>> names, boost::optional<bool> quiet)
+{
+  if (names.type() == typeid(string)) {
+    SuffixMatchNode smn;
+    smn.add(DNSName(*boost::get<std::string>(&names)));
+    return std::shared_ptr<DNSRule>(new SuffixMatchNodeRule(smn, quiet ? *quiet : false));
+  }
+
+  if (names.type() == typeid(LuaArray<std::string>)) {
+    SuffixMatchNode smn;
+    for (const auto& str : *boost::get<const LuaArray<std::string>>(&names)) {
+      smn.add(DNSName(str.second));
+    }
+    return std::shared_ptr<DNSRule>(new SuffixMatchNodeRule(smn, quiet ? *quiet : false));
+  }
+
+  const auto& smn = *boost::get<const SuffixMatchNode&>(&names);
+  return std::shared_ptr<DNSRule>(new SuffixMatchNodeRule(smn, quiet ? *quiet : false));
+}
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): this function declares Lua bindings, even with a good refactoring it will likely blow up the threshold
 void setupLuaRules(LuaContext& luaCtx)
 {
-  luaCtx.writeFunction("makeRule", makeRule);
+  luaCtx.writeFunction("makeRule", [](const luadnsrule_t& var) -> std::shared_ptr<DNSRule> {
+    return makeRule(var, "makeRule");
+  });
 
   luaCtx.registerFunction<string(std::shared_ptr<DNSRule>::*)()const>("toString", [](const std::shared_ptr<DNSRule>& rule) { return rule->toString(); });
+
+  luaCtx.registerFunction<uint64_t(std::shared_ptr<DNSRule>::*)()const>("getMatches", [](const std::shared_ptr<DNSRule>& rule) { return rule->d_matches.load(); });
+
+  luaCtx.registerFunction<std::shared_ptr<DNSRule>(DNSDistRuleAction::*)()const>("getSelector", [](const DNSDistRuleAction& rule) { return rule.d_rule; });
+
+  luaCtx.registerFunction<std::shared_ptr<DNSAction>(DNSDistRuleAction::*)()const>("getAction", [](const DNSDistRuleAction& rule) { return rule.d_action; });
+
+  luaCtx.registerFunction<std::shared_ptr<DNSRule>(DNSDistResponseRuleAction::*)()const>("getSelector", [](const DNSDistResponseRuleAction& rule) { return rule.d_rule; });
+
+  luaCtx.registerFunction<std::shared_ptr<DNSResponseAction>(DNSDistResponseRuleAction::*)()const>("getAction", [](const DNSDistResponseRuleAction& rule) { return rule.d_action; });
 
   luaCtx.writeFunction("showResponseRules", [](boost::optional<ruleparams_t> vars) {
       showRules(&g_respruleactions, vars);
@@ -271,6 +356,22 @@ void setupLuaRules(LuaContext& luaCtx)
   luaCtx.writeFunction("mvCacheHitResponseRule", [](unsigned int from, unsigned int to) {
       mvRule(&g_cachehitrespruleactions, from, to);
     });
+
+  luaCtx.writeFunction("showCacheInsertedResponseRules", [](boost::optional<ruleparams_t> vars) {
+    showRules(&g_cacheInsertedRespRuleActions, vars);
+  });
+
+  luaCtx.writeFunction("rmCacheInsertedResponseRule", [](boost::variant<unsigned int, std::string> id) {
+    rmRule(&g_cacheInsertedRespRuleActions, id);
+  });
+
+  luaCtx.writeFunction("mvCacheInsertedResponseRuleToTop", []() {
+    moveRuleToTop(&g_cacheInsertedRespRuleActions);
+  });
+
+  luaCtx.writeFunction("mvCacheInsertedResponseRule", [](unsigned int from, unsigned int to) {
+    mvRule(&g_cacheInsertedRespRuleActions, from, to);
+  });
 
   luaCtx.writeFunction("showSelfAnsweredResponseRules", [](boost::optional<ruleparams_t> vars) {
       showRules(&g_selfansweredrespruleactions, vars);
@@ -307,70 +408,107 @@ void setupLuaRules(LuaContext& luaCtx)
         });
     });
 
-  luaCtx.writeFunction("setRules", [](const std::vector<std::pair<int, std::shared_ptr<DNSDistRuleAction>>>& newruleactions) {
+  luaCtx.writeFunction("setRules", [](const LuaArray<std::shared_ptr<DNSDistRuleAction>>& newruleactions) {
       setLuaSideEffect();
       g_ruleactions.modify([newruleactions](decltype(g_ruleactions)::value_type& gruleactions) {
           gruleactions.clear();
           for (const auto& pair : newruleactions) {
             const auto& newruleaction = pair.second;
             if (newruleaction->d_action) {
-              auto rule = makeRule(newruleaction->d_rule);
+              auto rule = newruleaction->d_rule;
               gruleactions.push_back({std::move(rule), newruleaction->d_action, newruleaction->d_name, newruleaction->d_id, newruleaction->d_creationOrder});
             }
           }
         });
     });
 
+  luaCtx.writeFunction("getRule", [](boost::variant<int, std::string> selector) -> boost::optional<DNSDistRuleAction> {
+    auto rules = g_ruleactions.getLocal();
+    return getRuleFromSelector(*rules, selector);
+  });
+
   luaCtx.writeFunction("getTopRules", [](boost::optional<unsigned int> top) {
     setLuaNoSideEffect();
     auto rules = g_ruleactions.getLocal();
-    return getTopRules(*rules, top.get_value_or(10));
+    return toLuaArray(getTopRules(*rules, (top ? *top : 10)));
   });
 
   luaCtx.writeFunction("topRules", [](boost::optional<unsigned int> top, boost::optional<ruleparams_t> vars) {
     setLuaNoSideEffect();
     auto rules = g_ruleactions.getLocal();
-    return rulesToString(getTopRules(*rules, top.get_value_or(10)), vars);
+    return rulesToString(getTopRules(*rules, (top ? *top : 10)), vars);
   });
 
-  luaCtx.writeFunction("getCacheHitResponseRules", [](boost::optional<unsigned int> top) {
-    setLuaNoSideEffect();
+  luaCtx.writeFunction("getCacheHitResponseRule", [](boost::variant<int, std::string> selector) -> boost::optional<DNSDistResponseRuleAction> {
     auto rules = g_cachehitrespruleactions.getLocal();
-    return getTopRules(*rules, top.get_value_or(10));
+    return getRuleFromSelector(*rules, selector);
   });
 
-  luaCtx.writeFunction("topCacheHitRules", [](boost::optional<unsigned int> top, boost::optional<ruleparams_t> vars) {
+  luaCtx.writeFunction("getTopCacheHitResponseRules", [](boost::optional<unsigned int> top) {
     setLuaNoSideEffect();
     auto rules = g_cachehitrespruleactions.getLocal();
-    return rulesToString(getTopRules(*rules, top.get_value_or(10)), vars);
+    return toLuaArray(getTopRules(*rules, (top ? *top : 10)));
+  });
+
+  luaCtx.writeFunction("topCacheHitResponseRules", [](boost::optional<unsigned int> top, boost::optional<ruleparams_t> vars) {
+    setLuaNoSideEffect();
+    auto rules = g_cachehitrespruleactions.getLocal();
+    return rulesToString(getTopRules(*rules, (top ? *top : 10)), vars);
+  });
+
+  luaCtx.writeFunction("getCacheInsertedResponseRule", [](boost::variant<int, std::string> selector) -> boost::optional<DNSDistResponseRuleAction> {
+    auto rules = g_cacheInsertedRespRuleActions.getLocal();
+    return getRuleFromSelector(*rules, selector);
+  });
+
+  luaCtx.writeFunction("getTopCacheInsertedResponseRules", [](boost::optional<unsigned int> top) {
+    setLuaNoSideEffect();
+    auto rules = g_cacheInsertedRespRuleActions.getLocal();
+    return toLuaArray(getTopRules(*rules, (top ? *top : 10)));
+  });
+
+  luaCtx.writeFunction("topCacheInsertedResponseRules", [](boost::optional<unsigned int> top, boost::optional<ruleparams_t> vars) {
+    setLuaNoSideEffect();
+    auto rules = g_cacheInsertedRespRuleActions.getLocal();
+    return rulesToString(getTopRules(*rules, (top ? *top : 10)), vars);
+  });
+
+  luaCtx.writeFunction("getResponseRule", [](boost::variant<int, std::string> selector) -> boost::optional<DNSDistResponseRuleAction> {
+    auto rules = g_respruleactions.getLocal();
+    return getRuleFromSelector(*rules, selector);
   });
 
   luaCtx.writeFunction("getTopResponseRules", [](boost::optional<unsigned int> top) {
     setLuaNoSideEffect();
     auto rules = g_respruleactions.getLocal();
-    return getTopRules(*rules, top.get_value_or(10));
+    return toLuaArray(getTopRules(*rules, (top ? *top : 10)));
   });
 
   luaCtx.writeFunction("topResponseRules", [](boost::optional<unsigned int> top, boost::optional<ruleparams_t> vars) {
     setLuaNoSideEffect();
     auto rules = g_respruleactions.getLocal();
-    return rulesToString(getTopRules(*rules, top.get_value_or(10)), vars);
+    return rulesToString(getTopRules(*rules, (top ? *top : 10)), vars);
+  });
+
+  luaCtx.writeFunction("getSelfAnsweredResponseRule", [](boost::variant<int, std::string> selector) -> boost::optional<DNSDistResponseRuleAction> {
+    auto rules = g_selfansweredrespruleactions.getLocal();
+    return getRuleFromSelector(*rules, selector);
   });
 
   luaCtx.writeFunction("getTopSelfAnsweredResponseRules", [](boost::optional<unsigned int> top) {
     setLuaNoSideEffect();
     auto rules = g_selfansweredrespruleactions.getLocal();
-    return getTopRules(*rules, top.get_value_or(10));
+    return toLuaArray(getTopRules(*rules, (top ? *top : 10)));
   });
 
   luaCtx.writeFunction("topSelfAnsweredResponseRules", [](boost::optional<unsigned int> top, boost::optional<ruleparams_t> vars) {
     setLuaNoSideEffect();
     auto rules = g_selfansweredrespruleactions.getLocal();
-    return rulesToString(getTopRules(*rules, top.get_value_or(10)), vars);
+    return rulesToString(getTopRules(*rules, (top ? *top : 10)), vars);
   });
 
-  luaCtx.writeFunction("MaxQPSIPRule", [](unsigned int qps, boost::optional<unsigned int> ipv4trunc, boost::optional<unsigned int> ipv6trunc, boost::optional<unsigned int> burst, boost::optional<unsigned int> expiration, boost::optional<unsigned int> cleanupDelay, boost::optional<unsigned int> scanFraction) {
-      return std::shared_ptr<DNSRule>(new MaxQPSIPRule(qps, burst.get_value_or(qps), ipv4trunc.get_value_or(32), ipv6trunc.get_value_or(64), expiration.get_value_or(300), cleanupDelay.get_value_or(60), scanFraction.get_value_or(10)));
+  luaCtx.writeFunction("MaxQPSIPRule", [](unsigned int qps, boost::optional<unsigned int> ipv4trunc, boost::optional<unsigned int> ipv6trunc, boost::optional<unsigned int> burst, boost::optional<unsigned int> expiration, boost::optional<unsigned int> cleanupDelay, boost::optional<unsigned int> scanFraction, boost::optional<unsigned int> shards) {
+    return std::shared_ptr<DNSRule>(new MaxQPSIPRule(qps, (burst ? *burst : qps), (ipv4trunc ? *ipv4trunc : 32), (ipv6trunc ? *ipv6trunc : 64), (expiration ? *expiration : 300), (cleanupDelay ? *cleanupDelay : 60), (scanFraction ? *scanFraction : 10), (shards ? *shards : 10)));
     });
 
   luaCtx.writeFunction("MaxQPSRule", [](unsigned int qps, boost::optional<unsigned int> burst) {
@@ -406,51 +544,65 @@ void setupLuaRules(LuaContext& luaCtx)
       return std::shared_ptr<DNSRule>(new SNIRule(name));
   });
 
-  luaCtx.writeFunction("SuffixMatchNodeRule", [](const SuffixMatchNode& smn, boost::optional<bool> quiet) {
-      return std::shared_ptr<DNSRule>(new SuffixMatchNodeRule(smn, quiet ? *quiet : false));
-    });
+  luaCtx.writeFunction("SuffixMatchNodeRule", qnameSuffixRule);
 
-  luaCtx.writeFunction("NetmaskGroupRule", [](const NetmaskGroup& nmg, boost::optional<bool> src, boost::optional<bool> quiet) {
+  luaCtx.writeFunction("NetmaskGroupRule", [](const boost::variant<const NetmaskGroup&, std::string, const LuaArray<std::string>> netmasks, boost::optional<bool> src, boost::optional<bool> quiet) {
+    if (netmasks.type() == typeid(string)) {
+      NetmaskGroup nmg;
+      nmg.addMask(*boost::get<std::string>(&netmasks));
       return std::shared_ptr<DNSRule>(new NetmaskGroupRule(nmg, src ? *src : true, quiet ? *quiet : false));
-    });
+    }
+
+    if (netmasks.type() == typeid(LuaArray<std::string>)) {
+      NetmaskGroup nmg;
+      for (const auto& str : *boost::get<const LuaArray<std::string>>(&netmasks)) {
+        nmg.addMask(str.second);
+      }
+      return std::shared_ptr<DNSRule>(new NetmaskGroupRule(nmg, src ? *src : true, quiet ? *quiet : false));
+    }
+
+    const auto& nmg = *boost::get<const NetmaskGroup&>(&netmasks);
+    return std::shared_ptr<DNSRule>(new NetmaskGroupRule(nmg, src ? *src : true, quiet ? *quiet : false));
+  });
 
   luaCtx.writeFunction("benchRule", [](std::shared_ptr<DNSRule> rule, boost::optional<unsigned int> times_, boost::optional<string> suffix_)  {
       setLuaNoSideEffect();
-      unsigned int times = times_.get_value_or(100000);
-      DNSName suffix(suffix_.get_value_or("powerdns.com"));
+      unsigned int times = times_ ? *times_ : 100000;
+      DNSName suffix(suffix_ ? *suffix_ : "powerdns.com");
       struct item {
         PacketBuffer packet;
-        ComboAddress rem;
-        DNSName qname;
-        uint16_t qtype, qclass;
+        InternalQueryState ids;
       };
       vector<item> items;
       items.reserve(1000);
-      for(int n=0; n < 1000; ++n) {
+      for (int n = 0; n < 1000; ++n) {
         struct item i;
-        i.qname=DNSName(std::to_string(random()));
-        i.qname += suffix;
-        i.qtype = random() % 0xff;
-        i.qclass = 1;
-        i.rem=ComboAddress("127.0.0.1");
-        i.rem.sin4.sin_addr.s_addr = random();
-        GenericDNSPacketWriter<PacketBuffer> pw(i.packet, i.qname, i.qtype);
-        items.push_back(i);
+        i.ids.qname = DNSName(std::to_string(dns_random_uint32()));
+        i.ids.qname += suffix;
+        i.ids.qtype = dns_random(0xff);
+        i.ids.qclass = QClass::IN;
+        i.ids.protocol = dnsdist::Protocol::DoUDP;
+        i.ids.origRemote = ComboAddress("127.0.0.1");
+        i.ids.origRemote.sin4.sin_addr.s_addr = random();
+        i.ids.queryRealTime.start();
+        GenericDNSPacketWriter<PacketBuffer> pw(i.packet, i.ids.qname, i.ids.qtype);
+        items.push_back(std::move(i));
       }
 
-      int matches=0;
+      int matches = 0;
       ComboAddress dummy("127.0.0.1");
       StopWatch sw;
       sw.start();
-      for(unsigned int n=0; n < times; ++n) {
+      for (unsigned int n = 0; n < times; ++n) {
         item& i = items[n % items.size()];
-        DNSQuestion dq(&i.qname, i.qtype, i.qclass, &i.rem, &i.rem, i.packet, dnsdist::Protocol::DoUDP, &sw.d_start);
+        DNSQuestion dq(i.ids, i.packet);
+
         if (rule->matches(&dq)) {
           matches++;
         }
       }
-      double udiff=sw.udiff();
-      g_outputBuffer=(boost::format("Had %d matches out of %d, %.1f qps, in %.1f usec\n") % matches % times % (1000000*(1.0*times/udiff)) % udiff).str();
+      double udiff = sw.udiff();
+      g_outputBuffer=(boost::format("Had %d matches out of %d, %.1f qps, in %.1f us\n") % matches % times % (1000000*(1.0*times/udiff)) % udiff).str();
 
     });
 
@@ -465,6 +617,8 @@ void setupLuaRules(LuaContext& luaCtx)
   luaCtx.writeFunction("QNameRule", [](const std::string& qname) {
       return std::shared_ptr<DNSRule>(new QNameRule(DNSName(qname)));
     });
+
+  luaCtx.writeFunction("QNameSuffixRule", qnameSuffixRule);
 
   luaCtx.writeFunction("QTypeRule", [](boost::variant<unsigned int, std::string> str) {
       uint16_t qtype;
@@ -491,11 +645,11 @@ void setupLuaRules(LuaContext& luaCtx)
       return std::shared_ptr<DNSRule>(new OpcodeRule(code));
     });
 
-  luaCtx.writeFunction("AndRule", [](vector<pair<int, std::shared_ptr<DNSRule> > >a) {
+  luaCtx.writeFunction("AndRule", [](const LuaArray<std::shared_ptr<DNSRule>>& a) {
       return std::shared_ptr<DNSRule>(new AndRule(a));
     });
 
-  luaCtx.writeFunction("OrRule", [](vector<pair<int, std::shared_ptr<DNSRule> > >a) {
+  luaCtx.writeFunction("OrRule", [](const LuaArray<std::shared_ptr<DNSRule>>& a) {
       return std::shared_ptr<DNSRule>(new OrRule(a));
     });
 
@@ -512,7 +666,7 @@ void setupLuaRules(LuaContext& luaCtx)
       return std::shared_ptr<DNSRule>(new DNSSECRule());
     });
 
-  luaCtx.writeFunction("NotRule", [](std::shared_ptr<DNSRule>rule) {
+  luaCtx.writeFunction("NotRule", [](const std::shared_ptr<DNSRule>& rule) {
       return std::shared_ptr<DNSRule>(new NotRule(rule));
     });
 
@@ -573,19 +727,19 @@ void setupLuaRules(LuaContext& luaCtx)
       return std::shared_ptr<DNSRule>(new RDRule());
     });
 
-  luaCtx.writeFunction("TagRule", [](std::string tag, boost::optional<std::string> value) {
-      return std::shared_ptr<DNSRule>(new TagRule(tag, value));
+  luaCtx.writeFunction("TagRule", [](const std::string& tag, boost::optional<std::string> value) {
+      return std::shared_ptr<DNSRule>(new TagRule(tag, std::move(value)));
     });
 
   luaCtx.writeFunction("TimedIPSetRule", []() {
       return std::shared_ptr<TimedIPSetRule>(new TimedIPSetRule());
     });
 
-  luaCtx.writeFunction("PoolAvailableRule", [](std::string poolname) {
+  luaCtx.writeFunction("PoolAvailableRule", [](const std::string& poolname) {
     return std::shared_ptr<DNSRule>(new PoolAvailableRule(poolname));
   });
 
-  luaCtx.writeFunction("PoolOutstandingRule", [](std::string poolname, uint64_t limit) {
+  luaCtx.writeFunction("PoolOutstandingRule", [](const std::string& poolname, uint64_t limit) {
     return std::shared_ptr<DNSRule>(new PoolOutstandingRule(poolname, limit));
   });
 
@@ -630,11 +784,15 @@ void setupLuaRules(LuaContext& luaCtx)
       return std::shared_ptr<DNSRule>(new LuaFFIRule(func));
     });
 
-  luaCtx.writeFunction("LuaFFIPerThreadRule", [](std::string code) {
-    return std::shared_ptr<DNSRule>(new LuaFFIPerThreadRule(code));
-  });
+  luaCtx.writeFunction("LuaFFIPerThreadRule", [](const std::string& code) {
+      return std::shared_ptr<DNSRule>(new LuaFFIPerThreadRule(code));
+    });
 
   luaCtx.writeFunction("ProxyProtocolValueRule", [](uint8_t type, boost::optional<std::string> value) {
-      return std::shared_ptr<DNSRule>(new ProxyProtocolValueRule(type, value));
+      return std::shared_ptr<DNSRule>(new ProxyProtocolValueRule(type, std::move(value)));
+    });
+
+  luaCtx.writeFunction("PayloadSizeRule", [](const std::string& comparison, uint16_t size) {
+    return std::shared_ptr<DNSRule>(new PayloadSizeRule(comparison, size));
     });
 }

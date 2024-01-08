@@ -24,13 +24,17 @@
 #include <string>
 #include <list>
 #include <boost/utility.hpp>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
 #include <yahttp/yahttp.hpp>
+#pragma GCC diagnostic pop
 
 #include "json11.hpp"
 
 #include "credentials.hh"
 #include "namespaces.hh"
 #include "sstuff.hh"
+#include "logging.hh"
 
 class HttpRequest : public YaHTTP::Request {
 public:
@@ -48,6 +52,14 @@ public:
   bool compareAuthorization(const CredentialsHolder& expectedCredentials) const;
   bool compareHeader(const string &header_name, const CredentialsHolder& expectedCredentials) const;
   bool compareHeader(const string &header_name, const string &expected_value) const;
+
+#ifdef RECURSOR
+  void setSLog(Logr::log_t log)
+  {
+    d_slog = log;
+  }
+  std::shared_ptr<Logr::Logger> d_slog;
+#endif
 };
 
 class HttpResponse: public YaHTTP::Response {
@@ -61,6 +73,14 @@ public:
   void setJsonBody(const json11::Json& document);
   void setErrorResult(const std::string& message, const int status);
   void setSuccessResult(const std::string& message, const int status = 200);
+
+#ifdef RECURSOR
+  void setSLog(Logr::log_t log)
+  {
+    d_slog = log;
+  }
+  std::shared_ptr<Logr::Logger> d_slog;
+#endif
 };
 
 
@@ -163,6 +183,13 @@ public:
   WebServer(string listenaddress, int port);
   virtual ~WebServer() { };
 
+#ifdef RECURSOR
+  void setSLog(Logr::log_t log)
+  {
+    d_slog = log;
+  }
+#endif
+
   void setApiKey(const string &apikey, bool hashPlaintext) {
     if (!apikey.empty()) {
       d_apikey = make_unique<CredentialsHolder>(std::string(apikey), hashPlaintext);
@@ -189,15 +216,17 @@ public:
     d_acl = nmg;
   }
 
+  static bool validURL(const YaHTTP::URL& url);
+
   void bind();
   void go();
 
   void serveConnection(const std::shared_ptr<Socket>& client) const;
   void handleRequest(HttpRequest& request, HttpResponse& resp) const;
 
-  typedef boost::function<void(HttpRequest* req, HttpResponse* resp)> HandlerFunction;
-  void registerApiHandler(const string& url, const HandlerFunction& handler, bool allowPassword=false);
-  void registerWebHandler(const string& url, const HandlerFunction& handler);
+  typedef std::function<void(HttpRequest* req, HttpResponse* resp)> HandlerFunction;
+  void registerApiHandler(const string& url, const HandlerFunction& handler, const std::string& method = "", bool allowPassword=false);
+  void registerWebHandler(const string& url, const HandlerFunction& handler, const std::string& method = "");
 
   enum class LogLevel : uint8_t {
     None = 0,                // No logs from requests at all
@@ -232,8 +261,12 @@ public:
     return d_loglevel;
   };
 
+#ifdef RECURSOR
+  std::shared_ptr<Logr::Logger> d_slog;
+#endif
+
 protected:
-  void registerBareHandler(const string& url, const HandlerFunction& handler);
+  static void registerBareHandler(const string& url, const HandlerFunction& handler, const std::string& method);
   void logRequest(const HttpRequest& req, const ComboAddress& remote) const;
   void logResponse(const HttpResponse& resp, const ComboAddress& remote, const string& logprefix) const;
 

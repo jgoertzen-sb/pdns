@@ -57,9 +57,9 @@ catch(...) {
   return nullptr;
 }
 
-ChunkedSigningPipe::ChunkedSigningPipe(DNSName  signerName, bool mustSign, unsigned int workers)
+ChunkedSigningPipe::ChunkedSigningPipe(DNSName  signerName, bool mustSign, unsigned int workers, unsigned int maxChunkRecords)
   : d_signed(0), d_queued(0), d_outstanding(0), d_numworkers(workers), d_submitted(0), d_signer(std::move(signerName)),
-    d_maxchunkrecords(100), d_threads(d_numworkers), d_mustSign(mustSign), d_final(false)
+    d_maxchunkrecords(maxChunkRecords), d_threads(d_numworkers), d_mustSign(mustSign), d_final(false)
 {
   d_rrsetToSign = make_unique<rrset_t>();
   d_chunks.push_back(vector<DNSZoneRecord>()); // load an empty chunk
@@ -100,12 +100,12 @@ namespace {
 bool
 dedupLessThan(const DNSZoneRecord& a, const DNSZoneRecord &b)
 {
-  return std::make_tuple(a.dr.d_content->getZoneRepresentation(), a.dr.d_ttl) < std::make_tuple(b.dr.d_content->getZoneRepresentation(), b.dr.d_ttl);  // XXX SLOW SLOW SLOW
+  return std::tuple(a.dr.getContent()->getZoneRepresentation(), a.dr.d_ttl) < std::tuple(b.dr.getContent()->getZoneRepresentation(), b.dr.d_ttl);  // XXX SLOW SLOW SLOW
 }
 
 bool dedupEqual(const DNSZoneRecord& a, const DNSZoneRecord &b)
 {
-  return std::make_tuple(a.dr.d_content->getZoneRepresentation(), a.dr.d_ttl) == std::make_tuple(b.dr.d_content->getZoneRepresentation(), b.dr.d_ttl);  // XXX SLOW SLOW SLOW
+  return std::tuple(a.dr.getContent()->getZoneRepresentation(), a.dr.d_ttl) == std::tuple(b.dr.getContent()->getZoneRepresentation(), b.dr.d_ttl);  // XXX SLOW SLOW SLOW
 }
 }
 
@@ -199,8 +199,10 @@ void ChunkedSigningPipe::sendRRSetToWorker() // it sounds so socialist!
   
   if(wantWrite && !rwVect.second.empty()) {
     shuffle(rwVect.second.begin(), rwVect.second.end(), pdns::dns_random_engine()); // pick random available worker
-    auto ptr = d_rrsetToSign.release();
+    auto ptr = d_rrsetToSign.get();
     writen2(*rwVect.second.begin(), &ptr, sizeof(ptr));
+    // coverity[leaked_storage]
+    static_cast<void>(d_rrsetToSign.release());
     d_rrsetToSign = make_unique<rrset_t>();
     d_outstandings[*rwVect.second.begin()]++;
     d_outstanding++;
@@ -248,8 +250,10 @@ void ChunkedSigningPipe::sendRRSetToWorker() // it sounds so socialist!
   if(wantWrite) {  // our optimization above failed, we now wait synchronously
     rwVect = waitForRW(false, wantWrite, -1); // wait for something to happen
     shuffle(rwVect.second.begin(), rwVect.second.end(), pdns::dns_random_engine()); // pick random available worker
-    auto ptr = d_rrsetToSign.release();
+    auto ptr = d_rrsetToSign.get();
     writen2(*rwVect.second.begin(), &ptr, sizeof(ptr));
+    // coverity[leaked_storage]
+    static_cast<void>(d_rrsetToSign.release());
     d_rrsetToSign = make_unique<rrset_t>();
     d_outstandings[*rwVect.second.begin()]++;
     d_outstanding++;

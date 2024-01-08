@@ -99,6 +99,13 @@ class GettagRecursorTest(RecursorTest):
         return true
       end
 
+      local tm = os.time()
+      if dq.queryTime.tv_sec < tm - 1 or dq.queryTime.tv_sec > tm + 1 then
+        pdnslog("queryTime is wrong")
+        dq.rcode = pdns.REFUSED
+        return true
+      end
+
       if dq.qtype == pdns.A then
         dq:addAnswer(pdns.A, '192.0.2.1')
       elseif dq.qtype == pdns.AAAA then
@@ -233,6 +240,10 @@ class UDPHooksResponder(DatagramProtocol):
             answer = dns.rrset.from_text('postresolve.luahooks.example.', 3600, dns.rdataclass.IN, 'A', '192.0.2.1')
             response.answer.append(answer)
 
+        elif request.question[0].name == dns.name.from_text('preresolve.luahooks.example.'):
+            answer = dns.rrset.from_text('preresolve.luahooks.example.', 3600, dns.rdataclass.IN, 'A', '192.0.2.2')
+            response.answer.append(answer)
+
         self.transport.write(response.to_wire(), address)
 
 class LuaHooksRecursorTest(RecursorTest):
@@ -253,6 +264,29 @@ quiet=no
         return false
       end
 
+      return true
+    end
+
+    function preresolve(dq)
+      -- test both preresolve hooking and udpQueryResponse
+      if dq.qtype == pdns.A and dq.qname == newDN("preresolve.luahooks.example.") then
+        dq.followupFunction = "udpQueryResponse"
+        dq.udpCallback = "gotUdpResponse"
+        dq.udpQueryDest = newCA("%s.23:53")
+        -- synthesize query, responder should answer with regular answer
+        dq.udpQuery = "\\254\\255\\001\\000\\000\\001\\000\\000\\000\\000\\000\\000\\npreresolve\\008luahooks\\007example\\000\\000\\001\\000\\001"
+        return true
+      end
+      return false
+    end
+
+    function gotUdpResponse(dq)
+      dq.followupFunction = ""
+      if string.len(dq.udpAnswer) == 61 then
+        dq:addAnswer(pdns.A, "192.0.2.2")
+        return true;
+      end
+      dq:addAnswer(pdns.A, "0.0.0.0")
       return true
     end
 
@@ -300,7 +334,7 @@ quiet=no
       return false
     end
 
-    """ % (os.environ['PREFIX'], os.environ['PREFIX'])
+    """ % (os.environ['PREFIX'], os.environ['PREFIX'], os.environ['PREFIX'])
 
     @classmethod
     def startResponders(cls):
@@ -376,6 +410,15 @@ quiet=no
             self.assertRcodeEqual(res, dns.rcode.NOERROR)
             self.assertRRsetInAnswer(res, expected)
             self.assertEqual(res.answer[0].ttl, 1)
+
+    def testPreResolve(self):
+        expected = dns.rrset.from_text('preresolve.luahooks.example.', 1, dns.rdataclass.IN, 'A', '192.0.2.2')
+        query = dns.message.make_query('preresolve.luahooks.example.', 'A', 'IN')
+        for method in ("sendUDPQuery", "sendTCPQuery"):
+            sender = getattr(self, method)
+            res = sender(query)
+            self.assertRcodeEqual(res, dns.rcode.NOERROR)
+            self.assertRRsetInAnswer(res, expected)
 
     def testIPFilterHeader(self):
         query = dns.message.make_query('ipfilter.luahooks.example.', 'A', 'IN')
@@ -536,6 +579,7 @@ class PDNSRandomTest(RecursorTest):
     function preresolve (dq)
       dq.rcode = pdns.NOERROR
       dq:addAnswer(pdns.TXT, pdnsrandom())
+      dq.variable = true
       return true
     end
     """
@@ -704,7 +748,7 @@ dnssec=validate
         self.assertEqual(len(res.authority), 0)
 
 class PolicyEventFilterOnFollowUpTest(RecursorTest):
-    """Tests the interaction between RPZ and followup queries (dns64, folliwCNAME)
+    """Tests the interaction between RPZ and followup queries (dns64, followCNAME)
     """
 
     _confdir = 'policyeventfilter-followup'
@@ -751,6 +795,43 @@ secure.example.zone.rpz. 60 IN A 192.0.2.42
 
             self.assertRcodeEqual(res, dns.rcode.NOERROR)
             self.assertEqual(len(res.answer), 2)
+            self.assertEqual(len(res.authority), 0)
+            self.assertResponseMatches(query, expected, res)
+
+class PolicyEventFilterOnFollowUpWithNativeDNS64Test(RecursorTest):
+    """Tests the interaction between followup queries and native dns64
+    """
+
+    _confdir = 'policyeventfilter-followup-dns64'
+    _config_template = """
+    dns64-prefix=1234::/96
+    """
+    _lua_config_file = """
+    """
+    _lua_dns_script_file = """
+    function preresolve(dq)
+      dq:addAnswer(pdns.CNAME, "cname.secure.example.")
+      dq.followupFunction="followCNAMERecords"
+      dq.rcode = pdns.NOERROR
+      return true
+    end
+
+    """
+
+    def testAAAA(self):
+        expected = [
+            dns.rrset.from_text('mx1.secure.example.', 15, dns.rdataclass.IN, 'CNAME', 'cname.secure.example.'),
+            dns.rrset.from_text('cname.secure.example.', 15, dns.rdataclass.IN, 'CNAME', ' host1.secure.example.'),
+            dns.rrset.from_text('host1.secure.example.', 15, dns.rdataclass.IN, 'AAAA', '1234::c000:202')
+        ]
+        query = dns.message.make_query('mx1.secure.example', 'AAAA')
+
+        for method in ("sendUDPQuery", "sendTCPQuery"):
+            sender = getattr(self, method)
+            res = sender(query)
+            print(res)
+            self.assertRcodeEqual(res, dns.rcode.NOERROR)
+            self.assertEqual(len(res.answer), 3)
             self.assertEqual(len(res.authority), 0)
             self.assertResponseMatches(query, expected, res)
 
@@ -925,7 +1006,7 @@ end
         """ postresolve_ffi: test that we can do a DROP for a name and type combo"""
         query = dns.message.make_query('example', 'TXT')
         res = self.sendUDPQuery(query)
-        self.assertEquals(res, None)
+        self.assertEqual(res, None)
 
     def testNXDOMAIN(self):
         """ postresolve_ffi: test that we can return a NXDOMAIN for a name and type combo"""

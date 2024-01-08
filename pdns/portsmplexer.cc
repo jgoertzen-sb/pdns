@@ -17,7 +17,7 @@
 class PortsFDMultiplexer : public FDMultiplexer
 {
 public:
-  PortsFDMultiplexer();
+  PortsFDMultiplexer(unsigned int maxEventsHint);
   ~PortsFDMultiplexer()
   {
     close(d_portfd);
@@ -37,12 +37,11 @@ public:
 private:
   int d_portfd;
   std::vector<port_event_t> d_pevents;
-  static int s_maxevents; // not a hard maximum
 };
 
-static FDMultiplexer* makePorts()
+static FDMultiplexer* makePorts(unsigned int maxEventsHint)
 {
-  return new PortsFDMultiplexer();
+  return new PortsFDMultiplexer(maxEventsHint);
 }
 
 static struct PortsRegisterOurselves
@@ -53,10 +52,8 @@ static struct PortsRegisterOurselves
   }
 } doItPorts;
 
-int PortsFDMultiplexer::s_maxevents = 1024;
-
-PortsFDMultiplexer::PortsFDMultiplexer() :
-  d_pevents(s_maxevents)
+PortsFDMultiplexer::PortsFDMultiplexer(unsigned int maxEventsHint) :
+  d_pevents(maxEventsHint)
 {
   d_portfd = port_create(); // not hard max
   if (d_portfd < 0) {
@@ -97,7 +94,7 @@ void PortsFDMultiplexer::getAvailableFDs(std::vector<int>& fds, int timeout)
   timeoutspec.tv_sec = timeout / 1000;
   timeoutspec.tv_nsec = (timeout % 1000) * 1000000;
   unsigned int numevents = 1;
-  int ret = port_getn(d_portfd, d_pevents.data(), min(PORT_MAX_LIST, s_maxevents), &numevents, &timeoutspec);
+  int ret = port_getn(d_portfd, d_pevents.data(), min(PORT_MAX_LIST, static_cast<int>(d_pevents.size())), &numevents, timeout != -1 ? &timeoutspec : nullptr);
 
   /* port_getn has an unusual API - (ret == -1, errno == ETIME) can
      mean partial success; you must check (*numevents) in this case
@@ -158,7 +155,7 @@ int PortsFDMultiplexer::run(struct timeval* now, int timeout)
   timeoutspec.tv_sec = timeout / 1000;
   timeoutspec.tv_nsec = (timeout % 1000) * 1000000;
   unsigned int numevents = 1;
-  int ret = port_getn(d_portfd, d_pevents.data(), min(PORT_MAX_LIST, s_maxevents), &numevents, &timeoutspec);
+  int ret = port_getn(d_portfd, d_pevents.data(), min(PORT_MAX_LIST, static_cast<int>(d_pevents.size())), &numevents, timeout != -1 ? &timeoutspec : nullptr);
 
   /* port_getn has an unusual API - (ret == -1, errno == ETIME) can
      mean partial success; you must check (*numevents) in this case

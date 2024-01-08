@@ -19,7 +19,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #include <boost/test/unit_test.hpp>
@@ -28,10 +31,10 @@
 #include "dnsname.hh"
 #include "dnsparser.hh"
 #include "dnswriter.hh"
+#include "dolog.hh"
 #include <unistd.h>
 
 bool g_verbose{false};
-bool g_syslog{true};
 
 BOOST_AUTO_TEST_SUITE(test_dnscrypt_cc)
 

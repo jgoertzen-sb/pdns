@@ -16,11 +16,25 @@
 #include <openssl/engine.h>
 #endif
 #include <openssl/err.h>
+#ifndef DISABLE_OCSP_STAPLING
 #include <openssl/ocsp.h>
+#endif /* DISABLE_OCSP_STAPLING */
 #include <openssl/pkcs12.h>
+#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
+#include <openssl/provider.h>
+#endif /* defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3 */
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 #include <fcntl.h>
+
+#if OPENSSL_VERSION_MAJOR >= 3
+#include <openssl/param_build.h>
+#include <openssl/core.h>
+#include <openssl/core_names.h>
+#include <openssl/evp.h>
+#else
+#include <openssl/hmac.h>
+#endif
 
 #ifdef HAVE_LIBSODIUM
 #include <sodium.h>
@@ -68,9 +82,15 @@ static void openssl_thread_cleanup()
 #endif /* (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x2090100fL) */
 
 static std::atomic<uint64_t> s_users;
+
+#if OPENSSL_VERSION_MAJOR >= 3 && defined(HAVE_TLS_PROVIDERS)
+static LockGuarded<std::unordered_map<std::string, std::unique_ptr<OSSL_PROVIDER, decltype(&OSSL_PROVIDER_unload)>>> s_providers;
+#else
 #ifndef OPENSSL_NO_ENGINE
-static LockGuarded<std::unordered_map<std::string, std::unique_ptr<ENGINE, int(*)(ENGINE*)>>> s_engines;
+static LockGuarded<std::unordered_map<std::string, std::unique_ptr<ENGINE, decltype(&ENGINE_free)>>> s_engines;
 #endif
+#endif
+
 static int s_ticketsKeyIndex{-1};
 static int s_countersIndex{-1};
 static int s_keyLogIndex{-1};
@@ -79,13 +99,28 @@ void registerOpenSSLUser()
 {
   if (s_users.fetch_add(1) == 0) {
 #ifdef HAVE_OPENSSL_INIT_CRYPTO
+#ifndef DISABLE_OPENSSL_ERROR_STRINGS
+    uint64_t cryptoOpts = OPENSSL_INIT_LOAD_CONFIG;
+    const uint64_t sslOpts = 0;
+#else /* DISABLE_OPENSSL_ERROR_STRINGS */
+    uint64_t cryptoOpts = OPENSSL_INIT_LOAD_CONFIG|OPENSSL_INIT_NO_LOAD_CRYPTO_STRINGS;
+    const uint64_t sslOpts = OPENSSL_INIT_NO_LOAD_SSL_STRINGS;
+#endif /* DISABLE_OPENSSL_ERROR_STRINGS */
     /* load the default configuration file (or one specified via OPENSSL_CONF),
        which can then be used to load engines.
-       Do not load all ciphers and digests, we only need a few of them and these
+    */
+#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
+    /* Since 661595ca0933fe631faeadd14a189acd5d4185e0 we can no longer rely on the ciphers and digests
+       required for TLS to be loaded by OPENSSL_init_ssl(), so let's give up and load everything */
+#else /* OPENSSL_VERSION_MAJOR >= 3 */
+    /* Do not load all ciphers and digests, we only need a few of them and these
        will be loaded by OPENSSL_init_ssl(). */
-    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG|OPENSSL_INIT_NO_ADD_ALL_CIPHERS|OPENSSL_INIT_NO_ADD_ALL_DIGESTS, nullptr);
-    OPENSSL_init_ssl(0, nullptr);
-#endif
+    cryptoOpts |= OPENSSL_INIT_NO_ADD_ALL_CIPHERS|OPENSSL_INIT_NO_ADD_ALL_DIGESTS;
+#endif /* OPENSSL_VERSION_MAJOR >= 3 */
+
+    OPENSSL_init_crypto(cryptoOpts, nullptr);
+    OPENSSL_init_ssl(sslOpts, nullptr);
+#endif /* HAVE_OPENSSL_INIT_CRYPTO */
 
 #if (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER && LIBRESSL_VERSION_NUMBER < 0x2090100fL))
     /* load error strings for both libcrypto and libssl */
@@ -117,12 +152,14 @@ void registerOpenSSLUser()
 void unregisterOpenSSLUser()
 {
   if (s_users.fetch_sub(1) == 1) {
+#if OPENSSL_VERSION_MAJOR < 3 || !defined(HAVE_TLS_PROVIDERS)
 #ifndef OPENSSL_NO_ENGINE
     for (auto& [name, engine] : *s_engines.lock()) {
       ENGINE_finish(engine.get());
       engine.reset();
     }
     s_engines.lock()->clear();
+#endif
 #endif
 #if (OPENSSL_VERSION_NUMBER < 0x1010000fL || (defined LIBRESSL_VERSION_NUMBER && LIBRESSL_VERSION_NUMBER < 0x2090100fL))
     ERR_free_strings();
@@ -139,7 +176,33 @@ void unregisterOpenSSLUser()
   }
 }
 
-std::pair<bool, std::string> libssl_load_engine(const std::string& engineName, const std::optional<std::string>& defaultString)
+#if defined(HAVE_LIBSSL) && OPENSSL_VERSION_MAJOR >= 3 && defined(HAVE_TLS_PROVIDERS)
+std::pair<bool, std::string> libssl_load_provider(const std::string& providerName)
+{
+  if (s_users.load() == 0) {
+    /* We need to make sure that OpenSSL has been properly initialized before loading an engine.
+       This messes up our accounting a bit, so some memory might not be properly released when
+       the program exits when engines are in use. */
+    registerOpenSSLUser();
+  }
+
+  auto providers = s_providers.lock();
+  if (providers->count(providerName) > 0) {
+    return { false, "TLS provider already loaded" };
+  }
+
+  auto provider = std::unique_ptr<OSSL_PROVIDER, decltype(&OSSL_PROVIDER_unload)>(OSSL_PROVIDER_load(nullptr, providerName.c_str()), OSSL_PROVIDER_unload);
+  if (provider == nullptr) {
+    return { false, "unable to load TLS provider '" + providerName + "'" };
+  }
+
+  providers->insert({providerName, std::move(provider)});
+  return { true, "" };
+}
+#endif /* HAVE_LIBSSL && OPENSSL_VERSION_MAJOR >= 3 && HAVE_TLS_PROVIDERS */
+
+#if defined(HAVE_LIBSSL) && !defined(HAVE_TLS_PROVIDERS)
+std::pair<bool, std::string> libssl_load_engine([[maybe_unused]] const std::string& engineName, [[maybe_unused]] const std::optional<std::string>& defaultString)
 {
 #ifdef OPENSSL_NO_ENGINE
   return { false, "OpenSSL has been built without engine support" };
@@ -156,13 +219,10 @@ std::pair<bool, std::string> libssl_load_engine(const std::string& engineName, c
     return { false, "TLS engine already loaded" };
   }
 
-  ENGINE* enginePtr = ENGINE_by_id(engineName.c_str());
-  if (enginePtr == nullptr) {
+  auto engine = std::unique_ptr<ENGINE, decltype(&ENGINE_free)>(ENGINE_by_id(engineName.c_str()), ENGINE_free);
+  if (engine == nullptr) {
     return { false, "unable to load TLS engine '" + engineName + "'" };
   }
-
-  auto engine = std::unique_ptr<ENGINE, int(*)(ENGINE*)>(enginePtr, ENGINE_free);
-  enginePtr = nullptr;
 
   if (!ENGINE_init(engine.get())) {
     return { false, "Unable to init TLS engine '" + engineName + "'" };
@@ -178,6 +238,7 @@ std::pair<bool, std::string> libssl_load_engine(const std::string& engineName, c
   return { true, "" };
 #endif
 }
+#endif /* HAVE_LIBSSL && !HAVE_TLS_PROVIDERS */
 
 void* libssl_get_ticket_key_callback_data(SSL* s)
 {
@@ -194,9 +255,13 @@ void libssl_set_ticket_key_callback_data(SSL_CTX* ctx, void* data)
   SSL_CTX_set_ex_data(ctx, s_ticketsKeyIndex, data);
 }
 
-int libssl_ticket_key_callback(SSL *s, OpenSSLTLSTicketKeysRing& keyring, unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE], unsigned char *iv, EVP_CIPHER_CTX *ectx, HMAC_CTX *hctx, int enc)
+#if OPENSSL_VERSION_MAJOR >= 3
+int libssl_ticket_key_callback(SSL* /* s */, OpenSSLTLSTicketKeysRing& keyring, unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE], unsigned char* iv, EVP_CIPHER_CTX* ectx, EVP_MAC_CTX* hctx, int enc)
+#else
+int libssl_ticket_key_callback(SSL* /* s */, OpenSSLTLSTicketKeysRing& keyring, unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE], unsigned char* iv, EVP_CIPHER_CTX* ectx, HMAC_CTX* hctx, int enc)
+#endif
 {
-  if (enc) {
+  if (enc != 0) {
     const auto key = keyring.getEncryptionKey();
     if (key == nullptr) {
       return -1;
@@ -213,7 +278,7 @@ int libssl_ticket_key_callback(SSL *s, OpenSSLTLSTicketKeysRing& keyring, unsign
     return 0;
   }
 
-  if (key->decrypt(iv, ectx, hctx) == false) {
+  if (!key->decrypt(iv, ectx, hctx)) {
     return -1;
   }
 
@@ -225,19 +290,16 @@ int libssl_ticket_key_callback(SSL *s, OpenSSLTLSTicketKeysRing& keyring, unsign
   return 1;
 }
 
-static long libssl_server_name_callback(SSL* ssl, int* al, void* arg)
+static int libssl_server_name_callback(SSL* ssl, int* /* alert */, void* /* arg */)
 {
-  (void) al;
-  (void) arg;
-
-  if (SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name)) {
+  if (SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name) != nullptr) {
     return SSL_TLSEXT_ERR_OK;
   }
 
   return SSL_TLSEXT_ERR_NOACK;
 }
 
-static void libssl_info_callback(const SSL *ssl, int where, int ret)
+static void libssl_info_callback(const SSL *ssl, int where, int /* ret */)
 {
   SSL_CTX* sslCtx = SSL_get_SSL_CTX(ssl);
   if (sslCtx == nullptr) {
@@ -287,12 +349,13 @@ static void libssl_info_callback(const SSL *ssl, int where, int ret)
   }
 }
 
-void libssl_set_error_counters_callback(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx, TLSErrorCounters* counters)
+void libssl_set_error_counters_callback(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>& ctx, TLSErrorCounters* counters)
 {
   SSL_CTX_set_ex_data(ctx.get(), s_countersIndex, counters);
   SSL_CTX_set_info_callback(ctx.get(), libssl_info_callback);
 }
 
+#ifndef DISABLE_OCSP_STAPLING
 int libssl_ocsp_stapling_callback(SSL* ssl, const std::map<int, std::string>& ocspMap)
 {
   auto pkey = SSL_get_privatekey(ssl);
@@ -365,7 +428,7 @@ static bool libssl_validate_ocsp_response(const std::string& response)
   return true;
 }
 
-std::map<int, std::string> libssl_load_ocsp_responses(const std::vector<std::string>& ocspFiles, std::vector<int> keyTypes)
+static std::map<int, std::string> libssl_load_ocsp_responses(const std::vector<std::string>& ocspFiles, std::vector<int> keyTypes, std::vector<std::string>& warnings)
 {
   std::map<int, std::string> ocspResponses;
 
@@ -377,12 +440,13 @@ std::map<int, std::string> libssl_load_ocsp_responses(const std::vector<std::str
   for (const auto& filename : ocspFiles) {
     std::ifstream file(filename, std::ios::binary);
     std::string content;
-    while(file) {
+    while (file) {
       char buffer[4096];
       file.read(buffer, sizeof(buffer));
       if (file.bad()) {
         file.close();
-        throw std::runtime_error("Unable to load OCSP response from '" + filename + "'");
+        warnings.push_back("Unable to load OCSP response from " + filename);
+        continue;
       }
       content.append(buffer, file.gcount());
     }
@@ -393,31 +457,13 @@ std::map<int, std::string> libssl_load_ocsp_responses(const std::vector<std::str
       ocspResponses.insert({keyTypes.at(count), std::move(content)});
     }
     catch (const std::exception& e) {
-      throw std::runtime_error("Error checking the validity of OCSP response from '" + filename + "': " + e.what());
+      warnings.push_back("Error checking the validity of OCSP response from '" + filename + "': " + e.what());
+      continue;
     }
     ++count;
   }
 
   return ocspResponses;
-}
-
-int libssl_get_last_key_type(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx)
-{
-#ifdef HAVE_SSL_CTX_GET0_PRIVATEKEY
-  auto pkey = SSL_CTX_get0_privatekey(ctx.get());
-#else
-  auto temp = std::unique_ptr<SSL, void(*)(SSL*)>(SSL_new(ctx.get()), SSL_free);
-  if (!temp) {
-    return -1;
-  }
-  auto pkey = SSL_get_privatekey(temp.get());
-#endif
-
-  if (!pkey) {
-    return -1;
-  }
-
-  return EVP_PKEY_base_id(pkey);
 }
 
 #ifdef HAVE_OCSP_BASIC_SIGN
@@ -466,6 +512,26 @@ bool libssl_generate_ocsp_response(const std::string& certFile, const std::strin
   return true;
 }
 #endif /* HAVE_OCSP_BASIC_SIGN */
+#endif /* DISABLE_OCSP_STAPLING */
+
+static int libssl_get_last_key_type(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>& ctx)
+{
+#ifdef HAVE_SSL_CTX_GET0_PRIVATEKEY
+  auto pkey = SSL_CTX_get0_privatekey(ctx.get());
+#else
+  auto temp = std::unique_ptr<SSL, void(*)(SSL*)>(SSL_new(ctx.get()), SSL_free);
+  if (!temp) {
+    return -1;
+  }
+  auto pkey = SSL_get_privatekey(temp.get());
+#endif
+
+  if (!pkey) {
+    return -1;
+  }
+
+  return EVP_PKEY_base_id(pkey);
+}
 
 LibsslTLSVersion libssl_tls_version_from_string(const std::string& str)
 {
@@ -500,7 +566,7 @@ const std::string& libssl_tls_version_to_string(LibsslTLSVersion version)
   return it->second;
 }
 
-bool libssl_set_min_tls_version(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx, LibsslTLSVersion version)
+bool libssl_set_min_tls_version(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>& ctx, LibsslTLSVersion version)
 {
 #if defined(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION) || defined(SSL_CTX_set_min_proto_version)
   /* These functions have been introduced in 1.1.0, and the use of SSL_OP_NO_* is deprecated
@@ -564,9 +630,9 @@ OpenSSLTLSTicketKeysRing::~OpenSSLTLSTicketKeysRing()
 {
 }
 
-void OpenSSLTLSTicketKeysRing::addKey(std::shared_ptr<OpenSSLTLSTicketKey> newKey)
+void OpenSSLTLSTicketKeysRing::addKey(std::shared_ptr<OpenSSLTLSTicketKey>&& newKey)
 {
-  d_ticketKeys.write_lock()->push_front(newKey);
+  d_ticketKeys.write_lock()->push_front(std::move(newKey));
 }
 
 std::shared_ptr<OpenSSLTLSTicketKey> OpenSSLTLSTicketKeysRing::getEncryptionKey()
@@ -598,7 +664,7 @@ void OpenSSLTLSTicketKeysRing::loadTicketsKeys(const std::string& keyFile)
   try {
     do {
       auto newKey = std::make_shared<OpenSSLTLSTicketKey>(file);
-      addKey(newKey);
+      addKey(std::move(newKey));
       keyLoaded = true;
     }
     while (!file.fail());
@@ -613,10 +679,10 @@ void OpenSSLTLSTicketKeysRing::loadTicketsKeys(const std::string& keyFile)
   file.close();
 }
 
-void OpenSSLTLSTicketKeysRing::rotateTicketsKey(time_t now)
+void OpenSSLTLSTicketKeysRing::rotateTicketsKey(time_t /* now */)
 {
   auto newKey = std::make_shared<OpenSSLTLSTicketKey>();
-  addKey(newKey);
+  addKey(std::move(newKey));
 }
 
 OpenSSLTLSTicketKey::OpenSSLTLSTicketKey()
@@ -673,7 +739,15 @@ bool OpenSSLTLSTicketKey::nameMatches(const unsigned char name[TLS_TICKETS_KEY_N
   return (memcmp(d_name, name, sizeof(d_name)) == 0);
 }
 
-int OpenSSLTLSTicketKey::encrypt(unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE], unsigned char *iv, EVP_CIPHER_CTX *ectx, HMAC_CTX *hctx) const
+#if OPENSSL_VERSION_MAJOR >= 3
+static const std::string sha256KeyName{"sha256"};
+#endif
+
+#if OPENSSL_VERSION_MAJOR >= 3
+int OpenSSLTLSTicketKey::encrypt(unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE], unsigned char* iv, EVP_CIPHER_CTX* ectx, EVP_MAC_CTX* hctx) const
+#else
+int OpenSSLTLSTicketKey::encrypt(unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE], unsigned char* iv, EVP_CIPHER_CTX* ectx, HMAC_CTX* hctx) const
+#endif
 {
   memcpy(keyName, d_name, sizeof(d_name));
 
@@ -685,18 +759,76 @@ int OpenSSLTLSTicketKey::encrypt(unsigned char keyName[TLS_TICKETS_KEY_NAME_SIZE
     return -1;
   }
 
+#if OPENSSL_VERSION_MAJOR >= 3
+  using ParamsBuilder = std::unique_ptr<OSSL_PARAM_BLD, decltype(&OSSL_PARAM_BLD_free)>;
+  using Params = std::unique_ptr<OSSL_PARAM, decltype(&OSSL_PARAM_free)>;
+
+  auto params_build = ParamsBuilder(OSSL_PARAM_BLD_new(), OSSL_PARAM_BLD_free);
+  if (params_build == nullptr) {
+    return -1;
+  }
+
+  if (OSSL_PARAM_BLD_push_utf8_string(params_build.get(), OSSL_MAC_PARAM_DIGEST, sha256KeyName.c_str(), sha256KeyName.size()) == 0) {
+    return -1;
+  }
+
+  auto params = Params(OSSL_PARAM_BLD_to_param(params_build.get()), OSSL_PARAM_free);
+  if (params == nullptr) {
+    return -1;
+  }
+
+  if (EVP_MAC_CTX_set_params(hctx, params.get()) == 0) {
+    return -1;
+  }
+
+  if (EVP_MAC_init(hctx, d_hmacKey, sizeof(d_hmacKey), nullptr) == 0) {
+    return -1;
+  }
+#else
   if (HMAC_Init_ex(hctx, d_hmacKey, sizeof(d_hmacKey), TLS_TICKETS_MAC_ALGO(), nullptr) != 1) {
     return -1;
   }
+#endif
 
   return 1;
 }
 
-bool OpenSSLTLSTicketKey::decrypt(const unsigned char* iv, EVP_CIPHER_CTX *ectx, HMAC_CTX *hctx) const
+#if OPENSSL_VERSION_MAJOR >= 3
+bool OpenSSLTLSTicketKey::decrypt(const unsigned char* iv, EVP_CIPHER_CTX* ectx, EVP_MAC_CTX* hctx) const
+#else
+bool OpenSSLTLSTicketKey::decrypt(const unsigned char* iv, EVP_CIPHER_CTX* ectx, HMAC_CTX* hctx) const
+#endif
 {
+#if OPENSSL_VERSION_MAJOR >= 3
+  using ParamsBuilder = std::unique_ptr<OSSL_PARAM_BLD, decltype(&OSSL_PARAM_BLD_free)>;
+  using Params = std::unique_ptr<OSSL_PARAM, decltype(&OSSL_PARAM_free)>;
+
+  auto params_build = ParamsBuilder(OSSL_PARAM_BLD_new(), OSSL_PARAM_BLD_free);
+  if (params_build == nullptr) {
+    return false;
+  }
+
+  if (OSSL_PARAM_BLD_push_utf8_string(params_build.get(), OSSL_MAC_PARAM_DIGEST, sha256KeyName.c_str(), sha256KeyName.size()) == 0) {
+    return false;
+  }
+
+  auto params = Params(OSSL_PARAM_BLD_to_param(params_build.get()), OSSL_PARAM_free);
+  if (params == nullptr) {
+    return false;
+  }
+
+  if (EVP_MAC_CTX_set_params(hctx, params.get()) == 0) {
+    return false;
+  }
+
+  if (EVP_MAC_init(hctx, d_hmacKey, sizeof(d_hmacKey), nullptr) == 0) {
+    return false;
+  }
+#else
   if (HMAC_Init_ex(hctx, d_hmacKey, sizeof(d_hmacKey), TLS_TICKETS_MAC_ALGO(), nullptr) != 1) {
     return false;
   }
+#endif
 
   if (EVP_DecryptInit_ex(ectx, TLS_TICKETS_CIPHER_ALGO(), nullptr, d_cipherKey, iv) != 1) {
     return false;
@@ -705,10 +837,15 @@ bool OpenSSLTLSTicketKey::decrypt(const unsigned char* iv, EVP_CIPHER_CTX *ectx,
   return true;
 }
 
-std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLSConfig& config,
-                                                                       std::map<int, std::string>& ocspResponses)
+std::pair<std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>, std::vector<std::string>> libssl_init_server_context(const TLSConfig& config,
+                                                                                                                  std::map<int, std::string>& ocspResponses)
 {
-  auto ctx = std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>(SSL_CTX_new(SSLv23_server_method()), SSL_CTX_free);
+  std::vector<std::string> warnings;
+  auto ctx = std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>(SSL_CTX_new(SSLv23_server_method()), SSL_CTX_free);
+
+  if (!ctx) {
+    throw pdns::OpenSSL::error("Error creating an OpenSSL server context");
+  }
 
   int sslOptions =
     SSL_OP_NO_SSLv2 |
@@ -726,6 +863,12 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
 #ifdef HAVE_SSL_CTX_SET_NUM_TICKETS
     SSL_CTX_set_num_tickets(ctx.get(), 0);
 #endif /* HAVE_SSL_CTX_SET_NUM_TICKETS */
+  }
+
+  if (config.d_ktls) {
+#ifdef SSL_OP_ENABLE_KTLS
+    sslOptions |= SSL_OP_ENABLE_KTLS;
+#endif /* SSL_OP_ENABLE_KTLS */
   }
 
   if (config.d_sessionTimeout > 0) {
@@ -746,6 +889,10 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
     sslOptions |= SSL_OP_NO_CLIENT_RENEGOTIATION;
 #endif
   }
+
+#ifdef SSL_OP_IGNORE_UNEXPECTED_EOF
+  sslOptions |= SSL_OP_IGNORE_UNEXPECTED_EOF;
+#endif
 
   SSL_CTX_set_options(ctx.get(), sslOptions);
   if (!libssl_set_min_tls_version(ctx, config.d_minTLSVersion)) {
@@ -777,7 +924,7 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
 #ifdef SSL_MODE_ASYNC
     mode |= SSL_MODE_ASYNC;
 #else
-    cerr<<"Warning: TLS async mode requested but not supported"<<endl;
+    warnings.push_back("Warning: TLS async mode requested but not supported");
 #endif
   }
 
@@ -792,7 +939,7 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
   /* load certificate and private key */
   for (const auto& pair : config.d_certKeyPairs) {
     if (!pair.d_key) {
-#if defined(HAVE_SSL_CTX_USE_CERT_AND_KEY) && HAVE_SSL_CTX_USE_CERT_AND_KEY == 1
+#if defined(HAVE_SSL_CTX_USE_CERT_AND_KEY)
       // If no separate key is given, treat it as a pkcs12 file
       auto fp = std::unique_ptr<FILE, int(*)(FILE*)>(fopen(pair.d_cert.c_str(), "r"), fclose);
       if (!fp) {
@@ -805,10 +952,30 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
       EVP_PKEY *keyptr = nullptr;
       X509 *certptr = nullptr;
       STACK_OF(X509) *captr = nullptr;
-      if (!PKCS12_parse(p12.get(), (pair.d_password ? pair.d_password->c_str() : nullptr), &keyptr, &certptr, &captr))
-      {
-        ERR_print_errors_fp(stderr);
-        throw std::runtime_error("An error occured while parsing PKCS12 file " + pair.d_cert);
+      if (!PKCS12_parse(p12.get(), (pair.d_password ? pair.d_password->c_str() : nullptr), &keyptr, &certptr, &captr)) {
+#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
+        bool failed = true;
+        /* we might be opening a PKCS12 file that uses RC2 CBC or 3DES CBC which, since OpenSSL 3.0.0, requires loading the legacy provider */
+        auto libCtx = OSSL_LIB_CTX_get0_global_default();
+        /* check whether the legacy provider is already loaded */
+        if (!OSSL_PROVIDER_available(libCtx, "legacy")) {
+          /* it's not */
+          auto provider = OSSL_PROVIDER_load(libCtx, "legacy");
+          if (provider != nullptr) {
+            if (PKCS12_parse(p12.get(), (pair.d_password ? pair.d_password->c_str() : nullptr), &keyptr, &certptr, &captr)) {
+              failed = false;
+            }
+            /* we do not want to keep that provider around after that */
+            OSSL_PROVIDER_unload(provider);
+          }
+        }
+        if (failed) {
+#endif /* defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3 */
+          ERR_print_errors_fp(stderr);
+          throw std::runtime_error("An error occured while parsing PKCS12 file " + pair.d_cert);
+#if defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3
+        }
+#endif /* defined(OPENSSL_VERSION_MAJOR) && OPENSSL_VERSION_MAJOR >= 3 */
       }
       auto key = std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(keyptr, EVP_PKEY_free);
       auto cert = std::unique_ptr<X509, void(*)(X509*)>(certptr, X509_free);
@@ -843,14 +1010,16 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
     keyTypes.push_back(keyType);
  }
 
+#ifndef DISABLE_OCSP_STAPLING
   if (!config.d_ocspFiles.empty()) {
     try {
-      ocspResponses = libssl_load_ocsp_responses(config.d_ocspFiles, keyTypes);
+      ocspResponses = libssl_load_ocsp_responses(config.d_ocspFiles, std::move(keyTypes), warnings);
     }
     catch(const std::exception& e) {
       throw std::runtime_error("Unable to load OCSP responses: " + std::string(e.what()));
     }
   }
+#endif /* DISABLE_OCSP_STAPLING */
 
   if (!config.d_ciphers.empty() && SSL_CTX_set_cipher_list(ctx.get(), config.d_ciphers.c_str()) != 1) {
     throw std::runtime_error("The TLS ciphers could not be set: " + config.d_ciphers);
@@ -862,7 +1031,7 @@ std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)> libssl_init_server_context(const TLS
   }
 #endif /* HAVE_SSL_CTX_SET_CIPHERSUITES */
 
-  return ctx;
+  return {std::move(ctx), std::move(warnings)};
 }
 
 #ifdef HAVE_SSL_CTX_SET_KEYLOG_CALLBACK
@@ -883,7 +1052,7 @@ static void libssl_key_log_file_callback(const SSL* ssl, const char* line)
 }
 #endif /* HAVE_SSL_CTX_SET_KEYLOG_CALLBACK */
 
-std::unique_ptr<FILE, int(*)(FILE*)> libssl_set_key_log_file(std::unique_ptr<SSL_CTX, void(*)(SSL_CTX*)>& ctx, const std::string& logFile)
+std::unique_ptr<FILE, int(*)(FILE*)> libssl_set_key_log_file(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>& ctx, const std::string& logFile)
 {
 #ifdef HAVE_SSL_CTX_SET_KEYLOG_CALLBACK
   int fd = open(logFile.c_str(),  O_WRONLY | O_CREAT | O_APPEND, 0600);
@@ -907,12 +1076,14 @@ std::unique_ptr<FILE, int(*)(FILE*)> libssl_set_key_log_file(std::unique_ptr<SSL
 }
 
 /* called in a client context, if the client advertised more than one ALPN values and the server returned more than one as well, to select the one to use. */
+#ifndef DISABLE_NPN
 void libssl_set_npn_select_callback(SSL_CTX* ctx, int (*cb)(SSL* s, unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg), void* arg)
 {
 #ifdef HAVE_SSL_CTX_SET_NEXT_PROTO_SELECT_CB
   SSL_CTX_set_next_proto_select_cb(ctx, cb, arg);
 #endif
 }
+#endif /* DISABLE_NPN */
 
 void libssl_set_alpn_select_callback(SSL_CTX* ctx, int (*cb)(SSL* s, const unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg), void* arg)
 {

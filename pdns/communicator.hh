@@ -44,13 +44,13 @@ using namespace boost::multi_index;
 struct SuckRequest
 {
   DNSName domain;
-  ComboAddress master;
+  ComboAddress primary;
   bool force;
   enum RequestPriority : uint8_t { PdnsControl, Api, Notify, SerialRefresh, SignaturesRefresh };
   std::pair<RequestPriority, uint64_t> priorityAndOrder;
   bool operator<(const SuckRequest& b) const
   {
-    return std::tie(domain, master) < std::tie(b.domain, b.master);
+    return std::tie(domain, primary) < std::tie(b.domain, b.primary);
   }
 };
 
@@ -82,14 +82,11 @@ public:
     d_nqueue.push_back(nr);
   }
 
-  bool removeIf(const string &remote, uint16_t id, const DNSName &domain)
+  bool removeIf(const ComboAddress& remote, uint16_t id, const DNSName& domain)
   {
-    ServiceTuple stRemote, stQueued;
-    parseService(remote, stRemote);
-
-    for(d_nqueue_t::iterator i=d_nqueue.begin(); i!=d_nqueue.end(); ++i) {
-      parseService(i->ip, stQueued);
-      if(i->id==id && stQueued.host == stRemote.host && i->domain==domain) {
+    for (auto i = d_nqueue.begin(); i != d_nqueue.end(); ++i) {
+      ComboAddress stQueued{i->ip};
+      if (i->id == id && stQueued == remote && i->domain == domain) {
         d_nqueue.erase(i);
         return true;
       }
@@ -99,7 +96,7 @@ public:
 
   bool getOne(DNSName &domain, string &ip, uint16_t *id, bool &purged)
   {
-    for(d_nqueue_t::iterator i=d_nqueue.begin();i!=d_nqueue.end();++i) 
+    for(d_nqueue_t::iterator i=d_nqueue.begin();i!=d_nqueue.end();++i)
       if(i->next <= time(0)) {
         i->attempts++;
         purged=false;
@@ -119,8 +116,8 @@ public:
 
   time_t earliest()
   {
-    time_t early=std::numeric_limits<time_t>::max() - 1; 
-    for(d_nqueue_t::const_iterator i=d_nqueue.begin();i!=d_nqueue.end();++i) 
+    time_t early=std::numeric_limits<time_t>::max() - 1;
+    for(d_nqueue_t::const_iterator i=d_nqueue.begin();i!=d_nqueue.end();++i)
       early=min(early,i->next);
     return early-time(0);
   }
@@ -150,23 +147,23 @@ struct ZoneStatus;
 class CommunicatorClass
 {
 public:
-  CommunicatorClass() 
+  CommunicatorClass()
   {
     d_tickinterval=60;
-    d_masterschanged=d_slaveschanged=true;
+    d_secondarieschanged = true;
     d_nsock4 = -1;
     d_nsock6 = -1;
     d_preventSelfNotification = false;
   }
   time_t doNotifications(PacketHandler *P);
   void go();
-  
-  
+
+
   void drillHole(const DNSName &domain, const string &ip);
   bool justNotified(const DNSName &domain, const string &ip);
-  void addSuckRequest(const DNSName &domain, const ComboAddress& master, SuckRequest::RequestPriority, bool force=false);
-  void addSlaveCheckRequest(const DomainInfo& di, const ComboAddress& remote);
-  void addTrySuperMasterRequest(const DNSPacket& p);
+  void addSuckRequest(const DNSName& domain, const ComboAddress& primary, SuckRequest::RequestPriority, bool force = false);
+  void addSecondaryCheckRequest(const DomainInfo& di, const ComboAddress& remote);
+  void addTryAutoPrimaryRequest(const DNSPacket& p);
   void notify(const DNSName &domain, const string &ip);
   void mainloop();
   void retrievalLoopThread();
@@ -182,11 +179,11 @@ private:
   LockGuarded<map<pair<DNSName,string>,time_t>> d_holes;
 
   void suck(const DNSName &domain, const ComboAddress& remote, bool force=false);
-  void ixfrSuck(const DNSName &domain, const TSIGTriplet& tt, const ComboAddress& laddr, const ComboAddress& remote, std::unique_ptr<AuthLua4>& pdl,
-                ZoneStatus& zs, vector<DNSRecord>* axfr);
+  void ixfrSuck(const DNSName& domain, const TSIGTriplet& tt, const ComboAddress& laddr, const ComboAddress& remote, ZoneStatus& zs, vector<DNSRecord>* axfr);
 
-  void slaveRefresh(PacketHandler *P);
-  void masterUpdateCheck(PacketHandler *P);
+  void secondaryRefresh(PacketHandler* P);
+  void primaryUpdateCheck(PacketHandler* P);
+  void getUpdatedProducers(UeberBackend* B, vector<DomainInfo>& domains, const std::unordered_set<DNSName>& catalogs, CatalogHashMap& catalogHashes);
 
   Semaphore d_suck_sem;
   Semaphore d_any_sem;
@@ -196,7 +193,7 @@ private:
   NotificationQueue d_nq;
 
   time_t d_tickinterval;
-  bool d_masterschanged, d_slaveschanged;
+  bool d_secondarieschanged;
   bool d_preventSelfNotification;
 
   struct Data
@@ -212,12 +209,12 @@ private:
       };
     };
 
-    std::set<DNSPacket, cmp> d_potentialsupermasters;
+    std::set<DNSPacket, cmp> d_potentialautoprimaries;
 
     // Used to keep some state on domains that failed their freshness checks.
     // uint64_t == counter of the number of failures (increased by 1 every consecutive slave-cycle-interval that the domain fails)
     // time_t == wait at least until this time before attempting a new check
-    map<DNSName, pair<uint64_t, time_t> > d_failedSlaveRefresh;
+    map<DNSName, pair<uint64_t, time_t>> d_failedSecondaryRefresh;
   };
 
   LockGuarded<Data> d_data;
@@ -226,7 +223,7 @@ private:
   {
     explicit RemoveSentinel(const DNSName& dn, CommunicatorClass* cc) : d_dn(dn), d_cc(cc)
     {}
-    
+
     ~RemoveSentinel()
     {
       try {
@@ -250,13 +247,13 @@ public:
     vector<string> addresses;
 
     this->resolve_name(&addresses, name);
-    
+
     if(b) {
         b->lookup(QType(QType::ANY),name,-1);
         DNSZoneRecord rr;
         while(b->get(rr))
           if(rr.dr.d_type == QType::A || rr.dr.d_type==QType::AAAA)
-            addresses.push_back(rr.dr.d_content->getZoneRepresentation());   // SOL if you have a CNAME for an NS
+            addresses.push_back(rr.dr.getContent()->getZoneRepresentation());   // SOL if you have a CNAME for an NS
     }
     return addresses;
   }

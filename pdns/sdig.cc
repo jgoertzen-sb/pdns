@@ -6,6 +6,7 @@
 #include "dnswriter.hh"
 #include "ednsoptions.hh"
 #include "ednssubnet.hh"
+#include "ednsextendederror.hh"
 #include "misc.hh"
 #include "proxy-protocol.hh"
 #include "sstuff.hh"
@@ -22,7 +23,6 @@ StatBag S;
 
 // Vars below used by tcpiohandler.cc
 bool g_verbose = true;
-bool g_syslog = false;
 
 static bool hidettl = false;
 
@@ -57,7 +57,7 @@ static const string nameForClass(QClass qclass, uint16_t qtype)
 static std::unordered_set<uint16_t> s_expectedIDs;
 
 static void fillPacket(vector<uint8_t>& packet, const string& q, const string& t,
-                       bool dnssec, const boost::optional<Netmask> ednsnm,
+                       bool dnssec, const boost::optional<Netmask>& ednsnm,
                        bool recurse, uint16_t xpfcode, uint16_t xpfversion,
                        uint64_t xpfproto, char* xpfsrc, char* xpfdst,
                        QClass qclass, uint8_t opcode, uint16_t qid)
@@ -121,27 +121,27 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
   for (MOADNSParser::answers_t::const_iterator i = mdp.d_answers.begin();
        i != mdp.d_answers.end(); ++i) {
     cout << i->first.d_place - 1 << "\t" << i->first.d_name.toString() << "\t"
-         << nameForClass(i->first.d_class, i->first.d_type) << "\t"
+         << ttl(i->first.d_ttl) << "\t" << nameForClass(i->first.d_class, i->first.d_type) << "\t"
          << DNSRecordContent::NumberToType(i->first.d_type);
     if (dumpluaraw) {
-      cout<<"\t"<< makeLuaString(i->first.d_content->serialize(DNSName(), true))<<endl;
+      cout<<"\t"<< makeLuaString(i->first.getContent()->serialize(DNSName(), true))<<endl;
       continue;
     }
     if (i->first.d_class == QClass::IN) {
       if (i->first.d_type == QType::RRSIG) {
-        string zoneRep = i->first.d_content->getZoneRepresentation();
+        string zoneRep = i->first.getContent()->getZoneRepresentation();
         vector<string> parts;
         stringtok(parts, zoneRep);
-        cout << "\t" << ttl(i->first.d_ttl) << "\t" << parts[0] << " "
+        cout << "\t" << parts[0] << " "
              << parts[1] << " " << parts[2] << " " << parts[3]
              << " [expiry] [inception] [keytag] " << parts[7] << " ...\n";
         continue;
       }
       if (!showflags && i->first.d_type == QType::NSEC3) {
-        string zoneRep = i->first.d_content->getZoneRepresentation();
+        string zoneRep = i->first.getContent()->getZoneRepresentation();
         vector<string> parts;
         stringtok(parts, zoneRep);
-        cout << "\t" << ttl(i->first.d_ttl) << "\t" << parts[0] << " [flags] "
+        cout << "\t" << parts[0] << " [flags] "
              << parts[2] << " " << parts[3] << " " << parts[4];
         for (vector<string>::iterator iter = parts.begin() + 5;
              iter != parts.end(); ++iter)
@@ -150,25 +150,24 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
         continue;
       }
       if (i->first.d_type == QType::DNSKEY) {
-        string zoneRep = i->first.d_content->getZoneRepresentation();
+        string zoneRep = i->first.getContent()->getZoneRepresentation();
         vector<string> parts;
         stringtok(parts, zoneRep);
-        cout << "\t" << ttl(i->first.d_ttl) << "\t" << parts[0] << " "
+        cout << "\t" << parts[0] << " "
              << parts[1] << " " << parts[2] << " ...\n";
         continue;
       }
       if (i->first.d_type == QType::SOA && hidesoadetails) {
-        string zoneRep = i->first.d_content->getZoneRepresentation();
+        string zoneRep = i->first.getContent()->getZoneRepresentation();
         vector<string> parts;
         stringtok(parts, zoneRep);
-        cout << "\t" << ttl(i->first.d_ttl) << "\t" << parts[0] << " "
+        cout << "\t" << parts[0] << " "
              << parts[1] << " [serial] " << parts[3] << " " << parts[4] << " "
              << parts[5] << " " << parts[6] << "\n";
         continue;
       }
     }
-    cout << "\t" << ttl(i->first.d_ttl) << "\t"
-         << i->first.d_content->getZoneRepresentation() << "\n";
+    cout << "\t" << i->first.getContent()->getZoneRepresentation() << "\n";
   }
 
   EDNSOpts edo;
@@ -186,6 +185,11 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
         }
       } else if (iter->first == EDNSOptionCode::PADDING) {
         cerr << "EDNS Padding size: " << (iter->second.size()) << endl;
+      } else if (iter->first == EDNSOptionCode::EXTENDEDERROR) {
+        EDNSExtendedError eee;
+        if (getEDNSExtendedErrorOptFromString(iter->second, eee)) {
+          cerr << "EDNS Extended Error response: " << eee.infoCode << "/" << eee.extraText << endl;
+        }
       } else {
         cerr << "Have unknown option " << (int)iter->first << endl;
       }
@@ -418,7 +422,7 @@ try {
     Socket sock(dest.sin4.sin_family, SOCK_STREAM);
     sock.setNonBlocking();
     setTCPNoDelay(sock.getHandle()); // disable NAGLE, which does not play nicely with delayed ACKs
-    TCPIOHandler handler(subjectName, sock.releaseHandle(), timeout, tlsCtx, time(nullptr));
+    TCPIOHandler handler(subjectName, false, sock.releaseHandle(), timeout, std::move(tlsCtx));
     handler.connect(fastOpen, dest, timeout);
     // we are writing the proxyheader inside the TLS connection. Is that right?
     if (proxyheader.size() > 0 && handler.write(proxyheader.data(), proxyheader.size(), timeout) != proxyheader.size()) {

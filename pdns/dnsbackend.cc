@@ -19,6 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include <memory>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -111,20 +112,17 @@ vector<string> BackendMakerClass::getModules()
 
 void BackendMakerClass::load_all()
 {
-  // TODO: Implement this?
-  DIR *dir=opendir(arg()["module-dir"].c_str());
-  if(!dir) {
-    g_log<<Logger::Error<<"Unable to open module directory '"<<arg()["module-dir"]<<"'"<<endl;
-    return;
+  auto directoryError = pdns::visit_directory(arg()["module-dir"], [this]([[maybe_unused]] ino_t inodeNumber, const std::string_view& name) {
+    if (boost::starts_with(name, "lib") &&
+        name.size() > 13 &&
+        boost::ends_with(name, "backend.so")) {
+      load(std::string(name));
+    }
+    return true;
+  });
+  if (directoryError) {
+    g_log<<Logger::Error<<"Unable to open module directory '"<<arg()["module-dir"]<<"': "<<*directoryError<<endl;
   }
-  struct dirent *entry;
-  while((entry=readdir(dir))) {
-    if(!strncmp(entry->d_name,"lib",3) &&
-       strlen(entry->d_name)>13 &&
-       !strcmp(entry->d_name+strlen(entry->d_name)-10,"backend.so"))
-      load(entry->d_name);
-  }
-  closedir(dir);
 }
 
 void BackendMakerClass::load(const string &module)
@@ -180,45 +178,37 @@ size_t BackendMakerClass::numLauncheable() const
   return d_instances.size();
 }
 
-vector<DNSBackend *> BackendMakerClass::all(bool metadataOnly)
+vector<std::unique_ptr<DNSBackend>> BackendMakerClass::all(bool metadataOnly)
 {
-  vector<DNSBackend *> ret;
-  if(d_instances.empty())
+  if(d_instances.empty()) {
     throw PDNSException("No database backends configured for launch, unable to function");
+  }
 
+  vector<unique_ptr<DNSBackend>> ret;
   ret.reserve(d_instances.size());
+
+  std::string current; // to make the exception text more useful
 
   try {
     for (const auto& instance : d_instances) {
-      DNSBackend *made = nullptr;
-
-      if (metadataOnly) {
-        made = d_repository[instance.first]->makeMetadataOnly(instance.second);
-      }
-      else {
-        made = d_repository[instance.first]->make(instance.second);
-      }
-
-      if (!made) {
+      current = instance.first + instance.second;
+      auto* repo = d_repository[instance.first];
+      std::unique_ptr<DNSBackend> made{metadataOnly ? repo->makeMetadataOnly(instance.second) : repo->make(instance.second)};
+      if (made == nullptr) {
         throw PDNSException("Unable to launch backend '" + instance.first + "'");
       }
-
-      ret.push_back(made);
+      ret.push_back(std::move(made));
     }
   }
   catch(const PDNSException &ae) {
-    g_log<<Logger::Error<<"Caught an exception instantiating a backend: "<<ae.reason<<endl;
-    g_log<<Logger::Error<<"Cleaning up"<<endl;
-    for (auto i : ret) {
-      delete i;
-    }
+    g_log << Logger::Error << "Caught an exception instantiating a backend (" << current << "): " << ae.reason << endl;
+    g_log << Logger::Error << "Cleaning up" << endl;
+    ret.clear();
     throw;
   } catch(...) {
     // and cleanup
-    g_log<<Logger::Error<<"Caught an exception instantiating a backend, cleaning up"<<endl;
-    for (auto i : ret) {
-      delete i;
-    }
+    g_log << Logger::Error << "Caught an exception instantiating a backend (" << current << "), cleaning up" << endl;
+    ret.clear();
     throw;
   }
 
@@ -304,7 +294,7 @@ bool DNSBackend::getBeforeAndAfterNames(uint32_t id, const DNSName& zonename, co
   return ret;
 }
 
-void DNSBackend::getAllDomains(vector<DomainInfo>* domains, bool getSerial, bool include_disabled)
+void DNSBackend::getAllDomains(vector<DomainInfo>* /* domains */, bool /* getSerial */, bool /* include_disabled */)
 {
   if (g_zoneCache.isEnabled()) {
     g_log << Logger::Error << "One of the backends does not support zone caching. Put zone-cache-refresh-interval=0 in the config file to disable this cache." << endl;
@@ -319,7 +309,7 @@ void fillSOAData(const DNSZoneRecord& in, SOAData& sd)
 
   auto src=getRR<SOARecordContent>(in.dr);
   sd.nameserver = src->d_mname;
-  sd.hostmaster = src->d_rname;
+  sd.rname = src->d_rname;
   sd.serial = src->d_st.serial;
   sd.refresh = src->d_st.refresh;
   sd.retry = src->d_st.retry;
@@ -335,7 +325,7 @@ std::shared_ptr<DNSRecordContent> makeSOAContent(const SOAData& sd)
     st.retry = sd.retry;
     st.expire = sd.expire;
     st.minimum = sd.minimum;
-    return std::make_shared<SOARecordContent>(sd.nameserver, sd.hostmaster, st);
+    return std::make_shared<SOARecordContent>(sd.nameserver, sd.rname, st);
 }
 
 void fillSOAData(const string &content, SOAData &data)
@@ -346,12 +336,12 @@ void fillSOAData(const string &content, SOAData &data)
 
   try {
     data.nameserver = DNSName(parts.at(0));
-    data.hostmaster = DNSName(parts.at(1));
-    data.serial = pdns_stou(parts.at(2).c_str());
-    data.refresh = pdns_stou(parts.at(3).c_str());
-    data.retry = pdns_stou(parts.at(4).c_str());
-    data.expire = pdns_stou(parts.at(5).c_str());
-    data.minimum = pdns_stou(parts.at(6).c_str());
+    data.rname = DNSName(parts.at(1));
+    pdns::checked_stoi_into(data.serial, parts.at(2));
+    pdns::checked_stoi_into(data.refresh, parts.at(3));
+    pdns::checked_stoi_into(data.retry, parts.at(4));
+    pdns::checked_stoi_into(data.expire, parts.at(5));
+    pdns::checked_stoi_into(data.minimum, parts.at(6));
   }
   catch(const std::out_of_range& oor) {
     throw PDNSException("Out of range exception parsing '" + content + "'");

@@ -21,44 +21,58 @@
  */
 #pragma once
 
+#ifndef DISABLE_DYNBLOCKS
 #include <unordered_set>
 
 #include "dolog.hh"
 #include "dnsdist-rings.hh"
 #include "statnode.hh"
 
-#include "dnsdist-lua-inspection-ffi.hh"
+extern "C"
+{
+#include "dnsdist-lua-inspection-ffi.h"
+}
 
 // dnsdist_ffi_stat_node_t is a lightuserdata
-template<>
-struct LuaContext::Pusher<dnsdist_ffi_stat_node_t*> {
-    static const int minSize = 1;
-    static const int maxSize = 1;
+template <>
+struct LuaContext::Pusher<dnsdist_ffi_stat_node_t*>
+{
+  static const int minSize = 1;
+  static const int maxSize = 1;
 
-    static PushedObject push(lua_State* state, dnsdist_ffi_stat_node_t* ptr) noexcept {
-        lua_pushlightuserdata(state, ptr);
-        return PushedObject{state, 1};
-    }
+  static PushedObject push(lua_State* state, dnsdist_ffi_stat_node_t* ptr) noexcept
+  {
+    lua_pushlightuserdata(state, ptr);
+    return PushedObject{state, 1};
+  }
 };
 
-typedef std::function<bool(dnsdist_ffi_stat_node_t*)> dnsdist_ffi_stat_node_visitor_t;
+using dnsdist_ffi_stat_node_visitor_t = std::function<bool(dnsdist_ffi_stat_node_t*)>;
+
+struct SMTBlockParameters
+{
+  std::optional<std::string> d_reason;
+  std::optional<DNSAction::Action> d_action;
+};
 
 struct dnsdist_ffi_stat_node_t
 {
-  dnsdist_ffi_stat_node_t(const StatNode& node_, const StatNode::Stat& self_, const StatNode::Stat& children_, std::optional<std::string>& reason_): node(node_), self(self_), children(children_), reason(reason_)
+  dnsdist_ffi_stat_node_t(const StatNode& node_, const StatNode::Stat& self_, const StatNode::Stat& children_, SMTBlockParameters& blockParameters) :
+    node(node_), self(self_), children(children_), d_blockParameters(blockParameters)
   {
   }
 
   const StatNode& node;
   const StatNode::Stat& self;
   const StatNode::Stat& children;
-  std::optional<std::string>& reason;
+  SMTBlockParameters& d_blockParameters;
 };
+
+using dnsdist_ffi_dynamic_block_inserted_hook = std::function<void(uint8_t type, const char* key, const char* reason, uint8_t action, uint64_t duration, bool warning)>;
 
 class DynBlockRulesGroup
 {
 private:
-
   struct Counts
   {
     std::map<uint8_t, uint64_t> d_rcodeCounts;
@@ -66,83 +80,27 @@ private:
     uint64_t queries{0};
     uint64_t responses{0};
     uint64_t respBytes{0};
+    uint64_t cacheMisses{0};
   };
 
   struct DynBlockRule
   {
-    DynBlockRule(): d_enabled(false)
+    DynBlockRule() = default;
+    DynBlockRule(const std::string& blockReason, unsigned int blockDuration, unsigned int rate, unsigned int warningRate, unsigned int seconds, DNSAction::Action action) :
+      d_blockReason(blockReason), d_blockDuration(blockDuration), d_rate(rate), d_warningRate(warningRate), d_seconds(seconds), d_action(action), d_enabled(true)
     {
     }
 
-    DynBlockRule(const std::string& blockReason, unsigned int blockDuration, unsigned int rate, unsigned int warningRate, unsigned int seconds, DNSAction::Action action): d_blockReason(blockReason), d_blockDuration(blockDuration), d_rate(rate), d_warningRate(warningRate), d_seconds(seconds), d_action(action), d_enabled(true)
-    {
-    }
-
-    bool matches(const struct timespec& when)
-    {
-      if (!d_enabled) {
-        return false;
-      }
-
-      if (d_seconds && when < d_cutOff) {
-        return false;
-      }
-
-      if (when < d_minTime) {
-        d_minTime = when;
-      }
-
-      return true;
-    }
-
-    bool rateExceeded(unsigned int count, const struct timespec& now) const
-    {
-      if (!d_enabled) {
-        return false;
-      }
-
-      double delta = d_seconds ? d_seconds : DiffTime(now, d_minTime);
-      double limit = delta * d_rate;
-      return (count > limit);
-    }
-
-    bool warningRateExceeded(unsigned int count, const struct timespec& now) const
-    {
-      if (!d_enabled) {
-        return false;
-      }
-
-      if (d_warningRate == 0) {
-        return false;
-      }
-
-      double delta = d_seconds ? d_seconds : DiffTime(now, d_minTime);
-      double limit = delta * d_warningRate;
-      return (count > limit);
-    }
+    bool matches(const struct timespec& when);
+    bool rateExceeded(unsigned int count, const struct timespec& now) const;
+    bool warningRateExceeded(unsigned int count, const struct timespec& now) const;
 
     bool isEnabled() const
     {
       return d_enabled;
     }
 
-    std::string toString() const
-    {
-      if (!isEnabled()) {
-        return "";
-      }
-
-      std::stringstream result;
-      if (d_action != DNSAction::Action::None) {
-        result << DNSAction::typeToString(d_action) << " ";
-      }
-      else {
-        result << "Apply the global DynBlock action ";
-      }
-      result << "for " << std::to_string(d_blockDuration) << " seconds when over " << std::to_string(d_rate) << " during the last " << d_seconds << " seconds, reason: '" << d_blockReason << "'";
-
-      return result.str();
-    }
+    std::string toString() const;
 
     std::string d_blockReason;
     struct timespec d_cutOff;
@@ -155,119 +113,97 @@ private:
     bool d_enabled{false};
   };
 
-  struct DynBlockRatioRule: DynBlockRule
+  struct DynBlockRatioRule : DynBlockRule
   {
-    DynBlockRatioRule(): DynBlockRule()
+    DynBlockRatioRule() = default;
+    DynBlockRatioRule(const std::string& blockReason, unsigned int blockDuration, double ratio, double warningRatio, unsigned int seconds, DNSAction::Action action, size_t minimumNumberOfResponses) :
+      DynBlockRule(blockReason, blockDuration, 0, 0, seconds, action), d_minimumNumberOfResponses(minimumNumberOfResponses), d_ratio(ratio), d_warningRatio(warningRatio)
     {
     }
 
-    DynBlockRatioRule(const std::string& blockReason, unsigned int blockDuration, double ratio, double warningRatio, unsigned int seconds, DNSAction::Action action, size_t minimumNumberOfResponses): DynBlockRule(blockReason, blockDuration, 0, 0, seconds, action), d_minimumNumberOfResponses(minimumNumberOfResponses), d_ratio(ratio), d_warningRatio(warningRatio)
-    {
-    }
-
-    bool ratioExceeded(unsigned int total, unsigned int count) const
-    {
-      if (!d_enabled) {
-        return false;
-      }
-
-      if (total < d_minimumNumberOfResponses) {
-        return false;
-      }
-
-      double allowed = d_ratio * static_cast<double>(total);
-      return (count > allowed);
-    }
-
-    bool warningRatioExceeded(unsigned int total, unsigned int count) const
-    {
-      if (!d_enabled) {
-        return false;
-      }
-
-      if (d_warningRatio == 0.0) {
-        return false;
-      }
-
-      if (total < d_minimumNumberOfResponses) {
-        return false;
-      }
-
-      double allowed = d_warningRatio * static_cast<double>(total);
-      return (count > allowed);
-    }
-
-    std::string toString() const
-    {
-      if (!isEnabled()) {
-        return "";
-      }
-
-      std::stringstream result;
-      if (d_action != DNSAction::Action::None) {
-        result << DNSAction::typeToString(d_action) << " ";
-      }
-      else {
-        result << "Apply the global DynBlock action ";
-      }
-      result << "for " << std::to_string(d_blockDuration) << " seconds when over " << std::to_string(d_ratio) << " ratio during the last " << d_seconds << " seconds, reason: '" << d_blockReason << "'";
-
-      return result.str();
-    }
+    bool ratioExceeded(unsigned int total, unsigned int count) const;
+    bool warningRatioExceeded(unsigned int total, unsigned int count) const;
+    std::string toString() const;
 
     size_t d_minimumNumberOfResponses{0};
     double d_ratio{0.0};
     double d_warningRatio{0.0};
   };
 
-  typedef std::unordered_map<AddressAndPortRange, Counts, AddressAndPortRange::hash> counts_t;
+  struct DynBlockCacheMissRatioRule : public DynBlockRatioRule
+  {
+    DynBlockCacheMissRatioRule() = default;
+    DynBlockCacheMissRatioRule(const std::string& blockReason, unsigned int blockDuration, double ratio, double warningRatio, unsigned int seconds, DNSAction::Action action, size_t minimumNumberOfResponses, double minimumGlobalCacheHitRatio) :
+      DynBlockRatioRule(blockReason, blockDuration, ratio, warningRatio, seconds, action, minimumNumberOfResponses), d_minimumGlobalCacheHitRatio(minimumGlobalCacheHitRatio)
+    {
+    }
+
+    bool checkGlobalCacheHitRatio() const;
+    bool ratioExceeded(unsigned int total, unsigned int count) const;
+    bool warningRatioExceeded(unsigned int total, unsigned int count) const;
+    std::string toString() const;
+
+    double d_minimumGlobalCacheHitRatio{0.0};
+  };
+
+  using counts_t = std::unordered_map<AddressAndPortRange, Counts, AddressAndPortRange::hash>;
 
 public:
   DynBlockRulesGroup()
   {
   }
 
-  void setQueryRate(unsigned int rate, unsigned int warningRate, unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action)
+  void setQueryRate(unsigned int rate, unsigned int warningRate, unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action)
   {
     d_queryRateRule = DynBlockRule(reason, blockDuration, rate, warningRate, seconds, action);
   }
 
   /* rate is in bytes per second */
-  void setResponseByteRate(unsigned int rate, unsigned int warningRate, unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action)
+  void setResponseByteRate(unsigned int rate, unsigned int warningRate, unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action)
   {
     d_respRateRule = DynBlockRule(reason, blockDuration, rate, warningRate, seconds, action);
   }
 
-  void setRCodeRate(uint8_t rcode, unsigned int rate, unsigned int warningRate, unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action)
+  void setRCodeRate(uint8_t rcode, unsigned int rate, unsigned int warningRate, unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action)
   {
     auto& entry = d_rcodeRules[rcode];
     entry = DynBlockRule(reason, blockDuration, rate, warningRate, seconds, action);
   }
 
-  void setRCodeRatio(uint8_t rcode, double ratio, double warningRatio, unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action, size_t minimumNumberOfResponses)
+  void setRCodeRatio(uint8_t rcode, double ratio, double warningRatio, unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action, size_t minimumNumberOfResponses)
   {
     auto& entry = d_rcodeRatioRules[rcode];
     entry = DynBlockRatioRule(reason, blockDuration, ratio, warningRatio, seconds, action, minimumNumberOfResponses);
   }
 
-  void setQTypeRate(uint16_t qtype, unsigned int rate, unsigned int warningRate, unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action)
+  void setQTypeRate(uint16_t qtype, unsigned int rate, unsigned int warningRate, unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action)
   {
     auto& entry = d_qtypeRules[qtype];
     entry = DynBlockRule(reason, blockDuration, rate, warningRate, seconds, action);
   }
 
-  typedef std::function<std::tuple<bool, boost::optional<std::string>>(const StatNode&, const StatNode::Stat&, const StatNode::Stat&)> smtVisitor_t;
-
-  void setSuffixMatchRule(unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action, smtVisitor_t visitor)
+  void setCacheMissRatio(double ratio, double warningRatio, unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action, size_t minimumNumberOfResponses, double minimumGlobalCacheHitRatio)
   {
-    d_suffixMatchRule = DynBlockRule(reason, blockDuration, 0, 0, seconds, action);
-    d_smtVisitor = visitor;
+    d_respCacheMissRatioRule = DynBlockCacheMissRatioRule(reason, blockDuration, ratio, warningRatio, seconds, action, minimumNumberOfResponses, minimumGlobalCacheHitRatio);
   }
 
-  void setSuffixMatchRuleFFI(unsigned int seconds, std::string reason, unsigned int blockDuration, DNSAction::Action action, dnsdist_ffi_stat_node_visitor_t visitor)
+  using smtVisitor_t = std::function<std::tuple<bool, boost::optional<std::string>, boost::optional<int>>(const StatNode&, const StatNode::Stat&, const StatNode::Stat&)>;
+
+  void setSuffixMatchRule(unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action, smtVisitor_t visitor)
   {
     d_suffixMatchRule = DynBlockRule(reason, blockDuration, 0, 0, seconds, action);
-    d_smtVisitorFFI = visitor;
+    d_smtVisitor = std::move(visitor);
+  }
+
+  void setSuffixMatchRuleFFI(unsigned int seconds, const std::string& reason, unsigned int blockDuration, DNSAction::Action action, dnsdist_ffi_stat_node_visitor_t visitor)
+  {
+    d_suffixMatchRule = DynBlockRule(reason, blockDuration, 0, 0, seconds, action);
+    d_smtVisitorFFI = std::move(visitor);
+  }
+
+  void setNewBlockHook(const dnsdist_ffi_dynamic_block_inserted_hook& callback)
+  {
+    d_newBlockHook = callback;
   }
 
   void setMasks(uint8_t v4, uint8_t v6, uint8_t port)
@@ -307,6 +243,16 @@ public:
     d_excludedSubnets.addMasks(group, false);
   }
 
+  void removeRange(const Netmask& range)
+  {
+    d_excludedSubnets.deleteMask(range);
+  }
+
+  void removeRange(const NetmaskGroup& group)
+  {
+    d_excludedSubnets.deleteMasks(group);
+  }
+
   void excludeDomain(const DNSName& domain)
   {
     d_excludedDomains.add(domain);
@@ -319,6 +265,7 @@ public:
     result << "Query rate rule: " << d_queryRateRule.toString() << std::endl;
     result << "Response rate rule: " << d_respRateRule.toString() << std::endl;
     result << "SuffixMatch rule: " << d_suffixMatchRule.toString() << std::endl;
+    result << "Response cache-miss ratio rule: " << d_respCacheMissRatioRule.toString() << std::endl;
     result << "RCode rules: " << std::endl;
     for (const auto& rule : d_rcodeRules) {
       result << "- " << RCode::to_s(rule.first) << ": " << rule.second.toString() << std::endl;
@@ -342,18 +289,18 @@ public:
   }
 
 private:
-
+  void applySMT(const struct timespec& now, StatNode& statNodeRoot);
   bool checkIfQueryTypeMatches(const Rings::Query& query);
   bool checkIfResponseCodeMatches(const Rings::Response& response);
-  void addOrRefreshBlock(boost::optional<NetmaskTree<DynBlock, AddressAndPortRange> >& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const DynBlockRule& rule, bool& updated, bool warning);
+  void addOrRefreshBlock(boost::optional<NetmaskTree<DynBlock, AddressAndPortRange>>& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const DynBlockRule& rule, bool& updated, bool warning);
   void addOrRefreshBlockSMT(SuffixMatchTree<DynBlock>& blocks, const struct timespec& now, const DNSName& name, const DynBlockRule& rule, bool& updated);
 
-  void addBlock(boost::optional<NetmaskTree<DynBlock, AddressAndPortRange> >& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const DynBlockRule& rule, bool& updated)
+  void addBlock(boost::optional<NetmaskTree<DynBlock, AddressAndPortRange>>& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const DynBlockRule& rule, bool& updated)
   {
     addOrRefreshBlock(blocks, now, requestor, rule, updated, false);
   }
 
-  void handleWarning(boost::optional<NetmaskTree<DynBlock, AddressAndPortRange> >& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const DynBlockRule& rule, bool& updated)
+  void handleWarning(boost::optional<NetmaskTree<DynBlock, AddressAndPortRange>>& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const DynBlockRule& rule, bool& updated)
   {
     addOrRefreshBlock(blocks, now, requestor, rule, updated, true);
   }
@@ -365,7 +312,7 @@ private:
 
   bool hasResponseRules() const
   {
-    return d_respRateRule.isEnabled() || !d_rcodeRules.empty() || !d_rcodeRatioRules.empty();
+    return d_respRateRule.isEnabled() || !d_rcodeRules.empty() || !d_rcodeRatioRules.empty() || d_respCacheMissRatioRule.isEnabled();
   }
 
   bool hasSuffixMatchRules() const
@@ -387,10 +334,12 @@ private:
   DynBlockRule d_queryRateRule;
   DynBlockRule d_respRateRule;
   DynBlockRule d_suffixMatchRule;
+  DynBlockCacheMissRatioRule d_respCacheMissRatioRule;
   NetmaskGroup d_excludedSubnets;
   SuffixMatchNode d_excludedDomains;
   smtVisitor_t d_smtVisitor;
   dnsdist_ffi_stat_node_visitor_t d_smtVisitorFFI;
+  dnsdist_ffi_dynamic_block_inserted_hook d_newBlockHook;
   uint8_t d_v6Mask{128};
   uint8_t d_v4Mask{32};
   uint8_t d_portMask{0};
@@ -435,3 +384,10 @@ private:
   static std::list<MetricsSnapshot> s_metricsData;
   static size_t s_topN;
 };
+
+namespace dnsdist::DynamicBlocks
+{
+bool addOrRefreshBlock(NetmaskTree<DynBlock, AddressAndPortRange>& blocks, const struct timespec& now, const AddressAndPortRange& requestor, const std::string& reason, unsigned int duration, DNSAction::Action action, bool warning, bool beQuiet);
+bool addOrRefreshBlockSMT(SuffixMatchTree<DynBlock>& blocks, const struct timespec& now, const DNSName& name, const std::string& reason, unsigned int duration, DNSAction::Action action, bool beQuiet);
+}
+#endif /* DISABLE_DYNBLOCKS */
