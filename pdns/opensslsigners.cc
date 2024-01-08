@@ -1915,7 +1915,7 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std:
   string checkMsg = message;
 
   auto r = EVP_DigestVerify(mdctx.get(),
-		            reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
+                            reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
                             reinterpret_cast<unsigned char*>(&checkMsg.at(0)), checkMsg.length());
   if (r < 0) {
     throw runtime_error(getName() + " verification failure");
