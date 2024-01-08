@@ -1757,13 +1757,13 @@ class OpenSSLPQCDNSCryptoKeyEngine : public DNSCryptoKeyEngine
 {
 public:
   explicit OpenSSLPQCDNSCryptoKeyEngine(unsigned int algo) :
-    DNSCryptoKeyEngine(algo), d_pqckey(std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free))
+    DNSCryptoKeyEngine(algo), d_pqckey(std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free))
   {
     int ret = RAND_status();
     if (ret != 1) {
       throw runtime_error(getName() + " insufficient entropy");
     }
- 
+
 #ifdef HAVE_LIBCRYPTO_FALCON
     if (d_algorithm == 17) {
       d_priv_len = 1281;
@@ -1823,7 +1823,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
   if (!ctx) {
     throw runtime_error(getName() + " CTX initialisation failed");
   }
-  auto pctx = std::unique_ptr<EVP_PKEY_CTX, void(*)(EVP_PKEY_CTX*)>(ctx, EVP_PKEY_CTX_free);
+  auto pctx = std::unique_ptr<EVP_PKEY_CTX, void (*)(EVP_PKEY_CTX*)>(ctx, EVP_PKEY_CTX_free);
   if (!pctx) {
     throw runtime_error(getName() + " context initialization failed");
   }
@@ -1880,7 +1880,7 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
   if (!mdctx) {
     throw runtime_error(getName() + " MD context initialization failed");
   }
-  if(EVP_DigestSignInit(mdctx.get(), nullptr, nullptr, nullptr, d_pqckey.get()) < 1) {
+  if (EVP_DigestSignInit(mdctx.get(), nullptr, nullptr, nullptr, d_pqckey.get()) < 1) {
     throw runtime_error(getName() + " unable to initialize signer");
   }
 
@@ -1891,9 +1891,9 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
   signature.resize(siglen);
 
   if (EVP_DigestSign(mdctx.get(),
-			  reinterpret_cast<unsigned char*>(&signature.at(0)), &siglen,
-			  reinterpret_cast<unsigned char*>(&msgToSign.at(0)), msgToSign.length())
-		  < 1) {
+                      reinterpret_cast<unsigned char*>(&signature.at(0)), &siglen,
+                      reinterpret_cast<unsigned char*>(&msgToSign.at(0)), msgToSign.length())
+      < 1) {
     throw runtime_error(getName() + " signing error");
   }
   //Resize signature to enable verifying of right length
@@ -1907,7 +1907,7 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std:
   if (!mdctx) {
     throw runtime_error(getName() + " MD context initialization failed");
   }
-  if(EVP_DigestVerifyInit(mdctx.get(), nullptr, nullptr, nullptr, d_pqckey.get()) < 1) {
+  if (EVP_DigestVerifyInit(mdctx.get(), nullptr, nullptr, nullptr, d_pqckey.get()) < 1) {
     throw runtime_error(getName() + " unable to initialize signer");
   }
 
@@ -1915,8 +1915,8 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std:
   string checkMsg = message;
 
   auto r = EVP_DigestVerify(mdctx.get(),
-      reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
-      reinterpret_cast<unsigned char*>(&checkMsg.at(0)), checkMsg.length());
+		            reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
+                            reinterpret_cast<unsigned char*>(&checkMsg.at(0)), checkMsg.length());
   if (r < 0) {
     throw runtime_error(getName() + " verification failure");
   }
@@ -1961,12 +1961,12 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& conten
   if (content.length() != d_pub_len) {
     throw runtime_error(getName() + " wrong public key length for algorithm " + std::to_string(d_algorithm));
   }
-  
+
   const unsigned char* raw = reinterpret_cast<const unsigned char*>(content.c_str());
 
   d_pqckey = std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, raw, d_pub_len), EVP_PKEY_free);
   if (!d_pqckey) {
-    throw runtime_error(getName()+" allocation of public key structure failed");
+    throw runtime_error(getName() + " allocation of public key structure failed");
   }
 }
 #endif

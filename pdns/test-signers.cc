@@ -478,9 +478,10 @@ BOOST_FIXTURE_TEST_CASE(test_generic_signers, Fixture)
 }
 
 #if defined(HAVE_LIBCRYPTO_FALCON)
-BOOST_AUTO_TEST_CASE(test_falcon_signer) {
-    //TODO implement proper testing ith default value precomputed
-    BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(17));
+BOOST_AUTO_TEST_CASE(test_falcon_signer)
+{
+  //TODO implement proper testing ith default value precomputed
+  BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(17));
 }
 #endif /* defined(HAVE_LIBDECAF) || defined(HAVE_LIBCRYPTO_ED448) */
 
