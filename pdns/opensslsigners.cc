@@ -1785,14 +1785,13 @@ public:
   int getBits() const override { return d_priv_len << 3; }
 
   void create(unsigned int bits) override;
-  storvector_t convertToISCVector() const override;
-  std::string sign(const std::string& msg) const override;
-  bool verify(const std::string& msg, const std::string& signature) const override;
-  std::string getPubKeyHash() const override;
-  std::string getPublicKeyString() const override;
+  [[nodiscard]] storvector_t convertToISCVector() const override;
+  [[nodiscard]] std::string sign(const std::string& message) const override;
+  [[nodiscard]] bool verify(const std::string& message, const std::string& signature) const override;
+  [[nodiscard]] std::string getPublicKeyString() const override;
   void fromISCMap(DNSKEYRecordContent& drc, std::map<std::string, std::string>& stormap) override;
   void fromPublicKeyString(const std::string& content) override;
-  bool checkKey(vector<string> *errorMessages) const override;
+  [[nodiscard]] bool checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const override;
 
   static std::unique_ptr<DNSCryptoKeyEngine> maker(unsigned int algorithm)
   {
@@ -1808,7 +1807,7 @@ private:
   std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)> d_pqckey;
 };
 
-bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(vector<string> *errorMessages) const
+bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const
 {
   return (d_pqckey ? true : false);
 }
@@ -1920,11 +1919,6 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& msg, const std::str
   }
 
   return (r == 1);
-}
-
-std::string OpenSSLPQCDNSCryptoKeyEngine::getPubKeyHash() const
-{
-  return this->getPublicKeyString();
 }
 
 std::string OpenSSLPQCDNSCryptoKeyEngine::getPublicKeyString() const
