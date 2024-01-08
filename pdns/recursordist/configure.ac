@@ -242,9 +242,9 @@ AS_IF([test "x$LIBDECAF_LIBS" != "x" || test "x$libcrypto_ed448" = "xyes"],
   [AC_MSG_NOTICE([ed448: yes])],
   [AC_MSG_NOTICE([ed448: no])]
 )
-AS_IF([test "x$libcrypto_falcon" = "xyes"],
-  [AC_MSG_NOTICE([falcon: yes])],
-  [AC_MSG_NOTICE([falcon: no])]
+AS_IF([test "x$libcrypto_oqs" = "xyes"],
+  [AC_MSG_NOTICE([oqs: yes])],
+  [AC_MSG_NOTICE([oqs: no])]
 )
 AC_MSG_NOTICE([Protobuf: yes])
 

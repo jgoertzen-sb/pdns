@@ -1790,6 +1790,7 @@ public:
   [[nodiscard]] std::string sign(const std::string& message) const override;
   [[nodiscard]] bool verify(const std::string& message, const std::string& signature) const override;
   [[nodiscard]] std::string getPublicKeyString() const override;
+  
   void fromISCMap(DNSKEYRecordContent& drc, std::map<std::string, std::string>& stormap) override;
   void fromPublicKeyString(const std::string& content) override;
   [[nodiscard]] bool checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const override;

@@ -16,17 +16,18 @@ RUN apt-get install -y --no-install-recommends \
 
 WORKDIR /source/
 
-RUN git clone --branch fea/raw_key_support https://github.com/gothremote/openssl.git openssl
-RUN git clone --branch main https://github.com/open-quantum-safe/liboqs.git
-RUN cd liboqs && git checkout tags/0.7.1
-RUN cd liboqs && \
-    mkdir build && cd build && \
-    cmake -GNinja -DCMAKE_INSTALL_PREFIX=/source/openssl/oqs .. && \
-    ninja && \
-    ninja install
-RUN cd openssl && ./Configure no-shared no-tests linux-$(uname -m) -lm
-Run cd openssl && make
-Run cd openssl && make install
+RUN git clone --branch openssl-3.2.0 https://github.com/openssl/openssl.git /openssl-source
+RUN git clone https://github.com/open-quantum-safe/liboqs.git
+RUN mkdir /liboqs/build
+RUN cd /liboqs/build && cmake -GNinja ..
+RUN cd /liboqs/build && ninja
+RUN cd /liboqs/build && ninja install
+RUN cd /openssl-source && ./Configure -lm no-docs --libdir=lib
+RUN cd /openssl-source && make
+RUN cd /openssl-source && make install
+RUN git clone https://github.com/open-quantum-safe/oqs-provider.git
+ENV LD_LIBRARY_PATH=/usr/local/lib
+RUN cd /oqs-provider && cmake -S . -B _build && cmake --build _build && ctest --test-dir _build && cmake --install _build
 
 
 ENV NO_LUA_JIT="s390x arm64"

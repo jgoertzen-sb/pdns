@@ -91,6 +91,11 @@ AC_DEFUN([PDNS_CHECK_LIBCRYPTO], [
     fi
 
     if $found; then
+    	PKG_CHECK_MODULES([OPENSSL], [openssl >= 3.2], [
+  	AC_DEFINE([HAVE_OPENSSL], [1], [Define if OpenSSL is available and version is at least 3.2])
+	], [
+  		AC_MSG_ERROR([OpenSSL version 3.2 or newer is required but not found])
+	])
         AC_DEFINE([HAVE_LIBCRYPTO], [1], [Define to 1 if you have OpenSSL libcrypto])
     fi
 
