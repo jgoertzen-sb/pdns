@@ -1756,15 +1756,16 @@ void OpenSSLECDSADNSCryptoKeyEngine::fromPublicKeyString(const std::string& cont
 class OpenSSLPQCDNSCryptoKeyEngine : public DNSCryptoKeyEngine
 {
 public:
-  explicit OpenSSLPQCDNSCryptoKeyEngine(unsigned int algo) : DNSCryptoKeyEngine(algo), d_pqckey(std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free))
+  explicit OpenSSLPQCDNSCryptoKeyEngine(unsigned int algo) :
+    DNSCryptoKeyEngine(algo), d_pqckey(std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free))
   {
     int ret = RAND_status();
     if (ret != 1) {
-      throw runtime_error(getName()+" insufficient entropy");
+      throw runtime_error(getName() + " insufficient entropy");
     }
-    
+ 
 #ifdef HAVE_LIBCRYPTO_FALCON
-    if(d_algorithm == 17) {
+    if (d_algorithm == 17) {
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 690;
@@ -1773,7 +1774,7 @@ public:
 #endif
 
     if (d_priv_len == 0) {
-      throw runtime_error(getName()+" unknown algorithm "+std::to_string(d_algorithm));
+      throw runtime_error(getName() + " unknown algorithm " + std::to_string(d_algorithm));
     }
   }
 
@@ -1804,7 +1805,7 @@ private:
   size_t d_sig_len{0};
   int d_id{0};
 
-  std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)> d_pqckey;
+  std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)> d_pqckey;
 };
 
 bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const
@@ -1816,25 +1817,25 @@ bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper
 void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
 {
   if (bits != (d_priv_len << 3)) {
-    throw runtime_error("Keysize not supported by "+ getName());
+    throw runtime_error("Keysize not supported by " + getName());
   }
   auto ctx = EVP_PKEY_CTX_new_id(d_id, nullptr);
   if (!ctx) {
-    throw runtime_error(getName()+ " CTX initialisation failed");
+    throw runtime_error(getName() + " CTX initialisation failed");
   }
   auto pctx = std::unique_ptr<EVP_PKEY_CTX, void(*)(EVP_PKEY_CTX*)>(ctx, EVP_PKEY_CTX_free);
   if (!pctx) {
-    throw runtime_error(getName()+" context initialization failed");
+    throw runtime_error(getName() + " context initialization failed");
   }
   if (EVP_PKEY_keygen_init(pctx.get()) < 1) {
-    throw runtime_error(getName()+" keygen initialization failed");
+    throw runtime_error(getName() + " keygen initialization failed");
   }
   EVP_PKEY* newKey = nullptr;
   if (EVP_PKEY_keygen(pctx.get(), &newKey) < 1) {
-    throw runtime_error(getName()+" key generation failed");
+    throw runtime_error(getName() + " key generation failed");
   }
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(newKey, EVP_PKEY_free);
+  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(newKey, EVP_PKEY_free);
 }
 
 DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVector() const
@@ -1842,7 +1843,7 @@ DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVecto
   storvector_t storvect;
   string algorithm;
 
-  if(d_algorithm == 17) {
+  if (d_algorithm == 17) {
     algorithm = "17 (Falcon)";
   }
   else {
@@ -1875,12 +1876,12 @@ DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVecto
 
 std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
 {
-  auto mdctx = std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)>(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+  auto mdctx = std::unique_ptr<EVP_MD_CTX, void (*)(EVP_MD_CTX*)>(EVP_MD_CTX_new(), EVP_MD_CTX_free);
   if (!mdctx) {
-    throw runtime_error(getName()+" MD context initialization failed");
+    throw runtime_error(getName() + " MD context initialization failed");
   }
   if(EVP_DigestSignInit(mdctx.get(), nullptr, nullptr, nullptr, d_pqckey.get()) < 1) {
-    throw runtime_error(getName()+" unable to initialize signer");
+    throw runtime_error(getName() + " unable to initialize signer");
   }
 
   string msgToSign = message;
@@ -1890,9 +1891,10 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
   signature.resize(siglen);
 
   if (EVP_DigestSign(mdctx.get(),
-        reinterpret_cast<unsigned char*>(&signature.at(0)), &siglen,
-        reinterpret_cast<unsigned char*>(&msgToSign.at(0)), msgToSign.length()) < 1) {
-    throw runtime_error(getName()+" signing error");
+			  reinterpret_cast<unsigned char*>(&signature.at(0)), &siglen,
+			  reinterpret_cast<unsigned char*>(&msgToSign.at(0)), msgToSign.length())
+		  < 1) {
+    throw runtime_error(getName() + " signing error");
   }
   //Resize signature to enable verifying of right length
   signature.resize(siglen);
@@ -1901,12 +1903,12 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
 
 bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std::string& signature) const
 {
-  auto mdctx = std::unique_ptr<EVP_MD_CTX, void(*)(EVP_MD_CTX*)>(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+  auto mdctx = std::unique_ptr<EVP_MD_CTX, void (*)(EVP_MD_CTX*)>(EVP_MD_CTX_new(), EVP_MD_CTX_free);
   if (!mdctx) {
-    throw runtime_error(getName()+" MD context initialization failed");
+    throw runtime_error(getName() + " MD context initialization failed");
   }
   if(EVP_DigestVerifyInit(mdctx.get(), nullptr, nullptr, nullptr, d_pqckey.get()) < 1) {
-    throw runtime_error(getName()+" unable to initialize signer");
+    throw runtime_error(getName() + " unable to initialize signer");
   }
 
   string checkSignature = signature;
@@ -1916,7 +1918,7 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std:
       reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
       reinterpret_cast<unsigned char*>(&checkMsg.at(0)), checkMsg.length());
   if (r < 0) {
-    throw runtime_error(getName()+" verification failure");
+    throw runtime_error(getName() + " verification failure");
   }
 
   return (r == 1);
@@ -1937,13 +1939,14 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::getPublicKeyString() const
   return buf;
 }
 
-void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map<std::string, std::string>& stormap) {
+void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map<std::string, std::string>& stormap)
+{
   drc.d_algorithm = atoi(stormap["algorithm"].c_str());
   if (drc.d_algorithm != d_algorithm) {
-    throw runtime_error(getName()+" tried to feed an algorithm "+std::to_string(drc.d_algorithm)+" to a "+std::to_string(d_algorithm)+" key");
+    throw runtime_error(getName() + " tried to feed an algorithm " + std::to_string(drc.d_algorithm) + " to a " + std::to_string(d_algorithm) + " key");
   }
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, reinterpret_cast<unsigned char*>(&stormap["publickey"].at(0)), stormap["publickey"].length()), EVP_PKEY_free);
+  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, reinterpret_cast<unsigned char*>(&stormap["publickey"].at(0)), stormap["publickey"].length()), EVP_PKEY_free);
   if (!d_pqckey) {
     throw std::runtime_error(getName() + " could not create key structure from public key");
   }
@@ -2287,7 +2290,7 @@ const struct LoaderStruct
     DNSCryptoKeyEngine::report(DNSSECKeeper::ED448, &OpenSSLEDDSADNSCryptoKeyEngine::maker);
 #endif
 #ifdef HAVE_LIBCRYPTO_FALCON
-      DNSCryptoKeyEngine::report(17, &OpenSSLPQCDNSCryptoKeyEngine::maker);
+    DNSCryptoKeyEngine::report(17, &OpenSSLPQCDNSCryptoKeyEngine::maker);
 #endif
   }
 } loaderOpenSSL;
