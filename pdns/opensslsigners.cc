@@ -1891,8 +1891,8 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
   signature.resize(siglen);
 
   if (EVP_DigestSign(mdctx.get(),
-                      reinterpret_cast<unsigned char*>(&signature.at(0)), &siglen,
-                      reinterpret_cast<unsigned char*>(&msgToSign.at(0)), msgToSign.length())
+                     reinterpret_cast<unsigned char*>(&signature.at(0)), &siglen,
+                     reinterpret_cast<unsigned char*>(&msgToSign.at(0)), msgToSign.length())
       < 1) {
     throw runtime_error(getName() + " signing error");
   }
@@ -1964,7 +1964,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& conten
 
   const unsigned char* raw = reinterpret_cast<const unsigned char*>(content.c_str());
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void(*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, raw, d_pub_len), EVP_PKEY_free);
+  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, raw, d_pub_len), EVP_PKEY_free);
   if (!d_pqckey) {
     throw runtime_error(getName() + " allocation of public key structure failed");
   }
