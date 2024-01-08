@@ -2296,3 +2296,4 @@ const struct LoaderStruct
 #endif
   }
 } loaderOpenSSL;
+}
