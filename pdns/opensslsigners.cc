@@ -1804,7 +1804,7 @@ private:
   size_t d_priv_len{0};
   size_t d_pub_len{0};
   size_t d_sig_len{0};
-  int d_algname{0};
+  std::string d_algname{""};
 
   std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)> d_pqckey;
 };
@@ -1820,7 +1820,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
   if (bits != (d_priv_len << 3)) {
     throw runtime_error("Keysize not supported by " + getName());
   }
-  auto ctx = EVP_PKEY_CTX_new_id(d_id, nullptr);
+  auto ctx = EVP_PKEY_CTX_new_from_name(nullptr, d_algname.c_str(), nullptr);
   if (!ctx) {
     throw runtime_error(getName() + " CTX initialisation failed");
   }
@@ -1955,15 +1955,15 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map
 	{
           throw std::runtime_error(getName() + " could not fully set keypair parameters");
 	}
-	auto params = std::unique_ptr<OSSL_PARAM, void (*)(OSSL_PARAM*)>(OSSL_PARAM_BLD_to_param(param_bld), OSSL_PARAM_free);
+	auto params = std::unique_ptr<OSSL_PARAM, void (*)(OSSL_PARAM*)>(OSSL_PARAM_BLD_to_param(param_bld.get()), OSSL_PARAM_free);
 	if (!params) {
           throw std::runtime_error(getName() + " could not build OSSL PARAMs");
 	}
-	auto ctx = std::unique_ptr<EVP_PKEY_CTX, void (*)(EVP_PKEY_CTX*)>(EVP_PKEY_CTX_new_from_name(NULL, alginfo->alg_name, NULL), EVP_PKEY_CTX_free);
+	auto ctx = std::unique_ptr<EVP_PKEY_CTX, void (*)(EVP_PKEY_CTX*)>(EVP_PKEY_CTX_new_from_name(NULL, d_algname.c_str(), NULL), EVP_PKEY_CTX_free);
 	if (!ctx) {
           throw std::runtime_error(getName() + " could not initalize PKEY_CTX");
 	}
-	auto pk = std::unique_str<EVP_PKEY, void (*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free);
+	auto pk = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free);
 	if (EVP_PKEY_fromdata_init(ctx.get()) <= 0 ||
 	    EVP_PKEY_fromdata(ctx.get(), &(*pk), EVP_PKEY_KEY_PARAMETERS, params) <= 0)
 	{
@@ -1983,7 +1983,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& conten
 
   const unsigned char* raw = reinterpret_cast<const unsigned char*>(content.c_str());
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key_ex(nullptr, d_algname, nullptr, raw, d_pub_len), EVP_PKEY_free);
+  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key_ex(nullptr, d_algname.c_str(), nullptr, raw, d_pub_len), EVP_PKEY_free);
   if (!d_pqckey) {
     throw runtime_error(getName() + " allocation of public key structure failed");
   }
