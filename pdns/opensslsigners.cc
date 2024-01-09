@@ -1965,14 +1965,14 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map
 	}
 	auto pk = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free);
 	if (EVP_PKEY_fromdata_init(ctx.get()) <= 0 ||
-	    EVP_PKEY_fromdata(ctx.get(), &(*pk), EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+	    EVP_PKEY_fromdata(ctx.get(), &(pk.get()), EVP_PKEY_KEY_PARAMETERS, params) <= 0)
 	{
           throw std::runtime_error(getName() + " fromdata failed");
 	}
 	if (!pk) {
           throw std::runtime_error(getName() + " fromdata succeeded but pk is NULL");
 	}
-	*d_pqckey = pk;
+	d_pqckey = pk;
 }
 
 void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& content)
