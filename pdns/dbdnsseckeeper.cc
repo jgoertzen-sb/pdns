@@ -98,7 +98,7 @@ bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, in
         bits = 384;
       else if(algorithm == DNSSECKeeper::ED448)
         bits = 456;
-      else if(algorithm == DNSSECKeeper::FALCON)
+      else if(algorithm == DNSSECKeeper::FALCON512)
         bits = 10248;
       else {
         throw runtime_error("Can not guess key size for algorithm "+std::to_string(algorithm));
