@@ -255,6 +255,16 @@ public:
 
   static std::unique_ptr<DNSCryptoKeyEngine> maker(unsigned int algorithm)
   {
+    if (!oqs_provider) {
+      oqs_provider = std::unique_ptr<OSSL_PROVIDER, void(*)(OSSL_PROVIDER*)>(OSSL_PROVIDER_load(nullptr, "oqsprovider"), OSSL_PROVIDER_unload);
+      if (!oqs_provider) {
+        throw runtime_error(getName() + " failed to load oqs provider");
+      }
+      default_provider = std::unique_ptr<OSSL_PROVIDER, void(*)(OSSL_PROVIDER*)>(OSSL_PROVIDER_load(nullptr, "default"), OSSL_PROVIDER_unload);
+      if (!default_provider) {
+        throw runtime_error(getName() + " failed to load default provider");
+      }
+    }
     return make_unique<OpenSSLRSADNSCryptoKeyEngine>(algorithm);
   }
 
@@ -1753,6 +1763,9 @@ void OpenSSLECDSADNSCryptoKeyEngine::fromPublicKeyString(const std::string& cont
 #endif
 
 #ifdef HAVE_LIBCRYPTO_PQC
+
+OSSL_PROVIDER *oqs_provider = nullptr;
+
 class OpenSSLPQCDNSCryptoKeyEngine : public DNSCryptoKeyEngine
 {
 public:
@@ -1963,7 +1976,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map
 	}
 	EVP_PKEY *pk = nullptr;
 	if (EVP_PKEY_fromdata_init(ctx.get()) <= 0 ||
-	    EVP_PKEY_fromdata(ctx.get(), &pk, EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+	    EVP_PKEY_fromdata(ctx.get(), &pk, EVP_PKEY_KEY_PARAMETERS, params.get()) <= 0)
 	{
           throw std::runtime_error(getName() + " fromdata failed");
 	}
