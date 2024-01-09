@@ -17,8 +17,8 @@ AC_DEFUN([PDNS_CHECK_LIBCRYPTO_PQC], [
       #include <openssl/provider.h>
     ], [
       OSSL_PROVIDER *provider = OSSL_PROVIDER_load(0, "oqsprovider");
-      if (provider != 0) {
-	if (OSSL_PROVIDER_unload(0, "oqsprovider) == 1) {
+      if (provider) {
+	if (OSSL_PROVIDER_unload(provider) == 1) {
 	  return 0;
 	}
       } else {
