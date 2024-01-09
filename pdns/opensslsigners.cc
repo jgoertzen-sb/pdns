@@ -1801,11 +1801,11 @@ public:
     if (!oqs_provider) {
       oqs_provider = std::unique_ptr<OSSL_PROVIDER, void(*)(OSSL_PROVIDER*)>(OSSL_PROVIDER_load(nullptr, "oqsprovider"), OSSL_PROVIDER_unload);
       if (!oqs_provider) {
-        throw runtime_error(getName() + " failed to load oqs provider");
+        throw runtime_error("failed to load oqs provider");
       }
       default_provider = std::unique_ptr<OSSL_PROVIDER, void(*)(OSSL_PROVIDER*)>(OSSL_PROVIDER_load(nullptr, "default"), OSSL_PROVIDER_unload);
       if (!default_provider) {
-        throw runtime_error(getName() + " failed to load default provider");
+        throw runtime_error("failed to load default provider");
       }
     }
     return make_unique<OpenSSLPQCDNSCryptoKeyEngine>(algorithm);
