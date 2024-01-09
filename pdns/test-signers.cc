@@ -477,7 +477,7 @@ BOOST_FIXTURE_TEST_CASE(test_generic_signers, Fixture)
   }
 }
 
-#if defined(HAVE_LIBCRYPTO_FALCON)
+#if defined(HAVE_LIBCRYPTO_PQC)
 BOOST_AUTO_TEST_CASE(test_falcon_signer)
 {
   //TODO implement proper testing ith default value precomputed

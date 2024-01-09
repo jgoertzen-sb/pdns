@@ -1764,14 +1764,12 @@ public:
       throw runtime_error(getName() + " insufficient entropy");
     }
 
-#ifdef HAVE_LIBCRYPTO_FALCON
     if (d_algorithm == 17) {
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 690;
       d_algname = "falcon512";
     }
-#endif
 
     if (d_priv_len == 0) {
       throw runtime_error(getName() + " unknown algorithm " + std::to_string(d_algorithm));
@@ -2308,7 +2306,7 @@ const struct LoaderStruct
 #ifdef HAVE_LIBCRYPTO_ED448
     DNSCryptoKeyEngine::report(DNSSECKeeper::ED448, &OpenSSLEDDSADNSCryptoKeyEngine::maker);
 #endif
-#ifdef HAVE_LIBCRYPTO_FALCON
+#ifdef HAVE_LIBCRYPTO_PQC
     DNSCryptoKeyEngine::report(DNSSECKeeper::FALCON512, &OpenSSLPQCDNSCryptoKeyEngine::maker);
 #endif
   }

@@ -438,7 +438,7 @@ void DNSCryptoKeyEngine::testMakers(unsigned int algo, maker_t* creator, maker_t
     bits = 384;
   else if(algo == DNSSECKeeper::ED448)
     bits = 456;
-  else if(algo == DNSSECKeeper::FALCON)
+  else if(algo == DNSSECKeeper::FALCON512)
     bits = 10248;
   else
     throw runtime_error("Can't guess key size for algorithm "+std::to_string(algo));
