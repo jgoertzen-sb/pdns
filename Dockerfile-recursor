@@ -90,9 +90,10 @@ RUN mkdir /build && \
       make clean && \
       make $MAKEFLAGS install DESTDIR=/build && make clean && \
       strip /build/usr/local/bin/* /build/usr/local/sbin/*
+RUN ldconfig
 RUN cd /tmp && mkdir /build/tmp/ && mkdir debian && \
     echo 'Source: docker-deps-for-pdns' > debian/control && \
-    dpkg-shlibdeps /build/usr/local/bin/rec_control /build/usr/local/sbin/pdns_recursor && \
+    dpkg-shlibdeps --ignore-missing-info /build/usr/local/bin/rec_control /build/usr/local/sbin/pdns_recursor && \
     sed 's/^shlibs:Depends=/Depends: /' debian/substvars >> debian/control && \
     equivs-build debian/control && \
     dpkg-deb -I equivs-dummy_1.0_all.deb && cp equivs-dummy_1.0_all.deb /build/tmp/
