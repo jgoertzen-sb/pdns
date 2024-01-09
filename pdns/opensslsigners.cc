@@ -1755,8 +1755,8 @@ void OpenSSLECDSADNSCryptoKeyEngine::fromPublicKeyString(const std::string& cont
 
 #ifdef HAVE_LIBCRYPTO_PQC
 
-auto oqs_provider = std::unique_ptr<OSSL_PROVIDER, void (*)(OSSL_PROVIDER*)>(nullptr, OSSL_PROVIDER_unload);
-auto default_provider = std::unique_ptr<OSSL_PROVIDER, void (*)(OSSL_PROVIDER*)>(nullptr, OSSL_PROVIDER_unload);
+auto oqs_provider = std::unique_ptr<OSSL_PROVIDER, int (*)(OSSL_PROVIDER*)>(nullptr, OSSL_PROVIDER_unload);
+auto default_provider = std::unique_ptr<OSSL_PROVIDER, int (*)(OSSL_PROVIDER*)>(nullptr, OSSL_PROVIDER_unload);
 
 class OpenSSLPQCDNSCryptoKeyEngine : public DNSCryptoKeyEngine
 {
