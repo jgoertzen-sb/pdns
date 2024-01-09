@@ -124,7 +124,7 @@ RUN chown pdns:pdns /var/run/pdns /var/lib/powerdns /etc/powerdns/pdns.d /etc/po
 USER pdns
 
 # Set up database - this needs to be smarter
-RUN sqlite3 /var/lib/powerdns/pdns.sqlite3 < /usr/local/share/doc/pdns/schema.sqlite3.sql
+RUN sqlite3 /var/lib/powerdns/pdns.sqlite3 < /build/usr/local/share/doc/pdns/schema.sqlite3.sql
 
 # Default DNS ports
 EXPOSE 53/udp
