@@ -2309,7 +2309,7 @@ const struct LoaderStruct
     DNSCryptoKeyEngine::report(DNSSECKeeper::ED448, &OpenSSLEDDSADNSCryptoKeyEngine::maker);
 #endif
 #ifdef HAVE_LIBCRYPTO_FALCON
-    DNSCryptoKeyEngine::report(17, &OpenSSLPQCDNSCryptoKeyEngine::maker);
+    DNSCryptoKeyEngine::report(DNSSECKeeper::FALCON512, &OpenSSLPQCDNSCryptoKeyEngine::maker);
 #endif
   }
 } loaderOpenSSL;

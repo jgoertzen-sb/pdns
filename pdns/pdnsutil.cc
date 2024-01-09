@@ -2560,8 +2560,8 @@ try
 #if defined(HAVE_LIBDECAF) || defined(HAVE_LIBCRYPTO_ED448)
     cout << "|ed448";
 #endif
-#if defined(HAVE_LIBCRYPTO_FALCON)
-    cout<<"|falcon";
+#if defined(HAVE_LIBCRYPTO_PQC)
+    cout<<"|falcon512";
 #endif
     cout << "]" << endl;
     cout << "                                   Add a ZSK or KSK to zone and specify algo&bits" << endl;
@@ -3024,8 +3024,8 @@ try
 #if defined(HAVE_LIBDECAF) || defined(HAVE_LIBCRYPTO_ED448)
       cerr << "|ed448";
 #endif
-#if defined(HAVE_LIBCRYPTO_FALCON)
-      cerr << "|falcon";
+#if defined(HAVE_LIBCRYPTO_PQC)
+      cerr << "|falcon512";
 #endif
       cerr << "]"<<endl;
       cerr << endl;
@@ -3675,8 +3675,8 @@ try
 #if defined(HAVE_LIBDECAF) || defined(HAVE_LIBCRYPTO_ED448)
       cerr << "|ed448";
 #endif
-#if defined(HAVE_LIBCRYPTO_FALCON)
-      cerr << "|falcon";
+#if defined(HAVE_LIBCRYPTO_PQC)
+      cerr << "|falcon512";
 #endif
       cerr << "] [bits]"<<endl;
       return 0;

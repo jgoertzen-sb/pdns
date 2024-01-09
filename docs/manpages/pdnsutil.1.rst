@@ -45,7 +45,7 @@ algorithms are supported:
 -  ecdsa384
 -  ed25519
 -  ed448
--  falcon
+-  falcon512
 
 activate-zone-key *ZONE* *KEY-ID*
     Activate a key with id *KEY-ID* within a zone called *ZONE*.
@@ -82,7 +82,7 @@ generate-zone-key {**KSK**,\ **ZSK**} [*ALGORITHM*] [*KEYBITS*]
     used. If *KEYBITS* is not set, an appropriate keysize is selected
     for *ALGORITHM*. Each ECC-based algorithm supports only one valid
     *KEYBITS* value: For ECDSA256 and ED25519, it is 256; for ECDSA384,
-    it is 384; for ED448, it is 456; and for falcon, it is 10248.
+    it is 384; for ED448, it is 456; and for falcon512, it is 10248.
 import-zone-key *ZONE* *FILE* {**KSK**,\ **ZSK**}
     Import from *FILE* a full (private) key for the zone called *ZONE*. The
     format used is compatible with BIND and NSD/LDNS. **KSK** or **ZSK**

@@ -104,9 +104,6 @@ void showBuildConfiguration()
 #ifdef HAVE_LIBCRYPTO_PQC
     "libcrypto-pqc " <<
 #endif
-#ifdef HAVE_LIBCRYPTO_FALCON
-    "libcrypto-falcon " <<
-#endif
 #ifdef HAVE_LIBCRYPTO_EDDSA
     "libcrypto-eddsa " <<
 #endif
