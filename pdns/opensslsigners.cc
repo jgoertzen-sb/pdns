@@ -1769,7 +1769,7 @@ public:
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 690;
-      d_id = NID_falcon512;
+      d_algname = "falcon512";
     }
 #endif
 
@@ -1804,7 +1804,7 @@ private:
   size_t d_priv_len{0};
   size_t d_pub_len{0};
   size_t d_sig_len{0};
-  int d_id{0};
+  int d_algname{0};
 
   std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)> d_pqckey;
 };
@@ -1858,7 +1858,6 @@ DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVecto
   buf.resize(len);
 
   if (EVP_PKEY_get_raw_private_key(d_pqckey.get(), reinterpret_cast<unsigned char*>(&buf.at(0)), &len) < 1) {
-    throw runtime_error(getName() + " Could not get private key from d_pqckey");
   }
   storvect.push_back(make_pair("PrivateKey", buf));
 
@@ -1946,15 +1945,34 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map
   if (drc.d_algorithm != d_algorithm) {
     throw runtime_error(getName() + " tried to feed an algorithm " + std::to_string(drc.d_algorithm) + " to a " + std::to_string(d_algorithm) + " key");
   }
+	auto param_bld = std::unique_ptr<OSSL_PARAM_BLD, void (*)(OSSL_PARAM_BLD*)>(OSSL_PARAM_BLD_new(), OSSL_PARAM_BLD_free);
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, reinterpret_cast<unsigned char*>(&stormap["publickey"].at(0)), stormap["publickey"].length()), EVP_PKEY_free);
-  if (!d_pqckey) {
-    throw std::runtime_error(getName() + " could not create key structure from public key");
-  }
-
-  if (EVP_PKEY_set_raw_private_key(d_pqckey.get(), reinterpret_cast<unsigned char*>(&stormap["privatekey"].at(0)), stormap["privatekey"].length()) != 1) {
-    throw std::runtime_error(getName() + " could not set private key from store vector");
-  }
+	if ((!param_bld) ||
+	    !OSSL_PARAM_BLD_push_octet_string(param_bld.get(), "priv", reinterpret_cast<unsigned char*>(&stormap["privatekey"].at(0)),
+					      stormap["privatekey"].length()) ||
+	    !OSSL_PARAM_BLD_push_octet_string(param_bld.get(), "pub", reinterpret_cast<unsigned char*>(&stormap["publickey"].at(0)),
+					      stormap["publickey"].length()))
+	{
+          throw std::runtime_error(getName() + " could not fully set keypair parameters");
+	}
+	auto params = std::unique_ptr<OSSL_PARAM, void (*)(OSSL_PARAM*)>(OSSL_PARAM_BLD_to_param(param_bld), OSSL_PARAM_free);
+	if (!params) {
+          throw std::runtime_error(getName() + " could not build OSSL PARAMs");
+	}
+	auto ctx = std::unique_ptr<EVP_PKEY_CTX, void (*)(EVP_PKEY_CTX*)>(EVP_PKEY_CTX_new_from_name(NULL, alginfo->alg_name, NULL), EVP_PKEY_CTX_free);
+	if (!ctx) {
+          throw std::runtime_error(getName() + " could not initalize PKEY_CTX");
+	}
+	auto pk = std::unique_str<EVP_PKEY, void (*)(EVP_PKEY*)>(nullptr, EVP_PKEY_free);
+	if (EVP_PKEY_fromdata_init(ctx.get()) <= 0 ||
+	    EVP_PKEY_fromdata(ctx.get(), &(*pk), EVP_PKEY_KEY_PARAMETERS, params) <= 0)
+	{
+          throw std::runtime_error(getName() + " fromdata failed");
+	}
+	if (!pk) {
+          throw std::runtime_error(getName() + " fromdata succeeded but pk is NULL");
+	}
+	*d_pqckey = pk;
 }
 
 void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& content)
@@ -1965,7 +1983,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& conten
 
   const unsigned char* raw = reinterpret_cast<const unsigned char*>(content.c_str());
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key(d_id, nullptr, raw, d_pub_len), EVP_PKEY_free);
+  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(EVP_PKEY_new_raw_public_key_ex(nullptr, d_algname, nullptr, raw, d_pub_len), EVP_PKEY_free);
   if (!d_pqckey) {
     throw runtime_error(getName() + " allocation of public key structure failed");
   }
