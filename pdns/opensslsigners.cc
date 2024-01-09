@@ -45,6 +45,7 @@
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
 #include <openssl/params.h>
+#include <openssl/provider.h>
 #endif
 #include <openssl/opensslv.h>
 #include <openssl/err.h>
