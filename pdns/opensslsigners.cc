@@ -1774,12 +1774,12 @@ public:
       d_pub_len = 897;
       d_sig_len = 666;
       d_algname = "falcon512";
-    } else if (d_algorithm == DNSSECKeeper::FALCON512) {
+    } else if (d_algorithm == DNSSECKeeper::DILITHIUM2) {
       d_priv_len = 2528;
       d_pub_len = 1312;
       d_sig_len = 2420;
       d_algname = "dilithium2";
-    } else if (d_algorithm == DNSSECKeeper::FALCON512) {
+    } else if (d_algorithm == DNSSECKeeper::SPHINCSSHA256128S) {
       d_priv_len = 64;
       d_pub_len = 32;
       d_sig_len = 7856;
