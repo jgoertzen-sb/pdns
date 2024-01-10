@@ -2561,7 +2561,7 @@ try
     cout << "|ed448";
 #endif
 #if defined(HAVE_LIBCRYPTO_PQC)
-    cout<<"|falcon512";
+    cout << "|falcon512|dilithium2|sphincs+-sha256-128s";
 #endif
     cout << "]" << endl;
     cout << "                                   Add a ZSK or KSK to zone and specify algo&bits" << endl;
@@ -3025,7 +3025,7 @@ try
       cerr << "|ed448";
 #endif
 #if defined(HAVE_LIBCRYPTO_PQC)
-      cerr << "|falcon512";
+      cerr << "|falcon512|dilithium2|sphincs+-sha256-128s";
 #endif
       cerr << "]"<<endl;
       cerr << endl;
@@ -3676,7 +3676,7 @@ try
       cerr << "|ed448";
 #endif
 #if defined(HAVE_LIBCRYPTO_PQC)
-      cerr << "|falcon512";
+      cerr << "|falcon512|dilithium2|sphincs+-sha256-128s";
 #endif
       cerr << "] [bits]"<<endl;
       return 0;
@@ -3718,6 +3718,10 @@ try
           bits = 456;
         else if(algorithm == DNSSECKeeper::FALCON512)
           bits = 10248;
+        else if(algorithm == DNSSECKeeper::DILITHIUM2)
+          bits = 20224;
+        else if(algorithm == DNSSECKeeper::SPHINCSSHA256128S)
+          bits = 512;
         else {
           throw runtime_error("Can not guess key size for algorithm "+std::to_string(algorithm));
         }

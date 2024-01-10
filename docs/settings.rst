@@ -403,6 +403,8 @@ to enable DNSSEC. Must be one of:
 * ed25519
 * ed448
 * falcon512
+* dilithium2
+* sphincs+-sha256-128s
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
@@ -536,6 +538,8 @@ to enable DNSSEC. Must be one of:
 * ed25519
 * ed448
 * falcon512
+* dilithium2
+* sphincs+-sha256-128s
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries

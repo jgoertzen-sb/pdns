@@ -7,12 +7,23 @@ The constructor (line 846) must be changed to support the particular data of the
 An example can be found down belox (this is only meant as inspiration):
 ```
 #ifdef HAVE_LIBCRYPTO_PQC
-    if(d_algorithm == 17) {
+    if(d_algorithm == DNSSECKeeper::FALCON512) {
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 690;
       d_algname = "falcon512";
+    } else if {
+      d_priv_len = 2528;
+      d_pub_len = 1312;
+      d_sig_len = 2420;
+      d_algname = "dilithium2";
+    } else if {
+      d_priv_len = 64;
+      d_pub_len = 43;
+      d_sig_len = 7856;
+      d_algname = "sphincssha2128ssimple";
     }
+
 #endif
 #ifdef HAVE_LIBCRYPTO_PQC
     if(d_algorithm == ALGO_ID) {

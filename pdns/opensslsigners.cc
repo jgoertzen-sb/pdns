@@ -1769,11 +1769,21 @@ public:
       throw runtime_error(getName() + " insufficient entropy");
     }
 
-    if (d_algorithm == 17) {
+    if (d_algorithm == DNSSECKeeper::FALCON512) {
       d_priv_len = 1281;
       d_pub_len = 897;
-      d_sig_len = 690;
+      d_sig_len = 666;
       d_algname = "falcon512";
+    } else if (d_algorithm == DNSSECKeeper::FALCON512) {
+      d_priv_len = 2528;
+      d_pub_len = 1312;
+      d_sig_len = 2420;
+      d_algname = "dilithium2";
+    } else if (d_algorithm == DNSSECKeeper::FALCON512) {
+      d_priv_len = 64;
+      d_pub_len = 32;
+      d_sig_len = 7856;
+      d_algname = "sphincssha2128ssimple";
     }
 
     if (d_priv_len == 0) {
@@ -1857,10 +1867,13 @@ DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVecto
   storvector_t storvect;
   string algorithm;
 
-  if (d_algorithm == 17) {
-    algorithm = "17 (Falcon)";
-  }
-  else {
+  if (d_algorithm == DNSSECKeeper::FALCON512) {
+    algorithm = std::to_string(d_algorithm) + " (FALCON512)";
+  } else if (d_algorithm == DNSSECKeeper::DILITHIUM2) {
+    algorithm = std::to_string(d_algorithm) + " (DILITHIUM2)";
+  } else if (d_algorithm == DNSSECKeeper::SPHINCSSHA256128S) {
+    algorithm = std::to_string(d_algorithm) + " (SPHINCS+-SHA256-128S)";
+  } else {
     algorithm = " ? (?)";
   }
 
@@ -2323,6 +2336,8 @@ const struct LoaderStruct
 #endif
 #ifdef HAVE_LIBCRYPTO_PQC
     DNSCryptoKeyEngine::report(DNSSECKeeper::FALCON512, &OpenSSLPQCDNSCryptoKeyEngine::maker);
+    DNSCryptoKeyEngine::report(DNSSECKeeper::DILITHIUM2, &OpenSSLPQCDNSCryptoKeyEngine::maker);
+    DNSCryptoKeyEngine::report(DNSSECKeeper::SPHINCSSHA256128S, &OpenSSLPQCDNSCryptoKeyEngine::maker);
 #endif
   }
 } loaderOpenSSL;
