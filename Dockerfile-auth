@@ -96,7 +96,7 @@ RUN cd /tmp && mkdir /build/tmp/ && mkdir debian && \
     dpkg-deb -I equivs-dummy_1.0_all.deb && cp equivs-dummy_1.0_all.deb /build/tmp/
 
 # Runtime
-#FROM debian:11-slim
+FROM debian:11-slim
 
 # Reusable layer for base update - Should be cached from builder
 RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
@@ -106,7 +106,11 @@ RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
 RUN apt-get install -y python3 python3-jinja2 sqlite3 tini libcap2-bin vim-tiny supervisor && apt-get clean
 
 # Output from builder
-#COPY --from=builder /build /
+COPY --from=builder /build /
+COPY --from=builder /usr/local/ssl /usr/local/ssl
+COPY --from=builder /usr/local/include/openssl /usr/local/include/openssl
+COPY --from=builder /usr/local/lib /usr/local/lib
+
 RUN chmod 1777 /tmp # FIXME: better not use /build/tmp for equivs at all
 
 # Ensure dependencies are present
@@ -124,7 +128,7 @@ RUN chown pdns:pdns /var/run/pdns /var/lib/powerdns /etc/powerdns/pdns.d /etc/po
 USER pdns
 
 # Set up database - this needs to be smarter
-RUN sqlite3 /var/lib/powerdns/pdns.sqlite3 < /build/usr/local/share/doc/pdns/schema.sqlite3.sql
+RUN sqlite3 /var/lib/powerdns/pdns.sqlite3 < /usr/local/share/doc/pdns/schema.sqlite3.sql
 
 # Default DNS ports
 EXPOSE 53/udp
