@@ -38,8 +38,7 @@ static inline int intFromJsonInternal(const Json& container, const std::string& 
   if (val.is_string()) {
     try {
       return std::stoi(val.string_value());
-    }
-    catch (std::out_of_range&) {
+    } catch (std::out_of_range&) {
       throw JsonException("Key '" + string(key) + "' is out of range");
     }
   }
@@ -89,8 +88,7 @@ static inline double doubleFromJsonInternal(const Json& container, const std::st
   if (val.is_string()) {
     try {
       return std::stod(val.string_value());
-    }
-    catch (std::out_of_range&) {
+    } catch (std::out_of_range&) {
       throw JsonException("Value for key '" + string(key) + "' is out of range");
     }
   }
@@ -106,17 +104,12 @@ double doubleFromJson(const Json& container, const std::string& key)
   return doubleFromJsonInternal(container, key, false, 0);
 }
 
-double doubleFromJson(const Json& container, const std::string& key)
-{
-  return doubleFromJsonInternal(container, key, false, 0);
-}
-
 double doubleFromJson(const Json& container, const std::string& key, const double default_value)
 {
   return doubleFromJsonInternal(container, key, true, default_value);
 }
 
-string stringFromJson(const Json& container, const std::string& key)
+string stringFromJson(const Json& container, const std::string &key)
 {
   const auto& val = container[key];
   if (val.is_string()) {
