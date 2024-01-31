@@ -66,8 +66,11 @@ jobs:
           key: auth-ccache-${{ steps.get-stamp.outputs.stamp }}
           restore-keys: auth-ccache-
       - run: inv install-oqs
+        working-directory: .
       - run: inv install-openssl32
+        working-directory: .
       - run: inv install-oqs-provider
+        working-directory: .
       - run: inv ci-autoconf
         working-directory: .
       - run: inv ci-auth-configure
@@ -222,9 +225,11 @@ jobs:
       - run: inv ci-build-and-install-quiche
         working-directory: ./pdns/dnsdistdist/
       - run: inv install-oqs
+        working-directory: ./pdns/dnsdistdist/
       - run: inv install-openssl32
+        working-directory: ./pdns/dnsdistdist/
       - run: inv install-oqs-provider
-      - run: inv ci-autoconf
+        working-directory: ./pdns/dnsdistdist/
       - run: inv ci-autoconf
         working-directory: ./pdns/dnsdistdist/
       - run: inv ci-dnsdist-configure ${{ matrix.features }}
@@ -304,9 +309,6 @@ jobs:
           path: /opt/pdns-auth
       - run: inv apt-fresh
       - run: inv install-clang-runtime
-      - run: inv install-oqs
-      - run: inv install-openssl32
-      - run: inv install-oqs-provider
       - run: inv install-auth-test-deps -b ${{ matrix.backend }}
       - run: inv test-api auth -b ${{ matrix.backend }}
       - run: inv generate-coverage-info /opt/pdns-auth/sbin/pdns_server $GITHUB_WORKSPACE
@@ -469,9 +471,6 @@ jobs:
           name: pdns-auth-${{ env.normalized-branch-name }}
           path: /opt/pdns-auth
       - run: inv install-clang-runtime
-      - run: inv install-oqs
-      - run: inv install-openssl32
-      - run: inv install-oqs-provider
       - run: inv install-auth-test-deps
       - run: inv test-ixfrdist
       - run: inv generate-coverage-info /opt/pdns-auth/bin/ixfrdist $GITHUB_WORKSPACE
@@ -516,9 +515,6 @@ jobs:
       - run: inv apt-fresh
       - run: inv add-auth-repo  ${{ matrix.dist_name }} ${{ matrix.dist_release_name }} ${{ matrix.pdns_repo_version }}
       - run: inv install-clang-runtime
-      - run: inv install-oqs
-      - run: inv install-openssl32
-      - run: inv install-oqs-provider
       - run: inv install-rec-test-deps
       - run: inv test-api recursor
       - run: inv generate-coverage-info /opt/pdns-recursor/sbin/pdns_recursor $GITHUB_WORKSPACE
@@ -564,9 +560,6 @@ jobs:
       - run: inv apt-fresh
       - run: inv add-auth-repo ${{ matrix.dist_name }} ${{ matrix.dist_release_name }} ${{ matrix.pdns_repo_version }}
       - run: inv install-clang-runtime
-      - run: inv install-oqs
-      - run: inv install-openssl32
-      - run: inv install-oqs-provider
       - run: inv install-rec-test-deps
       - run: inv test-regression-recursor
       - run: inv generate-coverage-info /opt/pdns-recursor/sbin/pdns_recursor $GITHUB_WORKSPACE
@@ -610,9 +603,6 @@ jobs:
           name: pdns-recursor-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/pdns-recursor
       - run: inv install-clang-runtime
-      - run: inv install-oqs
-      - run: inv install-openssl32
-      - run: inv install-oqs-provider
       - run: inv install-rec-bulk-deps
       - run: inv test-bulk-recursor ${{ matrix.threads }} ${{ matrix.mthreads }} ${{ matrix.shards }}
       - run: inv generate-coverage-info /opt/pdns-recursor/sbin/pdns_recursor $GITHUB_WORKSPACE
@@ -657,9 +647,6 @@ jobs:
           name: dnsdist-full-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/dnsdist
       - run: inv install-clang-runtime
-      - run: inv install-oqs
-      - run: inv install-openssl32
-      - run: inv install-oqs-provider
       - run: inv install-dnsdist-test-deps
       - run: inv test-dnsdist
       - run: inv generate-coverage-info /opt/dnsdist/bin/dnsdist $GITHUB_WORKSPACE
