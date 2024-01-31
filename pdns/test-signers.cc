@@ -485,6 +485,7 @@ BOOST_AUTO_TEST_CASE(test_pqc_signer)
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::DILITHIUM2));
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::SPHINCSSHA256128S));
 }
+#endif
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables,readability-identifier-length): Boost stuff.
 BOOST_AUTO_TEST_CASE(test_hash_qname_with_salt)
