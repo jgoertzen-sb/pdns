@@ -65,7 +65,7 @@ jobs:
           path: ~/.ccache
           key: auth-ccache-${{ steps.get-stamp.outputs.stamp }}
           restore-keys: auth-ccache-
-      - run: inv install-oqs
+      - run: inv install-liboqs
         working-directory: .
       - run: inv install-openssl32
         working-directory: .
@@ -142,7 +142,7 @@ jobs:
           restore-keys: recursor-${{ matrix.sanitizers }}-ccache-
       - run: inv ci-install-rust ${{ env.REPO_HOME }}
         working-directory: ./pdns/recursordist/
-      - run: inv install-oqs
+      - run: inv install-liboqs
         working-directory: ./pdns/recursordist/
       - run: inv install-openssl32
         working-directory: ./pdns/recursordist/
@@ -224,7 +224,7 @@ jobs:
         working-directory: ./pdns/dnsdistdist/
       - run: inv ci-build-and-install-quiche
         working-directory: ./pdns/dnsdistdist/
-      - run: inv install-oqs
+      - run: inv install-liboqs
         working-directory: ./pdns/dnsdistdist/
       - run: inv install-openssl32
         working-directory: ./pdns/dnsdistdist/
@@ -433,7 +433,7 @@ jobs:
           path: /opt/pdns-auth
       # FIXME: install recursor for backends that have ALIAS
       - run: inv install-clang-runtime
-      - run: inv install-oqs
+      - run: inv install-liboqs
       - run: inv install-openssl32
       - run: inv install-oqs-provider
       - run: inv install-auth-test-deps -b ${{ matrix.backend }}
