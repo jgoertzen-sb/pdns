@@ -288,6 +288,7 @@ DIGESTALGOS
 Digitalus
 dijk
 dilinger
+dilithium
 Dimitrios
 Directi
 Disqus
@@ -1264,6 +1265,7 @@ sourceware
 Spaans
 Spackages
 spams
+sphincs
 SPHINXBUILD
 sphinxcontrib
 sphinxjsondomain
