@@ -250,6 +250,9 @@ def install_doc_deps_pdf(c):
 @task
 def install_auth_build_deps(c):
     c.sudo('apt-get install -y --no-install-recommends ' + ' '.join(all_build_deps + git_build_deps + auth_build_deps))
+    install_liboqs(c)
+    install_openssl32(c)
+    install_oqs_provider(c)
     if os.getenv('DECAF_SUPPORT', 'no') == 'yes':
         install_libdecaf(c, 'pdns-auth')
 
@@ -373,6 +376,9 @@ def install_dnsdist_test_deps(c): # FIXME: rename this, we do way more than apt-
 @task
 def install_rec_build_deps(c):
     c.sudo('apt-get install -y --no-install-recommends ' +  ' '.join(all_build_deps + git_build_deps + rec_build_deps))
+    install_liboqs(c)
+    install_openssl32(c)
+    install_oqs_provider(c)
 
 @task
 def install_dnsdist_build_deps(c):
