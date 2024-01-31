@@ -483,7 +483,7 @@ BOOST_AUTO_TEST_CASE(test_pqc_signer)
   //TODO implement proper testing ith default value precomputed
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::FALCON512));
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::DILITHIUM2));
-  BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKepper::SPHINCSSHA256128S));
+  BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::SPHINCSSHA256128S));
 }
 #endif /* defined(HAVE_LIBDECAF) || defined(HAVE_LIBCRYPTO_ED448) */
 
