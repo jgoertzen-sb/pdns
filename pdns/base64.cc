@@ -28,14 +28,13 @@
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 
-template <typename Container>
-int B64Decode(const std::string& src, Container& dst)
+template<typename Container> int B64Decode(const std::string& src, Container& dst)
 {
-  if (src.empty()) {
+  if (src.empty() ) {
     dst.clear();
     return 0;
   }
-  int dlen = (src.length() * 6 + 7) / 8;
+  int dlen = ( src.length() * 6 + 7 ) / 8 ;
   ssize_t olen = 0;
   dst.resize(dlen);
   BIO *bio, *b64;
@@ -69,7 +68,7 @@ std::string Base64Encode(const std::string& src)
     bio = BIO_push(b64, bio);
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
     int bioWriteRet = BIO_write(bio, src.c_str(), src.length());
-    if (bioWriteRet < 0 || (size_t)bioWriteRet != src.length()) {
+    if (bioWriteRet < 0 || (size_t) bioWriteRet != src.length()) {
       BIO_free_all(bio);
       throw std::runtime_error("BIO_write failed to write all data to memory buffer");
     }

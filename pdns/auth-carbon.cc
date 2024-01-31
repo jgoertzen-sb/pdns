@@ -33,27 +33,28 @@
 #include "namespaces.hh"
 
 void carbonDumpThread()
-try {
+try
+{
   setThreadName("pdns/carbonDump");
   extern StatBag S;
 
-  string namespace_name = arg()["carbon-namespace"];
-  string hostname = arg()["carbon-ourname"];
+  string namespace_name=arg()["carbon-namespace"];
+  string hostname=arg()["carbon-ourname"];
   if (hostname.empty()) {
     try {
       hostname = getCarbonHostName();
     }
-    catch (const std::exception& e) {
+    catch(const std::exception& e) {
       throw std::runtime_error(std::string("The 'carbon-ourname' setting has not been set and we are unable to determine the system's hostname: ") + e.what());
     }
   }
-  string instance_name = arg()["carbon-instance"];
+  string instance_name=arg()["carbon-instance"];
 
   vector<string> carbonServers;
   stringtok(carbonServers, arg()["carbon-server"], ", ");
 
-  for (;;) {
-    if (carbonServers.empty()) {
+  for(;;) {
+    if(carbonServers.empty()) {
       sleep(1);
       continue;
     }
@@ -61,9 +62,9 @@ try {
     string msg;
     vector<string> entries = S.getEntries();
     ostringstream str;
-    time_t now = time(nullptr);
-    for (const string& entry : entries) {
-      str << namespace_name << '.' << hostname << '.' << instance_name << '.' << entry << ' ' << S.read(entry) << ' ' << now << "\r\n";
+    time_t now=time(nullptr);
+    for(const string& entry : entries) {
+      str<<namespace_name<<'.'<<hostname<<'.'<<instance_name<<'.'<<entry<<' '<<S.read(entry)<<' '<<now<<"\r\n";
     }
     msg = str.str();
 
@@ -75,22 +76,24 @@ try {
         s.setNonBlocking();
         s.connect(remote, 2);
 
-        writen2WithTimeout(s.getHandle(), msg.c_str(), msg.length(), timeval{2, 0});
-      }
-      catch (runtime_error& e) {
-        g_log << Logger::Warning << "Unable to write data to carbon server at " << remote.toStringWithPort() << ": " << e.what() << endl;
+        writen2WithTimeout(s.getHandle(), msg.c_str(), msg.length(), timeval{2,0});
+      } catch (runtime_error &e){
+        g_log<<Logger::Warning<<"Unable to write data to carbon server at "<<remote.toStringWithPort()<<": "<<e.what()<<endl;
         continue;
       }
     }
     sleep(arg().asNum("carbon-interval"));
   }
 }
-catch (std::exception& e) {
-  g_log << Logger::Error << "Carbon thread died: " << e.what() << endl;
+catch(std::exception& e)
+{
+  g_log<<Logger::Error<<"Carbon thread died: "<<e.what()<<endl;
 }
-catch (PDNSException& e) {
-  g_log << Logger::Error << "Carbon thread died, PDNSException: " << e.reason << endl;
+catch(PDNSException& e)
+{
+  g_log<<Logger::Error<<"Carbon thread died, PDNSException: "<<e.reason<<endl;
 }
-catch (...) {
-  g_log << Logger::Error << "Carbon thread died" << endl;
+catch(...)
+{
+  g_log<<Logger::Error<<"Carbon thread died"<<endl;
 }

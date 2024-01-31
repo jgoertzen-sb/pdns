@@ -106,7 +106,7 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
 {
   MOADNSParser mdp(false, reply);
   if (!s_expectedIDs.count(ntohs(mdp.d_header.id))) {
-    cout << "ID " << ntohs(mdp.d_header.id) << " was not expected, this response was not meant for us!" << endl;
+    cout << "ID " << ntohs(mdp.d_header.id) << " was not expected, this response was not meant for us!"<<endl;
   }
   s_expectedIDs.erase(ntohs(mdp.d_header.id));
 
@@ -124,7 +124,7 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
          << ttl(i->first.d_ttl) << "\t" << nameForClass(i->first.d_class, i->first.d_type) << "\t"
          << DNSRecordContent::NumberToType(i->first.d_type);
     if (dumpluaraw) {
-      cout << "\t" << makeLuaString(i->first.getContent()->serialize(DNSName(), true)) << endl;
+      cout<<"\t"<< makeLuaString(i->first.getContent()->serialize(DNSName(), true))<<endl;
       continue;
     }
     if (i->first.d_class == QClass::IN) {
@@ -183,17 +183,14 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
                << ", family = " << reso.scope.getNetwork().sin4.sin_family
                << endl;
         }
-      }
-      else if (iter->first == EDNSOptionCode::PADDING) {
+      } else if (iter->first == EDNSOptionCode::PADDING) {
         cerr << "EDNS Padding size: " << (iter->second.size()) << endl;
-      }
-      else if (iter->first == EDNSOptionCode::EXTENDEDERROR) {
+      } else if (iter->first == EDNSOptionCode::EXTENDEDERROR) {
         EDNSExtendedError eee;
         if (getEDNSExtendedErrorOptFromString(iter->second, eee)) {
           cerr << "EDNS Extended Error response: " << eee.infoCode << "/" << eee.extraText << endl;
         }
-      }
-      else {
+      } else {
         cerr << "Have unknown option " << (int)iter->first << endl;
       }
     }
@@ -203,10 +200,7 @@ static void printReply(const string& reply, bool showflags, bool hidesoadetails,
 int main(int argc, char** argv)
 try {
   /* default timeout of 10s */
-  struct timeval timeout
-  {
-    10, 0
-  };
+  struct timeval timeout{10,0};
   bool dnssec = false;
   bool recurse = false;
   bool tcp = false;
@@ -286,43 +280,43 @@ try {
         xpfdst = argv[++i];
       }
       else if (strcmp(argv[i], "class") == 0) {
-        if (argc < i + 2) {
-          cerr << "class needs an argument" << endl;
+        if (argc < i+2) {
+          cerr << "class needs an argument"<<endl;
           exit(EXIT_FAILURE);
         }
         qclass = atoi(argv[++i]);
       }
       else if (strcmp(argv[i], "opcode") == 0) {
-        if (argc < i + 2) {
-          cerr << "opcode needs an argument" << endl;
+        if (argc < i+2) {
+          cerr << "opcode needs an argument"<<endl;
           exit(EXIT_FAILURE);
         }
         opcode = atoi(argv[++i]);
       }
       else if (strcmp(argv[i], "subjectName") == 0) {
         if (argc < i + 2) {
-          cerr << "subjectName needs an argument" << endl;
+          cerr << "subjectName needs an argument"<<endl;
           exit(EXIT_FAILURE);
         }
         subjectName = argv[++i];
       }
       else if (strcmp(argv[i], "caStore") == 0) {
         if (argc < i + 2) {
-          cerr << "caStore needs an argument" << endl;
+          cerr << "caStore needs an argument"<<endl;
           exit(EXIT_FAILURE);
         }
         caStore = argv[++i];
       }
       else if (strcmp(argv[i], "tlsProvider") == 0) {
         if (argc < i + 2) {
-          cerr << "tlsProvider needs an argument" << endl;
+          cerr << "tlsProvider needs an argument"<<endl;
           exit(EXIT_FAILURE);
         }
         tlsProvider = argv[++i];
       }
       else if (strcmp(argv[i], "proxy") == 0) {
-        if (argc < i + 4) {
-          cerr << "proxy needs three arguments" << endl;
+        if(argc < i+4) {
+          cerr<<"proxy needs three arguments"<<endl;
           exit(EXIT_FAILURE);
         }
         bool ptcp = atoi(argv[++i]);
@@ -355,11 +349,9 @@ try {
   ComboAddress dest;
   if (*argv[1] == 'h') {
     doh = true;
-  }
-  else if (strcmp(argv[1], "stdin") == 0) {
+  } else if(strcmp(argv[1], "stdin") == 0) {
     fromstdin = true;
-  }
-  else {
+  } else {
     dest = ComboAddress(argv[1] + (*argv[1] == '@'), atoi(argv[2]));
   }
 
@@ -377,8 +369,7 @@ try {
 
       questions.emplace_back(fields.first, fields.second);
     }
-  }
-  else {
+  } else {
     questions.emplace_back(name, type);
   }
 
@@ -399,8 +390,7 @@ try {
 #else
     throw PDNSException("please link sdig against libcurl for DoH support");
 #endif
-  }
-  else if (fromstdin) {
+  } else if (fromstdin) {
     std::istreambuf_iterator<char> begin(std::cin), end;
     reply = string(begin, end);
 
@@ -410,7 +400,7 @@ try {
     std::vector<ProxyProtocolValue> ignoredValues;
     ssize_t offset = parseProxyHeader(reply, proxy, source, destination, wastcp, ignoredValues);
     if (offset && proxy) {
-      cout << "proxy " << (wastcp ? "tcp" : "udp") << " headersize=" << offset << " source=" << source.toStringWithPort() << " destination=" << destination.toStringWithPort() << endl;
+      cout<<"proxy "<<(wastcp ? "tcp" : "udp")<<" headersize="<<offset<<" source="<<source.toStringWithPort()<<" destination="<<destination.toStringWithPort()<<endl;
       reply = reply.substr(offset);
     }
 
@@ -419,8 +409,7 @@ try {
     }
 
     printReply(reply, showflags, hidesoadetails, dumpluaraw);
-  }
-  else if (tcp) {
+  } else if (tcp) {
     std::shared_ptr<TLSCtx> tlsCtx{nullptr};
     if (dot) {
       TLSContextParameters tlsParams;
@@ -460,7 +449,7 @@ try {
     }
     for (size_t i = 0; i < questions.size(); i++) {
       uint16_t len;
-      if (handler.read((char*)&len, sizeof(len), timeout) != sizeof(len)) {
+      if (handler.read((char *)&len, sizeof(len), timeout) != sizeof(len)) {
         throw PDNSException("tcp read failed");
       }
       len = ntohs(len);
@@ -470,8 +459,7 @@ try {
       }
       printReply(reply, showflags, hidesoadetails, dumpluaraw);
     }
-  }
-  else // udp
+  } else // udp
   {
     vector<uint8_t> packet;
     s_expectedIDs.insert(0);
@@ -489,10 +477,9 @@ try {
     sock.recvFrom(reply, dest);
     printReply(reply, showflags, hidesoadetails, dumpluaraw);
   }
-}
-catch (std::exception& e) {
+
+} catch (std::exception& e) {
   cerr << "Fatal: " << e.what() << endl;
-}
-catch (PDNSException& e) {
+} catch (PDNSException& e) {
   cerr << "Fatal: " << e.reason << endl;
 }

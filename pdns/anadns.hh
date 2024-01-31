@@ -33,15 +33,18 @@ struct QuestionIdentifier
 
   bool operator<(const QuestionIdentifier& rhs) const
   {
-    return std::tie(d_id, d_qtype, d_source, d_dest, d_qname) < std::tie(rhs.d_id, rhs.d_qtype, rhs.d_source, rhs.d_dest, rhs.d_qname);
+    return 
+      std::tie(d_id,         d_qtype,     d_source,     d_dest,     d_qname) <
+      std::tie(rhs.d_id, rhs.d_qtype, rhs.d_source, rhs.d_dest, rhs.d_qname);
   }
+
 
   // the canonical direction is that of the question
   static QuestionIdentifier create(const ComboAddress& src, const ComboAddress& dst, const struct dnsheader& header, const DNSName& qname, uint16_t qtype)
   {
     QuestionIdentifier ret;
 
-    if (header.qr) {
+    if(header.qr) {
       ret.d_source = dst;
       ret.d_dest = src;
     }
@@ -49,9 +52,9 @@ struct QuestionIdentifier
       ret.d_source = src;
       ret.d_dest = dst;
     }
-    ret.d_qname = qname;
-    ret.d_qtype = qtype;
-    ret.d_id = ntohs(header.id);
+    ret.d_qname=qname;
+    ret.d_qtype=qtype;
+    ret.d_id=ntohs(header.id);
     return ret;
   }
 
@@ -61,6 +64,7 @@ struct QuestionIdentifier
     return create(src, dst, mdp.d_header, mdp.d_qname, mdp.d_qtype);
   }
 
+  
   ComboAddress d_source, d_dest;
 
   DNSName d_qname;
@@ -68,10 +72,10 @@ struct QuestionIdentifier
   uint16_t d_id{0};
 };
 
-inline ostream& operator<<(ostream& s, const QuestionIdentifier& qi)
+inline ostream& operator<<(ostream &s, const QuestionIdentifier& qi) 
 {
-  s << "'" << qi.d_qname << "|" << DNSRecordContent::NumberToType(qi.d_qtype) << "', with id " << qi.d_id << " from " << qi.d_source.toStringWithPort();
-
-  s << " to " << qi.d_dest.toStringWithPort();
+  s<< "'"<<qi.d_qname<<"|"<<DNSRecordContent::NumberToType(qi.d_qtype)<<"', with id " << qi.d_id <<" from "<<qi.d_source.toStringWithPort();
+  
+  s<<" to " << qi.d_dest.toStringWithPort();
   return s;
 }

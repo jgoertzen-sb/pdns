@@ -36,8 +36,7 @@
 #include "namespaces.hh"
 int main()
 {
-  ostringstream str;
-  str << "Everything is ok!"
-      << "\n"; // FIXME400: boost test?
-  exit(0);
+        ostringstream str;
+        str << "Everything is ok!"<<"\n"; // FIXME400: boost test?
+        exit(0);
 }

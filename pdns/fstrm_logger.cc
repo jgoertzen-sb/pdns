@@ -11,13 +11,12 @@
 #include "dolog.hh"
 #endif
 
-#define DNSTAP_CONTENT_TYPE "protobuf:dnstap.Dnstap"
+#define DNSTAP_CONTENT_TYPE		"protobuf:dnstap.Dnstap"
 
 #ifdef HAVE_FSTRM
 
 FrameStreamLogger::FrameStreamLogger(const int family, const std::string& address, bool connect,
-                                     const std::unordered_map<string, unsigned>& options) :
-  d_family(family), d_address(address)
+    const std::unordered_map<string,unsigned>& options): d_family(family), d_address(address)
 {
   fstrm_res res;
 
@@ -50,9 +49,8 @@ FrameStreamLogger::FrameStreamLogger(const int family, const std::string& addres
       if (!d_writer) {
         throw std::runtime_error("FrameStreamLogger: fstrm_unix_writer_init() failed.");
       }
-#ifdef HAVE_FSTRM_TCP_WRITER_INIT
-    }
-    else if (family == AF_INET) {
+  #ifdef HAVE_FSTRM_TCP_WRITER_INIT
+    } else if (family == AF_INET) {
       d_twopt = fstrm_tcp_writer_options_init();
       if (!d_twopt) {
         throw std::runtime_error("FrameStreamLogger: fstrm_tcp_writer_options_init failed.");
@@ -64,8 +62,7 @@ FrameStreamLogger::FrameStreamLogger(const int family, const std::string& addres
         // void return, no error checking.
         fstrm_tcp_writer_options_set_socket_address(d_twopt, ca.toString().c_str());
         fstrm_tcp_writer_options_set_socket_port(d_twopt, std::to_string(ca.getPort()).c_str());
-      }
-      catch (PDNSException& e) {
+      } catch (PDNSException &e) {
         throw std::runtime_error("FrameStreamLogger: Unable to use '" + d_address + "': " + e.reason);
       }
 
@@ -73,9 +70,8 @@ FrameStreamLogger::FrameStreamLogger(const int family, const std::string& addres
       if (!d_writer) {
         throw std::runtime_error("FrameStreamLogger: fstrm_tcp_writer_init() failed.");
       }
-#endif
-    }
-    else {
+  #endif
+    } else {
       throw std::runtime_error("FrameStreamLogger: family " + std::to_string(family) + " not supported");
     }
 
@@ -89,17 +85,17 @@ FrameStreamLogger::FrameStreamLogger(const int family, const std::string& addres
       throw std::runtime_error("FrameStreamLogger: fstrm_iothr_options_set_queue_model failed: " + std::to_string(res));
     }
 
-    const struct
-    {
+    const struct {
       const std::string name;
-      fstrm_res (*function)(struct fstrm_iothr_options*, const unsigned int);
+      fstrm_res (*function)(struct fstrm_iothr_options *, const unsigned int);
     } list[] = {
-      {"bufferHint", fstrm_iothr_options_set_buffer_hint},
-      {"flushTimeout", fstrm_iothr_options_set_flush_timeout},
-      {"inputQueueSize", fstrm_iothr_options_set_input_queue_size},
-      {"outputQueueSize", fstrm_iothr_options_set_output_queue_size},
-      {"queueNotifyThreshold", fstrm_iothr_options_set_queue_notify_threshold},
-      {"setReopenInterval", fstrm_iothr_options_set_reopen_interval}};
+      { "bufferHint", fstrm_iothr_options_set_buffer_hint },
+      { "flushTimeout", fstrm_iothr_options_set_flush_timeout },
+      { "inputQueueSize", fstrm_iothr_options_set_input_queue_size },
+      { "outputQueueSize", fstrm_iothr_options_set_output_queue_size },
+      { "queueNotifyThreshold", fstrm_iothr_options_set_queue_notify_threshold },
+      { "setReopenInterval", fstrm_iothr_options_set_reopen_interval }
+    };
 
     for (const auto& i : list) {
       if (options.find(i.name) != options.end() && options.at(i.name)) {
@@ -121,8 +117,7 @@ FrameStreamLogger::FrameStreamLogger(const int family, const std::string& addres
         throw std::runtime_error("FrameStreamLogger: fstrm_iothr_get_input_queue() failed.");
       }
     }
-  }
-  catch (std::runtime_error& e) {
+  } catch (std::runtime_error &e) {
     this->cleanup();
     throw;
   }
@@ -169,7 +164,7 @@ RemoteLoggerInterface::Result FrameStreamLogger::queueData(const std::string& da
     ++d_permanentFailures;
     return Result::OtherError;
   }
-  uint8_t* frame = (uint8_t*)malloc(data.length());
+  uint8_t *frame = (uint8_t*)malloc(data.length());
   if (!frame) {
     ++d_queueFullDrops; // XXX separate count?
     return Result::TooLarge;
@@ -183,13 +178,11 @@ RemoteLoggerInterface::Result FrameStreamLogger::queueData(const std::string& da
     // Frame successfully queued.
     ++d_framesSent;
     return Result::Queued;
-  }
-  else if (res == fstrm_res_again) {
+  } else if (res == fstrm_res_again) {
     free(frame);
     ++d_queueFullDrops;
     return Result::PipeFull;
-  }
-  else {
+ } else {
     // Permanent failure.
     free(frame);
     ++d_permanentFailures;

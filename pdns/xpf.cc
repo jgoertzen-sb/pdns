@@ -69,7 +69,8 @@ bool parseXPFPayload(const char* payload, size_t len, ComboAddress& source, Comb
   uint16_t sourcePort;
   uint16_t destinationPort;
 
-  if (len != (sizeof(version) + sizeof(protocol) + (addr4Size * 2) + sizeof(sourcePort) + sizeof(destinationPort)) && len != (sizeof(version) + sizeof(protocol) + (addr6Size * 2) + sizeof(sourcePort) + sizeof(destinationPort))) {
+  if (len != (sizeof(version) + sizeof(protocol) + (addr4Size * 2) + sizeof(sourcePort) + sizeof(destinationPort)) &&
+      len != (sizeof(version) + sizeof(protocol) + (addr6Size * 2) + sizeof(sourcePort) + sizeof(destinationPort))) {
     return false;
   }
 
@@ -107,7 +108,7 @@ bool parseXPFPayload(const char* payload, size_t len, ComboAddress& source, Comb
 
   memcpy(&destinationPort, payload + pos, sizeof(destinationPort));
   pos += sizeof(destinationPort);
-  (void)pos;
+  (void) pos;
 
   if (destination != nullptr) {
     destination->sin4.sin_port = destinationPort;

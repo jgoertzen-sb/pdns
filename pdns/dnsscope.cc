@@ -55,12 +55,13 @@ ArgvMap& arg()
 }
 StatBag S;
 
+
+
 struct QuestionData
 {
-  QuestionData() :
-    d_qcount(0), d_answercount(0)
+  QuestionData() : d_qcount(0), d_answercount(0)
   {
-    d_firstquestiontime.tv_sec = 0;
+    d_firstquestiontime.tv_sec=0;
   }
 
   int d_qcount;
@@ -74,9 +75,9 @@ statmap_t statmap;
 
 static unsigned int liveQuestions()
 {
-  unsigned int ret = 0;
-  for (statmap_t::value_type& val : statmap) {
-    if (!val.second.d_answercount)
+  unsigned int ret=0;
+  for(statmap_t::value_type& val :  statmap) {
+    if(!val.second.d_answercount)
       ret++;
     //    if(val.second.d_qcount > val.second.d_answercount)
     //      ret+= val.second.d_qcount - val.second.d_answercount;
@@ -92,7 +93,7 @@ struct LiveCounts
 
   LiveCounts()
   {
-    questions = answers = outstanding = 0;
+    questions=answers=outstanding=0;
   }
 
   LiveCounts operator-(const LiveCounts& rhs)
@@ -109,37 +110,50 @@ static void visitor(const StatNode* node, const StatNode::Stat& /* selfstat */, 
 {
   // 20% servfails, >100 children, on average less than 2 copies of a query
   // >100 different subqueries
-  double dups = 1.0 * childstat.queries / node->children.size();
-  if (dups > 2.0)
+  double dups=1.0*childstat.queries/node->children.size();
+  if(dups > 2.0)
     return;
-  if (1.0 * childstat.servfails / childstat.queries > 0.2 && node->children.size() > 100) {
-    cout << node->fullname << ", servfails: " << childstat.servfails << ", nxdomains: " << childstat.nxdomains << ", remotes: " << childstat.remotes.size() << ", children: " << node->children.size() << ", childstat.queries: " << childstat.queries;
-    cout << ", dups2: " << dups << endl;
-    for (const StatNode::Stat::remotes_t::value_type& rem : childstat.remotes) {
-      cout << "source: " << node->fullname << "\t" << rem.first.toString() << "\t" << rem.second << endl;
+  if(1.0*childstat.servfails / childstat.queries > 0.2 && node->children.size()>100) {
+    cout<<node->fullname<<", servfails: "<<childstat.servfails<<", nxdomains: "<<childstat.nxdomains<<", remotes: "<<childstat.remotes.size()<<", children: "<<node->children.size()<<", childstat.queries: "<<childstat.queries;
+    cout<<", dups2: "<<dups<<endl;
+    for(const StatNode::Stat::remotes_t::value_type& rem :  childstat.remotes) {
+      cout<<"source: "<<node->fullname<<"\t"<<rem.first.toString()<<"\t"<<rem.second<<endl;
     }
   }
 }
 
 static const struct timeval operator-(const struct pdns_timeval& lhs, const struct pdns_timeval& rhs)
 {
-  struct timeval a
-  {
-    lhs.tv_sec, static_cast<suseconds_t>(lhs.tv_usec)
-  }, b{rhs.tv_sec, static_cast<suseconds_t>(rhs.tv_usec)};
-  return operator-(a, b);
+  struct timeval a{lhs.tv_sec, static_cast<suseconds_t>(lhs.tv_usec)}, b{rhs.tv_sec, static_cast<suseconds_t>(rhs.tv_usec)};
+  return operator-(a,b);
 }
 
-int main(int argc, char** argv)
-try {
-  po::options_description desc("Allowed options"), hidden, alloptions;
-  desc.add_options()("help,h", "produce help message")("version", "print version number")("rd", po::value<bool>(), "If set to true, only process RD packets, to false only non-RD, unset: both")("ipv4", po::value<bool>()->default_value(true), "Process IPv4 packets")("ipv6", po::value<bool>()->default_value(true), "Process IPv6 packets")
-#ifdef HAVE_BOOST_GE_148
-    ("log-histogram", "Write a log-histogram to file 'log-histogram'")("full-histogram", po::value<double>(), "Write a log-histogram to file 'full-histogram' with this millisecond bin size")
-#endif
-      ("filter-name,f", po::value<string>(), "Do statistics only for queries within this domain")("load-stats,l", po::value<string>()->default_value(""), "if set, emit per-second load statistics (questions, answers, outstanding)")("no-servfail-stats", "Don't include servfails in response time stats")("port", po::value<uint16_t>()->default_value(0), "The source and destination port to consider. Default is looking at packets from and to ports 53 and 5300")("servfail-tree", "Figure out subtrees that generate servfails")("stats-dir", po::value<string>()->default_value("."), "Directory where statistics will be saved")("write-failures,w", po::value<string>()->default_value(""), "if set, write weird packets to this PCAP file")("verbose,v", "be verbose");
 
-  hidden.add_options()("files", po::value<vector<string>>(), "files");
+int main(int argc, char** argv)
+try
+{
+  po::options_description desc("Allowed options"), hidden, alloptions;
+  desc.add_options()
+    ("help,h", "produce help message")
+    ("version", "print version number")
+    ("rd", po::value<bool>(), "If set to true, only process RD packets, to false only non-RD, unset: both")
+    ("ipv4", po::value<bool>()->default_value(true), "Process IPv4 packets")
+    ("ipv6", po::value<bool>()->default_value(true), "Process IPv6 packets")
+#ifdef HAVE_BOOST_GE_148
+    ("log-histogram", "Write a log-histogram to file 'log-histogram'")
+    ("full-histogram", po::value<double>(), "Write a log-histogram to file 'full-histogram' with this millisecond bin size")
+#endif
+    ("filter-name,f", po::value<string>(), "Do statistics only for queries within this domain")
+    ("load-stats,l", po::value<string>()->default_value(""), "if set, emit per-second load statistics (questions, answers, outstanding)")
+    ("no-servfail-stats", "Don't include servfails in response time stats")
+    ("port", po::value<uint16_t>()->default_value(0), "The source and destination port to consider. Default is looking at packets from and to ports 53 and 5300")
+    ("servfail-tree", "Figure out subtrees that generate servfails")
+    ("stats-dir", po::value<string>()->default_value("."), "Directory where statistics will be saved")
+    ("write-failures,w", po::value<string>()->default_value(""), "if set, write weird packets to this PCAP file")
+    ("verbose,v", "be verbose");
+
+  hidden.add_options()
+    ("files", po::value<vector<string> >(), "files");
 
   alloptions.add(desc).add(hidden);
 
@@ -150,22 +164,22 @@ try {
   po::notify(g_vm);
 
   vector<string> files;
-  if (g_vm.count("files"))
-    files = g_vm["files"].as<vector<string>>();
+  if(g_vm.count("files"))
+    files = g_vm["files"].as<vector<string> >();
 
-  if (g_vm.count("version")) {
-    cerr << "dnsscope " << VERSION << endl;
+  if(g_vm.count("version")) {
+    cerr<<"dnsscope "<<VERSION<<endl;
     exit(0);
   }
 
-  if (files.empty() || g_vm.count("help")) {
-    cerr << "Syntax: dnsscope filename.pcap [filename2.pcap...]" << endl;
+  if(files.empty() || g_vm.count("help")) {
+    cerr<<"Syntax: dnsscope filename.pcap [filename2.pcap...]"<<endl;
     cout << desc << endl;
     exit(0);
   }
 
   DNSName filtername;
-  if (g_vm.count("filter-name"))
+  if(g_vm.count("filter-name"))
     filtername = DNSName(g_vm["filter-name"].as<string>());
   uint32_t nameMismatch = 0;
 
@@ -173,14 +187,14 @@ try {
 
   bool verbose = g_vm.count("verbose");
 
-  bool haveRDFilter = 0, rdFilter = 0;
-  if (g_vm.count("rd")) {
+  bool haveRDFilter=0, rdFilter=0;
+  if(g_vm.count("rd")) {
     rdFilter = g_vm["rd"].as<bool>();
-    haveRDFilter = 1;
-    cout << "Filtering on recursion desired=" << rdFilter << endl;
+    haveRDFilter=1;
+    cout<<"Filtering on recursion desired="<<rdFilter<<endl;
   }
   else
-    cout << "Warning, looking at both RD and non-RD traffic!" << endl;
+    cout<<"Warning, looking at both RD and non-RD traffic!"<<endl;
 
   bool doIPv4 = g_vm["ipv4"].as<bool>();
   bool doIPv6 = g_vm["ipv6"].as<bool>();
@@ -188,7 +202,7 @@ try {
   bool noservfailstats = g_vm.count("no-servfail-stats");
   int dnserrors = 0;
   int parsefail = 0;
-  typedef map<uint32_t, uint32_t> cumul_t;
+  typedef map<uint32_t,uint32_t> cumul_t;
   cumul_t cumul;
   unsigned int untracked = 0;
   unsigned int nonRDQueries = 0;
@@ -205,39 +219,42 @@ try {
   unsigned int dnssecCD = 0;
   unsigned int dnssecAD = 0;
   unsigned int reuses = 0;
-  typedef map<uint16_t, uint32_t> rcodes_t;
+  typedef map<uint16_t,uint32_t> rcodes_t;
   rcodes_t rcodes;
 
-  time_t lowestTime = 0, highestTime = 0;
-  time_t lastsec = 0;
+  time_t lowestTime=0, highestTime=0;
+  time_t lastsec=0;
   LiveCounts lastcounts;
   std::unordered_set<ComboAddress, ComboAddress::addressOnlyHash> requestors, recipients, rdnonra;
-  typedef vector<pair<time_t, LiveCounts>> pcounts_t;
+  typedef vector<pair<time_t, LiveCounts> > pcounts_t;
   pcounts_t pcounts;
   const uint16_t port = g_vm["port"].as<uint16_t>();
   OPTRecordContent::report();
 
-  for (unsigned int fno = 0; fno < files.size(); ++fno) {
+  for(unsigned int fno=0; fno < files.size(); ++fno) {
     PcapPacketReader pr(files[fno]);
-    std::unique_ptr<PcapPacketWriter> pw = nullptr;
-    if (!g_vm["write-failures"].as<string>().empty())
+    std::unique_ptr<PcapPacketWriter> pw=nullptr;
+    if(!g_vm["write-failures"].as<string>().empty())
       pw = std::make_unique<PcapPacketWriter>(g_vm["write-failures"].as<string>(), pr);
 
     EDNSOpts edo;
-    while (pr.getUDPPacket()) {
+    while(pr.getUDPPacket()) {
 
       if (pr.d_len <= 12) {
         // non-DNS ip
         nonDNSIP++;
         continue;
       }
-      if (port > 0 && (ntohs(pr.d_udp->uh_dport) != port && ntohs(pr.d_udp->uh_sport) != port)) {
+      if (port > 0 &&
+          (ntohs(pr.d_udp->uh_dport) != port && ntohs(pr.d_udp->uh_sport) != port)) {
         // non-DNS ip
         nonDNSIP++;
         continue;
       }
 
-      if (port == 0 && (ntohs(pr.d_udp->uh_dport) != 5300 && ntohs(pr.d_udp->uh_sport) != 5300 && ntohs(pr.d_udp->uh_dport) != 53 && ntohs(pr.d_udp->uh_sport) != 53)) {
+      if (port == 0 &&
+          (ntohs(pr.d_udp->uh_dport) != 5300 && ntohs(pr.d_udp->uh_sport) != 5300 &&
+           ntohs(pr.d_udp->uh_dport) != 53 && ntohs(pr.d_udp->uh_sport) != 53)) {
         // non-DNS ip
         nonDNSIP++;
         continue;
@@ -250,7 +267,7 @@ try {
 
         if (pr.d_ip->ip_v == 4) {
           uint16_t frag = ntohs(pr.d_ip->ip_off);
-          if ((frag & IP_MF) || (frag & IP_OFFMASK)) { // more fragments or IS a fragment
+          if((frag & IP_MF) || (frag & IP_OFFMASK)) { // more fragments or IS a fragment
             fragmented++;
             continue;
           }
@@ -260,37 +277,37 @@ try {
         struct dnsheader header;
         memcpy(&header, (struct dnsheader*)pr.d_payload, 12);
 
-        if (haveRDFilter && header.rd != rdFilter) {
+        if(haveRDFilter && header.rd != rdFilter) {
           rdFilterMismatch++;
           continue;
         }
 
-        if (!filtername.empty() && !qname.isPartOf(filtername)) {
+        if(!filtername.empty() && !qname.isPartOf(filtername)) {
           nameMismatch++;
           continue;
         }
 
-        if (!header.qr) {
+        if(!header.qr) {
           uint16_t udpsize, z;
-          if (getEDNSUDPPayloadSizeAndZ((const char*)pr.d_payload, pr.d_len, &udpsize, &z)) {
+          if(getEDNSUDPPayloadSizeAndZ((const char*)pr.d_payload, pr.d_len, &udpsize, &z)) {
             edns++;
-            if (z & EDNSOpts::DNSSECOK)
+            if(z & EDNSOpts::DNSSECOK)
               dnssecOK++;
-            if (header.cd)
+            if(header.cd)
               dnssecCD++;
-            if (header.ad)
+            if(header.ad)
               dnssecAD++;
           }
         }
 
-        if (pr.d_ip->ip_v == 4)
+        if(pr.d_ip->ip_v == 4)
           ++ipv4DNSPackets;
         else
           ++ipv6DNSPackets;
 
-        if (pr.d_pheader.ts.tv_sec != lastsec) {
+        if(pr.d_pheader.ts.tv_sec != lastsec) {
           LiveCounts lc;
-          if (lastsec) {
+          if(lastsec) {
             lc.questions = queries;
             lc.answers = answers;
             lc.outstanding = liveQuestions();
@@ -302,81 +319,78 @@ try {
           lastcounts = lc;
         }
 
-        if (lowestTime) {
-          lowestTime = min((time_t)lowestTime, (time_t)pr.d_pheader.ts.tv_sec);
-        }
-        else {
-          lowestTime = pr.d_pheader.ts.tv_sec;
-        }
-        highestTime = max((time_t)highestTime, (time_t)pr.d_pheader.ts.tv_sec);
+        if(lowestTime) { lowestTime = min((time_t)lowestTime,  (time_t)pr.d_pheader.ts.tv_sec); }
+        else { lowestTime = pr.d_pheader.ts.tv_sec; }
+        highestTime=max((time_t)highestTime, (time_t)pr.d_pheader.ts.tv_sec);
 
-        QuestionIdentifier qi = QuestionIdentifier::create(pr.getSource(), pr.getDest(), header, qname, qtype);
+        QuestionIdentifier qi=QuestionIdentifier::create(pr.getSource(), pr.getDest(), header, qname, qtype);
 
-        if (!header.qr) { // question
+        if(!header.qr) { // question
           //	    cout<<"Query "<<qi<<endl;
-          if (!header.rd)
+          if(!header.rd)
             nonRDQueries++;
           queries++;
 
           ComboAddress rem = pr.getSource();
-          rem.sin4.sin_port = 0;
+          rem.sin4.sin_port=0;
           requestors.insert(rem);
 
-          QuestionData& qd = statmap[qi];
+          QuestionData& qd=statmap[qi];
 
-          if (!qd.d_firstquestiontime.tv_sec)
-            qd.d_firstquestiontime = pr.d_pheader.ts;
+          if(!qd.d_firstquestiontime.tv_sec)
+            qd.d_firstquestiontime=pr.d_pheader.ts;
           else {
-            auto delta = makeFloat(pr.d_pheader.ts - qd.d_firstquestiontime);
+            auto delta=makeFloat(pr.d_pheader.ts - qd.d_firstquestiontime);
             //	      cout<<"Reuse of "<<qi<<", delta t="<<delta<<", count="<<qd.d_qcount<<endl;
-            if (delta > 2.0) {
+            if(delta > 2.0) {
               //		cout<<"Resetting old entry for "<<qi<<", too old"<<endl;
-              qd.d_qcount = 0;
-              qd.d_answercount = 0;
-              qd.d_firstquestiontime = pr.d_pheader.ts;
+              qd.d_qcount=0;
+              qd.d_answercount=0;
+              qd.d_firstquestiontime=pr.d_pheader.ts;
             }
           }
-          if (qd.d_qcount++)
+          if(qd.d_qcount++)
             reuses++;
         }
-        else { // answer
+        else  {  // answer
           //	    cout<<"Response "<<qi<<endl;
           rcodes[header.rcode]++;
           answers++;
-          if (header.rd && !header.ra) {
+          if(header.rd && !header.ra) {
             rdNonRAAnswers++;
             rdnonra.insert(pr.getDest());
           }
 
-          if (header.ra) {
+          if(header.ra) {
             ComboAddress rem = pr.getDest();
-            rem.sin4.sin_port = 0;
+            rem.sin4.sin_port=0;
             recipients.insert(rem);
           }
 
-          QuestionData& qd = statmap[qi];
-          if (!qd.d_qcount) {
+          QuestionData& qd=statmap[qi];
+          if(!qd.d_qcount) {
             //	      cout<<"Untracked answer: "<<qi<<endl;
             untracked++;
           }
 
           qd.d_answercount++;
 
-          if (qd.d_qcount) {
-            uint32_t usecs = (pr.d_pheader.ts.tv_sec - qd.d_firstquestiontime.tv_sec) * 1000000 + (pr.d_pheader.ts.tv_usec - qd.d_firstquestiontime.tv_usec);
+          if(qd.d_qcount) {
+            uint32_t usecs= (pr.d_pheader.ts.tv_sec - qd.d_firstquestiontime.tv_sec) * 1000000 +
+              (pr.d_pheader.ts.tv_usec - qd.d_firstquestiontime.tv_usec) ;
 
             //	      cout<<"Usecs for "<<qi<<": "<<usecs<<endl;
-            if (!noservfailstats || header.rcode != 2)
+            if(!noservfailstats || header.rcode != 2)
               cumul[usecs]++;
 
             ComboAddress rem = pr.getDest();
-            rem.sin4.sin_port = 0;
+            rem.sin4.sin_port=0;
 
-            if (doServFailTree)
+            if(doServFailTree)
               root.submit(qname, header.rcode, pr.d_len, false, rem);
           }
 
-          if (!qd.d_qcount || qd.d_qcount == qd.d_answercount) {
+          if(!qd.d_qcount || qd.d_qcount == qd.d_answercount) {
             //	      cout<<"Clearing state for "<<qi<<endl<<endl;
             statmap.erase(qi);
           }
@@ -385,18 +399,18 @@ try {
           }
         }
       }
-      catch (std::exception& e) {
-        if (verbose)
-          cout << "error parsing packet: " << e.what() << endl;
+      catch(std::exception& e) {
+        if(verbose)
+          cout<<"error parsing packet: "<<e.what()<<endl;
 
-        if (pw)
+        if(pw)
           pw->write();
         parsefail++;
         continue;
       }
     }
 
-    cout << "PCAP contained " << pr.d_correctpackets << " correct packets, " << pr.d_runts << " runts, " << pr.d_oversized << " oversize, " << pr.d_nonetheripudp << " non-UDP.\n";
+    cout<<"PCAP contained "<<pr.d_correctpackets<<" correct packets, "<<pr.d_runts<<" runts, "<< pr.d_oversized<<" oversize, "<<pr.d_nonetheripudp<<" non-UDP.\n";
   }
 
   /*
@@ -406,151 +420,156 @@ try {
   }
   */
 
-  cout << "Timespan: " << (highestTime - lowestTime) / 3600.0 << " hours" << endl;
+  cout<<"Timespan: "<<(highestTime-lowestTime)/3600.0<<" hours"<<endl;
 
-  cout << nonDNSIP << " non-DNS UDP, " << dnserrors << " dns decoding errors, " << parsefail << " packets failed to parse" << endl;
-  cout << "Ignored fragment packets: " << fragmented << endl;
-  cout << "Dropped DNS packets based on recursion-desired filter: " << rdFilterMismatch << endl;
-  if (!filtername.empty())
-    cout << "Dropped DNS packets because not part of '" << filtername << "': " << nameMismatch << endl;
-  cout << "DNS IPv4: " << ipv4DNSPackets << " packets, IPv6: " << ipv6DNSPackets << " packets" << endl;
-  cout << "Questions: " << queries << ", answers: " << answers << endl;
-  cout << "Reuses of same state entry: " << reuses << endl;
-  unsigned int unanswered = 0;
+  cout<<nonDNSIP<<" non-DNS UDP, "<<dnserrors<<" dns decoding errors, "<<parsefail<<" packets failed to parse"<<endl;
+  cout<<"Ignored fragment packets: "<<fragmented<<endl;
+  cout<<"Dropped DNS packets based on recursion-desired filter: "<<rdFilterMismatch<<endl;
+  if(!filtername.empty())
+    cout <<"Dropped DNS packets because not part of '"<<filtername<<"': "<<nameMismatch << endl;
+  cout<<"DNS IPv4: "<<ipv4DNSPackets<<" packets, IPv6: "<<ipv6DNSPackets<<" packets"<<endl;
+  cout<<"Questions: "<<queries<<", answers: "<<answers<<endl;
+  cout<<"Reuses of same state entry: "<<reuses<<endl;
+  unsigned int unanswered=0;
+
 
   //  ofstream openf("openf");
-  for (statmap_t::const_iterator i = statmap.begin(); i != statmap.end(); ++i) {
-    if (!i->second.d_answercount) {
+  for(statmap_t::const_iterator i=statmap.begin(); i!=statmap.end(); ++i) {
+    if(!i->second.d_answercount) {
       unanswered++;
     }
-    // openf<< i->first.d_source.toStringWithPort()<<' ' <<i->first.d_dest.toStringWithPort()<<' '<<i->first.d_id<<' '<<i->first.d_qname <<" " <<i->first.d_qtype<< " "<<i->second.d_qcount <<" " <<i->second.d_answercount<<endl;
+    //openf<< i->first.d_source.toStringWithPort()<<' ' <<i->first.d_dest.toStringWithPort()<<' '<<i->first.d_id<<' '<<i->first.d_qname <<" " <<i->first.d_qtype<< " "<<i->second.d_qcount <<" " <<i->second.d_answercount<<endl;
   }
 
-  cout << boost::format("%d (%.02f%% of all) queries did not request recursion") % nonRDQueries % ((nonRDQueries * 100.0) / queries) << endl;
-  cout << rdNonRAAnswers << " answers had recursion desired bit set, but recursion available=0 (for " << rdnonra.size() << " remotes)" << endl;
-  cout << statmap.size() << " queries went unanswered, of which " << statmap.size() - unanswered << " were answered on exact retransmit" << endl;
-  cout << untracked << " responses could not be matched to questions" << endl;
-  cout << edns << " questions requested EDNS processing, do=1: " << dnssecOK << ", ad=1: " << dnssecAD << ", cd=1: " << dnssecCD << endl;
+  cout<< boost::format("%d (%.02f%% of all) queries did not request recursion") % nonRDQueries % ((nonRDQueries*100.0)/queries) << endl;
+  cout<< rdNonRAAnswers << " answers had recursion desired bit set, but recursion available=0 (for "<<rdnonra.size()<<" remotes)"<<endl;
+  cout<<statmap.size()<<" queries went unanswered, of which "<< statmap.size()-unanswered<<" were answered on exact retransmit"<<endl;
+  cout<<untracked<<" responses could not be matched to questions"<<endl;
+  cout<<edns <<" questions requested EDNS processing, do=1: "<<dnssecOK<<", ad=1: "<<dnssecAD<<", cd=1: "<<dnssecCD<<endl;
 
-  if (answers) {
-    cout << (boost::format("%1% %|25t|%2%") % "Rcode" % "Count\n");
-    for (rcodes_t::const_iterator i = rcodes.begin(); i != rcodes.end(); ++i)
-      cout << (boost::format("%s %|25t|%d %|35t|(%.1f%%)") % RCode::to_s(i->first) % i->second % (i->second * 100.0 / answers)) << endl;
+  if(answers) {
+    cout<<(boost::format("%1% %|25t|%2%") % "Rcode" % "Count\n");
+    for(rcodes_t::const_iterator i=rcodes.begin(); i!=rcodes.end(); ++i)
+      cout<<(boost::format("%s %|25t|%d %|35t|(%.1f%%)") % RCode::to_s(i->first) % i->second % (i->second*100.0/answers))<<endl;
   }
 
-  uint32_t sum = 0;
+  uint32_t sum=0;
   //  ofstream stats("stats");
-  uint32_t totpairs = 0;
-  double tottime = 0;
-  for (cumul_t::const_iterator i = cumul.begin(); i != cumul.end(); ++i) {
+  uint32_t totpairs=0;
+  double tottime=0;
+  for(cumul_t::const_iterator i=cumul.begin(); i!=cumul.end(); ++i) {
     //    stats<<i->first<<"\t"<<(sum+=i->second)<<"\n";
-    totpairs += i->second;
-    tottime += i->first * i->second;
+    totpairs+=i->second;
+    tottime+=i->first*i->second;
   }
 
   typedef map<uint32_t, bool> done_t;
   done_t done;
-  for (auto a : {50, 100, 200, 300, 400, 800, 1000, 2000, 4000, 8000, 32000, 64000, 256000, 1024000, 2048000})
-    done[a] = false;
+  for(auto a : {50, 100, 200, 300, 400, 800, 1000, 2000, 4000, 8000, 32000, 64000, 256000, 1024000, 2048000})
+    done[a]=false;
 
   cout.setf(std::ios::fixed);
   cout.precision(4);
-  sum = 0;
+  sum=0;
 
 #ifdef HAVE_BOOST_GE_148
-  if (g_vm.count("log-histogram")) {
-    string fname = g_vm["stats-dir"].as<string>() + "/log-histogram";
+  if(g_vm.count("log-histogram")) {
+    string fname = g_vm["stats-dir"].as<string>()+"/log-histogram";
     ofstream loglog(fname);
-    if (!loglog)
-      throw runtime_error("Unable to write statistics to " + fname);
+    if(!loglog)
+      throw runtime_error("Unable to write statistics to "+fname);
 
     writeLogHistogramFile(cumul, loglog);
   }
 
-  if (g_vm.count("full-histogram")) {
-    string fname = g_vm["stats-dir"].as<string>() + "/full-histogram";
+  if(g_vm.count("full-histogram")) {
+    string fname=g_vm["stats-dir"].as<string>()+"/full-histogram";
     ofstream loglog(fname);
-    if (!loglog)
-      throw runtime_error("Unable to write statistics to " + fname);
+    if(!loglog)
+      throw runtime_error("Unable to write statistics to "+fname);
     writeFullHistogramFile(cumul, g_vm["full-histogram"].as<double>(), loglog);
   }
 #endif
 
-  sum = 0;
-  double lastperc = 0, perc = 0;
-  uint64_t lastsum = 0;
 
-  for (cumul_t::const_iterator i = cumul.begin(); i != cumul.end(); ++i) {
-    for (done_t::iterator j = done.begin(); j != done.end(); ++j) {
-      if (!j->second && i->first > j->first) {
-        j->second = true;
+  sum=0;
+  double lastperc=0, perc=0;
+  uint64_t lastsum=0;
 
-        perc = sum * 100.0 / totpairs;
-        if (j->first < 1024)
-          cout << perc << "% of questions answered within " << j->first << " us (";
+  for(cumul_t::const_iterator i=cumul.begin(); i!=cumul.end(); ++i) {
+    for(done_t::iterator j=done.begin(); j!=done.end(); ++j) {
+      if(!j->second && i->first > j->first) {
+        j->second=true;
+
+        perc=sum*100.0/totpairs;
+        if(j->first < 1024)
+          cout<< perc <<"% of questions answered within " << j->first << " us (";
         else
-          cout << perc << "% of questions answered within " << j->first / 1000.0 << " ms (";
+          cout<< perc <<"% of questions answered within " << j->first/1000.0 << " ms (";
 
-        cout << perc - lastperc << "%)\n";
-        lastperc = sum * 100.0 / totpairs;
-        lastsum = sum;
+        cout<<perc-lastperc<<"%)\n";
+        lastperc=sum*100.0/totpairs;
+        lastsum=sum;
       }
     }
-    sum += i->second;
+    sum+=i->second;
   }
 
-  for (auto j = done.begin(); j != done.end(); ++j) {
-    if (!j->second) {
-      perc = sum * 100.0 / totpairs;
-      if (j->first < 1024)
-        cout << perc << "% of questions answered within " << j->first << " us (";
+  for(auto j = done.begin(); j != done.end(); ++j) {
+    if(!j->second) {
+      perc=sum*100.0/totpairs;
+      if(j->first < 1024)
+        cout<< perc <<"% of questions answered within " << j->first << " us (";
       else
-        cout << perc << "% of questions answered within " << j->first / 1000.0 << " ms (";
+        cout<< perc <<"% of questions answered within " << j->first/1000.0 << " ms (";
 
-      cout << perc - lastperc << "%)\n";
-      lastperc = sum * 100.0 / totpairs;
-      lastsum = sum;
+      cout<<perc-lastperc<<"%)\n";
+      lastperc=sum*100.0/totpairs;
+      lastsum=sum;
       break;
     }
   }
 
-  cout << (totpairs - lastsum) << " responses (" << ((totpairs - lastsum) * 100.0 / answers) << "%) older than " << (done.rbegin()->first / 1000000.0) << " seconds" << endl;
-  if (totpairs)
-    cout << "Average non-late response time: " << tottime / totpairs << " us" << endl;
+  cout<< (totpairs-lastsum)<<" responses ("<<((totpairs-lastsum)*100.0/answers) <<"%) older than "<< (done.rbegin()->first/1000000.0) <<" seconds"<<endl;
+  if(totpairs)
+    cout<<"Average non-late response time: "<<tottime/totpairs<<" us"<<endl;
 
-  if (!g_vm["load-stats"].as<string>().empty()) {
+  if(!g_vm["load-stats"].as<string>().empty()) {
     ofstream load(g_vm["load-stats"].as<string>().c_str());
-    if (!load)
-      throw runtime_error("Error writing load statistics to " + g_vm["load-stats"].as<string>());
-    for (pcounts_t::value_type& val : pcounts) {
-      load << val.first << '\t' << val.second.questions << '\t' << val.second.answers << '\t' << val.second.outstanding << '\n';
+    if(!load)
+      throw runtime_error("Error writing load statistics to "+g_vm["load-stats"].as<string>());
+    for(pcounts_t::value_type& val :  pcounts) {
+      load<<val.first<<'\t'<<val.second.questions<<'\t'<<val.second.answers<<'\t'<<val.second.outstanding<<'\n';
     }
   }
 
-  cout << "Saw questions from " << requestors.size() << " distinct remotes, answers to " << recipients.size() << endl;
+
+  cout<<"Saw questions from "<<requestors.size()<<" distinct remotes, answers to "<<recipients.size()<<endl;
   ofstream remotes("remotes");
-  for (const ComboAddress& rem : requestors) {
-    remotes << rem.toString() << '\n';
+  for(const ComboAddress& rem :  requestors) {
+    remotes<<rem.toString()<<'\n';
   }
 
   vector<ComboAddress> diff;
   set_difference(requestors.begin(), requestors.end(), recipients.begin(), recipients.end(), back_inserter(diff), ComboAddress::addressOnlyLessThan());
-  cout << "Saw " << diff.size() << " unique remotes asking questions, but not getting RA answers" << endl;
+  cout<<"Saw "<<diff.size()<<" unique remotes asking questions, but not getting RA answers"<<endl;
 
   ofstream ignored("ignored");
-  for (const ComboAddress& rem : diff) {
-    ignored << rem.toString() << '\n';
+  for(const ComboAddress& rem :  diff) {
+    ignored<<rem.toString()<<'\n';
   }
   ofstream rdnonrafs("rdnonra");
-  for (const ComboAddress& rem : rdnonra) {
-    rdnonrafs << rem.toString() << '\n';
+  for(const ComboAddress& rem :  rdnonra) {
+    rdnonrafs<<rem.toString()<<'\n';
   }
 
-  if (doServFailTree) {
+  if(doServFailTree) {
     StatNode::Stat node;
     root.visit(visitor, node);
   }
+
 }
-catch (std::exception& e) {
-  cerr << "Fatal: " << e.what() << endl;
+catch(std::exception& e)
+{
+  cerr<<"Fatal: "<<e.what()<<endl;
 }

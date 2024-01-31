@@ -44,7 +44,7 @@ inline bool dns_isspace(char c)
   return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
-extern const unsigned char dns_toupper_table[256], dns_tolower_table[256];
+extern const unsigned char dns_toupper_table[256],  dns_tolower_table[256];
 
 inline unsigned char dns_toupper(unsigned char c)
 {
@@ -61,7 +61,7 @@ inline unsigned char dns_tolower(unsigned char c)
 // #include "dns.hh"
 // #include "logger.hh"
 
-// #include <ext/vstring.h>
+//#include <ext/vstring.h>
 
 /* Quest in life:
      accept escaped ascii presentations of DNS names and store them "natively"
@@ -102,30 +102,24 @@ public:
   explicit DNSName(std::string_view sw); //!< Constructs from a human formatted, escaped presentation
   DNSName(const char* p, size_t len, size_t offset, bool uncompress, uint16_t* qtype = nullptr, uint16_t* qclass = nullptr, unsigned int* consumed = nullptr, uint16_t minOffset = 0); //!< Construct from a DNS Packet, taking the first question if offset=12. If supplied, consumed is set to the number of bytes consumed from the packet, which will not be equal to the wire length of the resulting name in case of compression.
 
-  bool isPartOf(const DNSName& rhs) const; //!< Are we part of the rhs name? Note that name.isPartOf(name).
+  bool isPartOf(const DNSName& rhs) const;   //!< Are we part of the rhs name? Note that name.isPartOf(name).
   inline bool operator==(const DNSName& rhs) const; //!< DNS-native comparison (case insensitive) - empty compares to empty
   bool operator!=(const DNSName& other) const { return !(*this == other); }
 
-  std::string toString(const std::string& separator = ".", const bool trailing = true) const; //!< Our human-friendly, escaped, representation
-  void toString(std::string& output, const std::string& separator = ".", const bool trailing = true) const;
+  std::string toString(const std::string& separator=".", const bool trailing=true) const;              //!< Our human-friendly, escaped, representation
+  void toString(std::string& output, const std::string& separator=".", const bool trailing=true) const;
   std::string toLogString() const; //!< like plain toString, but returns (empty) on empty names
   std::string toStringNoDot() const { return toString(".", false); }
-  std::string toStringRootDot() const
-  {
-    if (isRoot())
-      return ".";
-    else
-      return toString(".", false);
-  }
-  std::string toDNSString() const; //!< Our representation in DNS native format
-  std::string toDNSStringLC() const; //!< Our representation in DNS native format, lower cased
+  std::string toStringRootDot() const { if(isRoot()) return "."; else return toString(".", false); }
+  std::string toDNSString() const;           //!< Our representation in DNS native format
+  std::string toDNSStringLC() const;           //!< Our representation in DNS native format, lower cased
   void appendRawLabel(const std::string& str); //!< Append this unescaped label
   void appendRawLabel(const char* start, unsigned int length); //!< Append this unescaped label
   void prependRawLabel(const std::string& str); //!< Prepend this unescaped label
   std::vector<std::string> getRawLabels() const; //!< Individual raw unescaped labels
   std::string getRawLabel(unsigned int pos) const; //!< Get the specified raw unescaped label
   DNSName getLastLabel() const; //!< Get the DNSName of the last label
-  bool chopOff(); //!< Turn www.powerdns.com. into powerdns.com., returns false for .
+  bool chopOff();                               //!< Turn www.powerdns.com. into powerdns.com., returns false for .
   DNSName makeRelative(const DNSName& zone) const;
   DNSName makeLowerCase() const
   {
@@ -135,8 +129,8 @@ public:
   }
   void makeUsLowerCase()
   {
-    for (auto& c : d_storage) {
-      c = dns_tolower(c);
+    for(auto & c : d_storage) {
+      c=dns_tolower(c);
     }
   }
   void makeUsRelative(const DNSName& zone);
@@ -147,35 +141,35 @@ public:
   unsigned int countLabels() const;
   size_t wirelength() const; //!< Number of total bytes in the name
   bool empty() const { return d_storage.empty(); }
-  bool isRoot() const { return d_storage.size() == 1 && d_storage[0] == 0; }
+  bool isRoot() const { return d_storage.size()==1 && d_storage[0]==0; }
   void clear() { d_storage.clear(); }
   void trimToLabels(unsigned int);
-  size_t hash(size_t init = 0) const
+  size_t hash(size_t init=0) const
   {
     return burtleCI((const unsigned char*)d_storage.c_str(), d_storage.size(), init);
   }
   DNSName& operator+=(const DNSName& rhs)
   {
-    if (d_storage.size() + rhs.d_storage.size() > s_maxDNSNameLength + 1) // one extra byte for the second root label
+    if(d_storage.size() + rhs.d_storage.size() > s_maxDNSNameLength + 1) // one extra byte for the second root label
       throwSafeRangeError("resulting name too long", rhs.d_storage.data(), rhs.d_storage.size());
-    if (rhs.empty())
+    if(rhs.empty())
       return *this;
 
-    if (d_storage.empty())
-      d_storage += rhs.d_storage;
+    if(d_storage.empty())
+      d_storage+=rhs.d_storage;
     else
-      d_storage.replace(d_storage.length() - 1, rhs.d_storage.length(), rhs.d_storage);
+      d_storage.replace(d_storage.length()-1, rhs.d_storage.length(), rhs.d_storage);
 
     return *this;
   }
 
-  bool operator<(const DNSName& rhs) const // this delivers _some_ kind of ordering, but not one useful in a DNS context. Really fast though.
+  bool operator<(const DNSName& rhs)  const // this delivers _some_ kind of ordering, but not one useful in a DNS context. Really fast though.
   {
     return std::lexicographical_compare(d_storage.rbegin(), d_storage.rend(),
-                                        rhs.d_storage.rbegin(), rhs.d_storage.rend(),
-                                        [](const unsigned char& a, const unsigned char& b) {
-                                          return dns_tolower(a) < dns_tolower(b);
-                                        }); // note that this is case insensitive, including on the label lengths
+				 rhs.d_storage.rbegin(), rhs.d_storage.rend(),
+				 [](const unsigned char& a, const unsigned char& b) {
+					  return dns_tolower(a) < dns_tolower(b);
+					}); // note that this is case insensitive, including on the label lengths
   }
 
   inline bool canonCompare(const DNSName& rhs) const;
@@ -186,8 +180,7 @@ public:
 #else
   typedef std::string string_t;
 #endif
-  const string_t& getStorage() const
-  {
+  const string_t& getStorage() const {
     return d_storage;
   }
 
@@ -213,7 +206,6 @@ public:
     std::string_view back() const;
     bool pop_back();
     bool empty() const;
-
   private:
     std::array<uint8_t, 128> d_labelPositions;
     const string_t& d_storage;
@@ -227,8 +219,7 @@ private:
   class UnsignedCharView
   {
   public:
-    UnsignedCharView(const char* data_, size_t size_) :
-      view(data_, size_)
+    UnsignedCharView(const char* data_, size_t size_): view(data_, size_)
     {
     }
     const unsigned char& at(std::string_view::size_type pos) const
@@ -254,6 +245,7 @@ private:
 
 size_t hash_value(DNSName const& d);
 
+
 inline bool DNSName::canonCompare(const DNSName& rhs) const
 {
   //      01234567890abcd
@@ -265,55 +257,56 @@ inline bool DNSName::canonCompare(const DNSName& rhs) const
   // 0,4,a
 
   uint8_t ourpos[64], rhspos[64];
-  uint8_t ourcount = 0, rhscount = 0;
-  // cout<<"Asked to compare "<<toString()<<" to "<<rhs.toString()<<endl;
-  for (const unsigned char* p = (const unsigned char*)d_storage.c_str(); p < (const unsigned char*)d_storage.c_str() + d_storage.size() && *p && ourcount < sizeof(ourpos); p += *p + 1)
-    ourpos[ourcount++] = (p - (const unsigned char*)d_storage.c_str());
-  for (const unsigned char* p = (const unsigned char*)rhs.d_storage.c_str(); p < (const unsigned char*)rhs.d_storage.c_str() + rhs.d_storage.size() && *p && rhscount < sizeof(rhspos); p += *p + 1)
-    rhspos[rhscount++] = (p - (const unsigned char*)rhs.d_storage.c_str());
+  uint8_t ourcount=0, rhscount=0;
+  //cout<<"Asked to compare "<<toString()<<" to "<<rhs.toString()<<endl;
+  for(const unsigned char* p = (const unsigned char*)d_storage.c_str(); p < (const unsigned char*)d_storage.c_str() + d_storage.size() && *p && ourcount < sizeof(ourpos); p+=*p+1)
+    ourpos[ourcount++]=(p-(const unsigned char*)d_storage.c_str());
+  for(const unsigned char* p = (const unsigned char*)rhs.d_storage.c_str(); p < (const unsigned char*)rhs.d_storage.c_str() + rhs.d_storage.size() && *p && rhscount < sizeof(rhspos); p+=*p+1)
+    rhspos[rhscount++]=(p-(const unsigned char*)rhs.d_storage.c_str());
 
-  if (ourcount == sizeof(ourpos) || rhscount == sizeof(rhspos)) {
+  if(ourcount == sizeof(ourpos) || rhscount==sizeof(rhspos)) {
     return slowCanonCompare(rhs);
   }
 
-  for (;;) {
-    if (ourcount == 0 && rhscount != 0)
+  for(;;) {
+    if(ourcount == 0 && rhscount != 0)
       return true;
-    if (rhscount == 0)
+    if(rhscount == 0)
       return false;
     ourcount--;
     rhscount--;
 
-    bool res = std::lexicographical_compare(
-      d_storage.c_str() + ourpos[ourcount] + 1,
-      d_storage.c_str() + ourpos[ourcount] + 1 + *(d_storage.c_str() + ourpos[ourcount]),
-      rhs.d_storage.c_str() + rhspos[rhscount] + 1,
-      rhs.d_storage.c_str() + rhspos[rhscount] + 1 + *(rhs.d_storage.c_str() + rhspos[rhscount]),
-      [](const unsigned char& a, const unsigned char& b) {
-        return dns_tolower(a) < dns_tolower(b);
-      });
+    bool res=std::lexicographical_compare(
+					  d_storage.c_str() + ourpos[ourcount] + 1,
+					  d_storage.c_str() + ourpos[ourcount] + 1 + *(d_storage.c_str() + ourpos[ourcount]),
+					  rhs.d_storage.c_str() + rhspos[rhscount] + 1,
+					  rhs.d_storage.c_str() + rhspos[rhscount] + 1 + *(rhs.d_storage.c_str() + rhspos[rhscount]),
+					  [](const unsigned char& a, const unsigned char& b) {
+					    return dns_tolower(a) < dns_tolower(b);
+					  });
 
     //    cout<<"Forward: "<<res<<endl;
-    if (res)
+    if(res)
       return true;
 
-    res = std::lexicographical_compare(rhs.d_storage.c_str() + rhspos[rhscount] + 1,
-                                       rhs.d_storage.c_str() + rhspos[rhscount] + 1 + *(rhs.d_storage.c_str() + rhspos[rhscount]),
-                                       d_storage.c_str() + ourpos[ourcount] + 1,
-                                       d_storage.c_str() + ourpos[ourcount] + 1 + *(d_storage.c_str() + ourpos[ourcount]),
-                                       [](const unsigned char& a, const unsigned char& b) {
-                                         return dns_tolower(a) < dns_tolower(b);
-                                       });
+    res=std::lexicographical_compare(	  rhs.d_storage.c_str() + rhspos[rhscount] + 1,
+					  rhs.d_storage.c_str() + rhspos[rhscount] + 1 + *(rhs.d_storage.c_str() + rhspos[rhscount]),
+					  d_storage.c_str() + ourpos[ourcount] + 1,
+					  d_storage.c_str() + ourpos[ourcount] + 1 + *(d_storage.c_str() + ourpos[ourcount]),
+					  [](const unsigned char& a, const unsigned char& b) {
+					    return dns_tolower(a) < dns_tolower(b);
+					  });
     //    cout<<"Reverse: "<<res<<endl;
-    if (res)
+    if(res)
       return false;
   }
   return false;
 }
 
+
 struct CanonDNSNameCompare
 {
-  bool operator()(const DNSName& a, const DNSName& b) const
+  bool operator()(const DNSName&a, const DNSName& b) const
   {
     return a.canonCompare(b);
   }
@@ -321,28 +314,26 @@ struct CanonDNSNameCompare
 
 inline DNSName operator+(const DNSName& lhs, const DNSName& rhs)
 {
-  DNSName ret = lhs;
+  DNSName ret=lhs;
   ret += rhs;
   return ret;
 }
 
 extern const DNSName g_rootdnsname, g_wildcarddnsname;
 
-template <typename T>
+template<typename T>
 struct SuffixMatchTree
 {
-  SuffixMatchTree(const std::string& name = "", bool endNode_ = false) :
-    d_name(name), endNode(endNode_)
+  SuffixMatchTree(const std::string& name="", bool endNode_=false) : d_name(name), endNode(endNode_)
   {}
 
-  SuffixMatchTree(const SuffixMatchTree& rhs) :
-    d_name(rhs.d_name), children(rhs.children), endNode(rhs.endNode)
+  SuffixMatchTree(const SuffixMatchTree& rhs): d_name(rhs.d_name), children(rhs.children), endNode(rhs.endNode)
   {
     if (endNode) {
       d_value = rhs.d_value;
     }
   }
-  SuffixMatchTree& operator=(const SuffixMatchTree& rhs)
+  SuffixMatchTree & operator=(const SuffixMatchTree &rhs)
   {
     d_name = rhs.d_name;
     children = rhs.children;
@@ -395,10 +386,9 @@ struct SuffixMatchTree
     return this->d_name.size() < lk.d_name.size();
   }
 
-  template <typename V>
-  void visit(const V& v) const
-  {
-    for (const auto& c : children) {
+  template<typename V>
+  void visit(const V& v) const {
+    for(const auto& c : children) {
       c.visit(v);
     }
 
@@ -419,7 +409,7 @@ struct SuffixMatchTree
       endNode = true;
       d_value = std::move(value);
     }
-    else if (labels.size() == 1) {
+    else if(labels.size()==1) {
       auto res = children.emplace(*labels.begin(), true);
       if (!res.second) {
         // we might already have had the node as an
@@ -437,7 +427,7 @@ struct SuffixMatchTree
     }
   }
 
-  void remove(const DNSName& name, bool subtree = false) const
+  void remove(const DNSName &name, bool subtree=false) const
   {
     auto labels = name.getRawLabels();
     remove(labels, subtree);
@@ -504,8 +494,7 @@ struct SuffixMatchTree
   }
 
   // Returns all end-nodes, fully qualified (not as separate labels)
-  std::vector<DNSName> getNodes() const
-  {
+  std::vector<DNSName> getNodes() const {
     std::vector<DNSName> ret;
     if (endNode) {
       ret.push_back(DNSName(d_name));
@@ -513,7 +502,7 @@ struct SuffixMatchTree
     for (const auto& child : children) {
       auto nodes = child.getNodes();
       ret.reserve(ret.size() + nodes.size());
-      for (const auto& node : nodes) {
+      for (const auto &node: nodes) {
         ret.push_back(node + DNSName(d_name));
       }
     }
@@ -521,7 +510,7 @@ struct SuffixMatchTree
   }
 
 private:
-  const SuffixMatchTree* getBestNode(const DNSName& name) const
+  const SuffixMatchTree* getBestNode(const DNSName& name)  const
   {
     if (children.empty()) { // speed up empty set
       if (endNode) {
@@ -592,85 +581,83 @@ private:
    anything part of that domain will return 'true' in check */
 struct SuffixMatchNode
 {
-public:
-  SuffixMatchNode() = default;
-  SuffixMatchTree<bool> d_tree;
+  public:
+    SuffixMatchNode() = default;
+    SuffixMatchTree<bool> d_tree;
 
-  void add(const DNSName& dnsname)
-  {
-    d_tree.add(dnsname, true);
-    d_nodes.insert(dnsname);
-  }
-
-  void add(const std::string& name)
-  {
-    add(DNSName(name));
-  }
-
-  void add(std::vector<std::string> labels)
-  {
-    d_tree.add(labels, true);
-    DNSName tmp;
-    while (!labels.empty()) {
-      tmp.appendRawLabel(labels.back());
-      labels.pop_back(); // This is safe because we have a copy of labels
+    void add(const DNSName& dnsname)
+    {
+      d_tree.add(dnsname, true);
+      d_nodes.insert(dnsname);
     }
-    d_nodes.insert(tmp);
-  }
 
-  void remove(const DNSName& name)
-  {
-    d_tree.remove(name);
-    d_nodes.erase(name);
-  }
-
-  void remove(std::vector<std::string> labels)
-  {
-    d_tree.remove(labels);
-    DNSName tmp;
-    while (!labels.empty()) {
-      tmp.appendRawLabel(labels.back());
-      labels.pop_back(); // This is safe because we have a copy of labels
+    void add(const std::string& name)
+    {
+      add(DNSName(name));
     }
-    d_nodes.erase(tmp);
-  }
 
-  bool check(const DNSName& dnsname) const
-  {
-    return d_tree.lookup(dnsname) != nullptr;
-  }
-
-  std::optional<DNSName> getBestMatch(const DNSName& name) const
-  {
-    return d_tree.getBestMatch(name);
-  }
-
-  std::string toString() const
-  {
-    std::string ret;
-    bool first = true;
-    for (const auto& n : d_nodes) {
-      if (!first) {
-        ret += ", ";
+    void add(std::vector<std::string> labels)
+    {
+      d_tree.add(labels, true);
+      DNSName tmp;
+      while (!labels.empty()) {
+        tmp.appendRawLabel(labels.back());
+        labels.pop_back(); // This is safe because we have a copy of labels
       }
-      first = false;
-      ret += n.toString();
+      d_nodes.insert(tmp);
     }
-    return ret;
-  }
 
-private:
-  mutable std::set<DNSName> d_nodes; // Only used for string generation
+    void remove(const DNSName& name)
+    {
+      d_tree.remove(name);
+      d_nodes.erase(name);
+    }
+
+    void remove(std::vector<std::string> labels)
+    {
+      d_tree.remove(labels);
+      DNSName tmp;
+      while (!labels.empty()) {
+        tmp.appendRawLabel(labels.back());
+        labels.pop_back(); // This is safe because we have a copy of labels
+      }
+      d_nodes.erase(tmp);
+    }
+
+    bool check(const DNSName& dnsname) const
+    {
+      return d_tree.lookup(dnsname) != nullptr;
+    }
+
+    std::optional<DNSName> getBestMatch(const DNSName& name) const
+    {
+      return d_tree.getBestMatch(name);
+    }
+
+    std::string toString() const
+    {
+      std::string ret;
+      bool first = true;
+      for (const auto& n : d_nodes) {
+        if (!first) {
+          ret += ", ";
+        }
+        first = false;
+        ret += n.toString();
+      }
+      return ret;
+    }
+
+  private:
+    mutable std::set<DNSName> d_nodes; // Only used for string generation
 };
 
-std::ostream& operator<<(std::ostream& os, const DNSName& d);
-namespace std
-{
-template <>
-struct hash<DNSName>
-{
-  size_t operator()(const DNSName& dn) const { return dn.hash(0); }
-};
+std::ostream & operator<<(std::ostream &os, const DNSName& d);
+namespace std {
+    template <>
+    struct hash<DNSName> {
+        size_t operator () (const DNSName& dn) const { return dn.hash(0); }
+    };
 }
 
 DNSName::string_t segmentDNSNameRaw(const char* input, size_t inputlen); // from ragel
@@ -691,12 +678,10 @@ bool DNSName::operator==(const DNSName& rhs) const
   return true;
 }
 
-struct DNSNameSet : public std::unordered_set<DNSName>
-{
-  std::string toString() const
-  {
-    std::ostringstream oss;
-    std::copy(begin(), end(), std::ostream_iterator<DNSName>(oss, "\n"));
-    return oss.str();
-  }
+struct DNSNameSet: public std::unordered_set<DNSName> {
+    std::string toString() const {
+        std::ostringstream oss;
+        std::copy(begin(), end(), std::ostream_iterator<DNSName>(oss, "\n"));
+        return oss.str();
+    }
 };

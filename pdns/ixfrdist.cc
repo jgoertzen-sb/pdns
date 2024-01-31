@@ -58,7 +58,7 @@
 #include "statbag.hh"
 StatBag S;
 
-ArgvMap& arg()
+ArgvMap &arg()
 {
   static ArgvMap theArg;
   return theArg;
@@ -66,86 +66,69 @@ ArgvMap& arg()
 /* END Needed because of deeper dependencies */
 
 // Allows reading/writing ComboAddresses and DNSNames in YAML-cpp
-namespace YAML
-{
-template <>
-struct convert<ComboAddress>
-{
-  static Node encode(const ComboAddress& rhs)
-  {
+namespace YAML {
+template<>
+struct convert<ComboAddress> {
+  static Node encode(const ComboAddress& rhs) {
     return Node(rhs.toStringWithPort());
   }
-  static bool decode(const Node& node, ComboAddress& rhs)
-  {
+  static bool decode(const Node& node, ComboAddress& rhs) {
     if (!node.IsScalar()) {
       return false;
     }
     try {
       rhs = ComboAddress(node.as<string>(), 53);
       return true;
-    }
-    catch (const runtime_error& e) {
+    } catch(const runtime_error &e) {
       return false;
-    }
-    catch (const PDNSException& e) {
+    } catch (const PDNSException &e) {
       return false;
     }
   }
 };
 
-template <>
-struct convert<DNSName>
-{
-  static Node encode(const DNSName& rhs)
-  {
+template<>
+struct convert<DNSName> {
+  static Node encode(const DNSName& rhs) {
     return Node(rhs.toStringRootDot());
   }
-  static bool decode(const Node& node, DNSName& rhs)
-  {
+  static bool decode(const Node& node, DNSName& rhs) {
     if (!node.IsScalar()) {
       return false;
     }
     try {
       rhs = DNSName(node.as<string>());
       return true;
-    }
-    catch (const runtime_error& e) {
+    } catch(const runtime_error &e) {
       return false;
-    }
-    catch (const PDNSException& e) {
+    } catch (const PDNSException &e) {
       return false;
     }
   }
 };
 
-template <>
-struct convert<Netmask>
-{
-  static Node encode(const Netmask& rhs)
-  {
+template<>
+struct convert<Netmask> {
+  static Node encode(const Netmask& rhs) {
     return Node(rhs.toString());
   }
-  static bool decode(const Node& node, Netmask& rhs)
-  {
+  static bool decode(const Node& node, Netmask& rhs) {
     if (!node.IsScalar()) {
       return false;
     }
     try {
       rhs = Netmask(node.as<string>());
       return true;
-    }
-    catch (const runtime_error& e) {
+    } catch(const runtime_error &e) {
       return false;
-    }
-    catch (const PDNSException& e) {
+    } catch (const PDNSException &e) {
       return false;
     }
   }
 };
 } // namespace YAML
 
-struct ixfrdiff_t
-{
+struct ixfrdiff_t {
   shared_ptr<const SOARecordContent> oldSOA;
   shared_ptr<const SOARecordContent> newSOA;
   vector<DNSRecord> removals;
@@ -154,17 +137,15 @@ struct ixfrdiff_t
   uint32_t newSOATTL;
 };
 
-struct ixfrinfo_t
-{
+struct ixfrinfo_t {
   shared_ptr<const SOARecordContent> soa; // The SOA of the latest AXFR
-  records_t latestAXFR; // The most recent AXFR
+  records_t latestAXFR;             // The most recent AXFR
   vector<std::shared_ptr<ixfrdiff_t>> ixfrDiffs;
   uint32_t soaTTL;
 };
 
 // Why a struct? This way we can add more options to a domain in the future
-struct ixfrdistdomain_t
-{
+struct ixfrdistdomain_t {
   set<ComboAddress> primaries; // A set so we can do multiple primary addresses in the future
   uint32_t maxSOARefresh{0}; // Cap SOA refresh value to the given value in seconds
 };
@@ -188,43 +169,38 @@ namespace po = boost::program_options;
 
 static bool g_exiting = false;
 
-static NetmaskGroup g_acl; // networks that can QUERY us
-static NetmaskGroup g_notifySources; // networks (well, IPs) that can NOTIFY us
+static NetmaskGroup g_acl;            // networks that can QUERY us
+static NetmaskGroup g_notifySources;  // networks (well, IPs) that can NOTIFY us
 static bool g_compress = false;
 
 static ixfrdistStats g_stats;
 
 // g_stats is static, so local to this file. But the webserver needs this info
-string doGetStats()
-{
+string doGetStats() {
   return g_stats.getStats();
 }
 
-static void handleSignal(int signum)
-{
-  g_log << Logger::Notice << "Got " << strsignal(signum) << " signal";
+static void handleSignal(int signum) {
+  g_log<<Logger::Notice<<"Got "<<strsignal(signum)<<" signal";
   if (g_exiting) {
-    g_log << Logger::Notice << ", this is the second time we were asked to stop, forcefully exiting" << endl;
+    g_log<<Logger::Notice<<", this is the second time we were asked to stop, forcefully exiting"<<endl;
     exit(EXIT_FAILURE);
   }
-  g_log << Logger::Notice << ", stopping, this may take a few second due to in-progress transfers and cleanup. Send this signal again to forcefully stop" << endl;
+  g_log<<Logger::Notice<<", stopping, this may take a few second due to in-progress transfers and cleanup. Send this signal again to forcefully stop"<<endl;
   g_exiting = true;
 }
 
-static void usage(po::options_description& desc)
-{
-  cerr << "Usage: ixfrdist [OPTION]..." << endl;
+static void usage(po::options_description &desc) {
+  cerr << "Usage: ixfrdist [OPTION]..."<<endl;
   cerr << desc << "\n";
 }
 
 // The compiler does not like using rfc1982LessThan in std::sort directly
-static bool sortSOA(uint32_t i, uint32_t j)
-{
+static bool sortSOA(uint32_t i, uint32_t j) {
   return rfc1982LessThan(i, j);
 }
 
-static void cleanUpDomain(const DNSName& domain, const uint16_t& keep, const string& workdir)
-{
+static void cleanUpDomain(const DNSName& domain, const uint16_t& keep, const string& workdir) {
   string dir = workdir + "/" + domain.toString();
   vector<uint32_t> zoneVersions;
   auto directoryError = pdns::visit_directory(dir, [&zoneVersions]([[maybe_unused]] ino_t inodeNumber, const std::string_view& name) {
@@ -243,12 +219,12 @@ static void cleanUpDomain(const DNSName& domain, const uint16_t& keep, const str
     return;
   }
 
-  g_log << Logger::Info << "Found " << zoneVersions.size() << " versions of " << domain << ", asked to keep " << keep << ", ";
+  g_log<<Logger::Info<<"Found "<<zoneVersions.size()<<" versions of "<<domain<<", asked to keep "<<keep<<", ";
   if (zoneVersions.size() <= keep) {
-    g_log << Logger::Info << "not cleaning up" << endl;
+    g_log<<Logger::Info<<"not cleaning up"<<endl;
     return;
   }
-  g_log << Logger::Info << "cleaning up the oldest " << zoneVersions.size() - keep << endl;
+  g_log<<Logger::Info<<"cleaning up the oldest "<<zoneVersions.size() - keep<<endl;
 
   // Sort the versions
   std::sort(zoneVersions.begin(), zoneVersions.end(), sortSOA);
@@ -259,14 +235,13 @@ static void cleanUpDomain(const DNSName& domain, const uint16_t& keep, const str
     auto lock = g_soas.lock();
     for (auto iter = zoneVersions.cbegin(); iter != zoneVersions.cend() - keep; ++iter) {
       string fname = dir + "/" + std::to_string(*iter);
-      g_log << Logger::Debug << "Removing " << fname << endl;
+      g_log<<Logger::Debug<<"Removing "<<fname<<endl;
       unlink(fname.c_str());
     }
   }
 }
 
-static void getSOAFromRecords(const records_t& records, shared_ptr<const SOARecordContent>& soa, uint32_t& soaTTL)
-{
+static void getSOAFromRecords(const records_t& records, shared_ptr<const SOARecordContent>& soa, uint32_t& soaTTL) {
   for (const auto& dnsrecord : records) {
     if (dnsrecord.d_type == QType::SOA) {
       soa = getRR<SOARecordContent>(dnsrecord);
@@ -280,8 +255,7 @@ static void getSOAFromRecords(const records_t& records, shared_ptr<const SOAReco
   throw PDNSException("No SOA in supplied records");
 }
 
-static void makeIXFRDiff(const records_t& from, const records_t& to, std::shared_ptr<ixfrdiff_t>& diff, const shared_ptr<const SOARecordContent>& fromSOA = nullptr, uint32_t fromSOATTL = 0, const shared_ptr<const SOARecordContent>& toSOA = nullptr, uint32_t toSOATTL = 0)
-{
+static void makeIXFRDiff(const records_t& from, const records_t& to, std::shared_ptr<ixfrdiff_t>& diff, const shared_ptr<const SOARecordContent>& fromSOA = nullptr, uint32_t fromSOATTL=0, const shared_ptr<const SOARecordContent>& toSOA = nullptr, uint32_t toSOATTL = 0) {
   set_difference(from.cbegin(), from.cend(), to.cbegin(), to.cend(), back_inserter(diff->removals), from.value_comp());
   set_difference(to.cbegin(), to.cend(), from.cbegin(), from.cend(), back_inserter(diff->additions), from.value_comp());
   diff->oldSOA = fromSOA;
@@ -310,18 +284,17 @@ static void updateCurrentZoneInfo(const DNSName& domain, std::shared_ptr<ixfrinf
   // FIXME: also report zone size?
 }
 
-static void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& axfrTimeout, const uint16_t& soaRetry, const uint32_t axfrMaxRecords)
-{ // NOLINT(readability-function-cognitive-complexity) 13400 https://github.com/PowerDNS/pdns/issues/13400 Habbie:  ixfrdist: reduce complexity
+static void updateThread(const string& workdir, const uint16_t& keep, const uint16_t& axfrTimeout, const uint16_t& soaRetry, const uint32_t axfrMaxRecords) { // NOLINT(readability-function-cognitive-complexity) 13400 https://github.com/PowerDNS/pdns/issues/13400 Habbie:  ixfrdist: reduce complexity
   setThreadName("ixfrdist/update");
   std::map<DNSName, time_t> lastCheck;
 
   // Initialize the serials we have
-  for (const auto& domainConfig : g_domainConfigs) {
+  for (const auto &domainConfig : g_domainConfigs) {
     DNSName domain = domainConfig.first;
     lastCheck[domain] = 0;
     string dir = workdir + "/" + domain.toString();
     try {
-      g_log << Logger::Info << "Trying to initially load domain " << domain << " from disk" << endl;
+      g_log<<Logger::Info<<"Trying to initially load domain "<<domain<<" from disk"<<endl;
       auto serial = getSerialFromDir(dir);
       shared_ptr<const SOARecordContent> soa;
       uint32_t soaTTL;
@@ -330,7 +303,7 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
         loadSOAFromDisk(domain, fname, soa, soaTTL);
         records_t records;
         if (soa == nullptr) {
-          g_log << Logger::Error << "Could not load SOA from disk for zone " << domain << ", removing file '" << fname << "'" << endl;
+          g_log<<Logger::Error<<"Could not load SOA from disk for zone "<<domain<<", removing file '"<<fname<<"'"<<endl;
           unlink(fname.c_str());
         }
         loadZoneFromDisk(records, fname, domain);
@@ -341,31 +314,30 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
         updateCurrentZoneInfo(domain, zoneInfo);
       }
       if (soa != nullptr) {
-        g_log << Logger::Notice << "Loaded zone " << domain << " with serial " << soa->d_st.serial << endl;
+        g_log<<Logger::Notice<<"Loaded zone "<<domain<<" with serial "<<soa->d_st.serial<<endl;
         // Initial cleanup
         cleanUpDomain(domain, keep, workdir);
       }
-    }
-    catch (runtime_error& e) {
+    } catch (runtime_error &e) {
       // Most likely, the directory does not exist.
-      g_log << Logger::Info << e.what() << ", attempting to create" << endl;
+      g_log<<Logger::Info<<e.what()<<", attempting to create"<<endl;
       // Attempt to create it, if _that_ fails, there is no hope
       if (mkdir(dir.c_str(), 0777) == -1 && errno != EEXIST) {
-        g_log << Logger::Error << "Could not create '" << dir << "': " << stringerror() << endl;
+        g_log<<Logger::Error<<"Could not create '"<<dir<<"': "<<stringerror()<<endl;
         _exit(EXIT_FAILURE);
       }
     }
   }
 
-  g_log << Logger::Notice << "Update Thread started" << endl;
+  g_log<<Logger::Notice<<"Update Thread started"<<endl;
 
   while (true) {
     if (g_exiting) {
-      g_log << Logger::Notice << "UpdateThread stopped" << endl;
+      g_log<<Logger::Notice<<"UpdateThread stopped"<<endl;
       break;
     }
     time_t now = time(nullptr);
-    for (const auto& domainConfig : g_domainConfigs) {
+    for (const auto &domainConfig : g_domainConfigs) {
 
       if (g_exiting) {
         break;
@@ -389,6 +361,7 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
         }
       }
 
+
       if (now - zoneLastCheck < refresh && g_notifiesReceived.lock()->erase(domain) == 0) {
         continue;
       }
@@ -405,22 +378,21 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
         zoneLastCheck = now;
         g_stats.incrementSOAChecks(domain);
         auto newSerial = getSerialFromPrimary(primary, domain, sr); // TODO TSIG
-        if (current_soa != nullptr) {
+        if(current_soa != nullptr) {
           g_log << Logger::Info << "Got SOA Serial for " << domain << " from " << primary.toStringWithPort() << ": " << newSerial << ", had Serial: " << current_soa->d_st.serial;
           if (newSerial == current_soa->d_st.serial) {
-            g_log << Logger::Info << ", not updating." << endl;
+            g_log<<Logger::Info<<", not updating."<<endl;
             continue;
           }
-          g_log << Logger::Info << ", will update." << endl;
+          g_log<<Logger::Info<<", will update."<<endl;
         }
-      }
-      catch (runtime_error& e) {
+      } catch (runtime_error &e) {
         g_log << Logger::Warning << "Unable to get SOA serial update for '" << domain << "' from primary " << primary.toStringWithPort() << ": " << e.what() << endl;
         g_stats.incrementSOAChecksFailed(domain);
         continue;
       }
       // Now get the full zone!
-      g_log << Logger::Info << "Attempting to receive full zonedata for '" << domain << "'" << endl;
+      g_log<<Logger::Info<<"Attempting to receive full zonedata for '"<<domain<<"'"<<endl;
       ComboAddress local = primary.isIPv4() ? ComboAddress("0.0.0.0") : ComboAddress("::");
       TSIGTriplet tt;
 
@@ -430,17 +402,17 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
       records_t records;
       try {
         AXFRRetriever axfr(primary, domain, tt, &local);
-        uint32_t nrecords = 0;
+        uint32_t nrecords=0;
         Resolver::res_t nop;
         vector<DNSRecord> chunk;
         time_t t_start = time(nullptr);
         time_t axfr_now = time(nullptr);
-        while (axfr.getChunk(nop, &chunk, (axfr_now - t_start + axfrTimeout))) {
-          for (auto& dr : chunk) {
-            if (dr.d_type == QType::TSIG)
+        while(axfr.getChunk(nop, &chunk, (axfr_now - t_start + axfrTimeout))) {
+          for(auto& dr : chunk) {
+            if(dr.d_type == QType::TSIG)
               continue;
-            if (!dr.d_name.isPartOf(domain)) {
-              throw PDNSException("Out-of-zone data received during AXFR of " + domain.toLogString());
+            if(!dr.d_name.isPartOf(domain)) {
+              throw PDNSException("Out-of-zone data received during AXFR of "+domain.toLogString());
             }
             dr.d_name.makeUsRelative(domain);
             records.insert(dr);
@@ -461,26 +433,24 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
         }
         if (soa == nullptr) {
           g_stats.incrementAXFRFailures(domain);
-          g_log << Logger::Warning << "No SOA was found in the AXFR of " << domain << endl;
+          g_log<<Logger::Warning<<"No SOA was found in the AXFR of "<<domain<<endl;
           continue;
         }
-        g_log << Logger::Notice << "Retrieved all zone data for " << domain << ". Received " << nrecords << " records." << endl;
-      }
-      catch (PDNSException& e) {
+        g_log<<Logger::Notice<<"Retrieved all zone data for "<<domain<<". Received "<<nrecords<<" records."<<endl;
+      } catch (PDNSException &e) {
         g_stats.incrementAXFRFailures(domain);
-        g_log << Logger::Warning << "Could not retrieve AXFR for '" << domain << "': " << e.reason << endl;
+        g_log<<Logger::Warning<<"Could not retrieve AXFR for '"<<domain<<"': "<<e.reason<<endl;
         continue;
-      }
-      catch (runtime_error& e) {
+      } catch (runtime_error &e) {
         g_stats.incrementAXFRFailures(domain);
-        g_log << Logger::Warning << "Could not retrieve AXFR for zone '" << domain << "': " << e.what() << endl;
+        g_log<<Logger::Warning<<"Could not retrieve AXFR for zone '"<<domain<<"': "<<e.what()<<endl;
         continue;
       }
 
       try {
 
         writeZoneToDisk(records, domain, dir);
-        g_log << Logger::Notice << "Wrote zonedata for " << domain << " with serial " << soa->d_st.serial << " to " << dir << endl;
+        g_log<<Logger::Notice<<"Wrote zonedata for "<<domain<<" with serial "<<soa->d_st.serial<<" to "<<dir<<endl;
 
         const auto oldZoneInfo = getCurrentZoneInfo(domain);
         auto ixfrInfo = std::make_shared<ixfrinfo_t>();
@@ -488,9 +458,9 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
         if (oldZoneInfo && !oldZoneInfo->latestAXFR.empty()) {
           auto diff = std::make_shared<ixfrdiff_t>();
           ixfrInfo->ixfrDiffs = oldZoneInfo->ixfrDiffs;
-          g_log << Logger::Debug << "Calculating diff for " << domain << endl;
+          g_log<<Logger::Debug<<"Calculating diff for "<<domain<<endl;
           makeIXFRDiff(oldZoneInfo->latestAXFR, records, diff, oldZoneInfo->soa, oldZoneInfo->soaTTL, soa, soaTTL);
-          g_log << Logger::Debug << "Calculated diff for " << domain << ", we had " << diff->removals.size() << " removals and " << diff->additions.size() << " additions" << endl;
+          g_log<<Logger::Debug<<"Calculated diff for "<<domain<<", we had "<<diff->removals.size()<<" removals and "<<diff->additions.size()<<" additions"<<endl;
           ixfrInfo->ixfrDiffs.push_back(std::move(diff));
         }
 
@@ -499,19 +469,17 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
           ixfrInfo->ixfrDiffs.erase(ixfrInfo->ixfrDiffs.begin());
         }
 
-        g_log << Logger::Debug << "Zone " << domain << " previously contained " << (oldZoneInfo ? oldZoneInfo->latestAXFR.size() : 0) << " entries, " << records.size() << " now" << endl;
+        g_log<<Logger::Debug<<"Zone "<<domain<<" previously contained "<<(oldZoneInfo ? oldZoneInfo->latestAXFR.size() : 0)<<" entries, "<<records.size()<<" now"<<endl;
         ixfrInfo->latestAXFR = std::move(records);
         ixfrInfo->soa = std::move(soa);
         ixfrInfo->soaTTL = soaTTL;
         updateCurrentZoneInfo(domain, ixfrInfo);
-      }
-      catch (PDNSException& e) {
+      } catch (PDNSException &e) {
         g_stats.incrementAXFRFailures(domain);
-        g_log << Logger::Warning << "Could not save zone '" << domain << "' to disk: " << e.reason << endl;
-      }
-      catch (runtime_error& e) {
+        g_log<<Logger::Warning<<"Could not save zone '"<<domain<<"' to disk: "<<e.reason<<endl;
+      } catch (runtime_error &e) {
         g_stats.incrementAXFRFailures(domain);
-        g_log << Logger::Warning << "Could not save zone '" << domain << "' to disk: " << e.what() << endl;
+        g_log<<Logger::Warning<<"Could not save zone '"<<domain<<"' to disk: "<<e.what()<<endl;
       }
 
       // Now clean up the directory
@@ -521,8 +489,7 @@ static void updateThread(const string& workdir, const uint16_t& keep, const uint
   } /* while (true) */
 } /* updateThread */
 
-enum class ResponseType
-{
+enum class ResponseType {
   Unknown,
   ValidQuery,
   RefusedOpcode,
@@ -530,17 +497,16 @@ enum class ResponseType
   EmptyNoError
 };
 
-static ResponseType maybeHandleNotify(const MOADNSParser& mdp, const ComboAddress& saddr, const string& logPrefix = "")
-{
+static ResponseType maybeHandleNotify(const MOADNSParser& mdp, const ComboAddress& saddr, const string& logPrefix="") {
   if (mdp.d_header.opcode != Opcode::Notify) { // NOLINT(bugprone-narrowing-conversions, cppcoreguidelines-narrowing-conversions) opcode is 4 bits, this is not a dangerous conversion
     return ResponseType::Unknown;
   }
 
-  g_log << Logger::Info << logPrefix << "NOTIFY for " << mdp.d_qname << "|" << QType(mdp.d_qtype).toString() << " " << Opcode::to_s(mdp.d_header.opcode) << " from " << saddr.toStringWithPort() << endl;
+  g_log<<Logger::Info<<logPrefix<<"NOTIFY for "<<mdp.d_qname<<"|"<<QType(mdp.d_qtype).toString()<<" "<< Opcode::to_s(mdp.d_header.opcode) <<" from "<<saddr.toStringWithPort()<<endl;
 
   auto found = g_domainConfigs.find(mdp.d_qname);
   if (found == g_domainConfigs.end()) {
-    g_log << Logger::Info << ("Domain name '" + mdp.d_qname.toLogString() + "' is not configured for notification") << endl;
+    g_log<<Logger::Info<<("Domain name '" + mdp.d_qname.toLogString() + "' is not configured for notification")<<endl;
     return ResponseType::RefusedQuery;
   }
 
@@ -563,13 +529,12 @@ static ResponseType maybeHandleNotify(const MOADNSParser& mdp, const ComboAddres
   return ResponseType::RefusedQuery;
 }
 
-static ResponseType checkQuery(const MOADNSParser& mdp, const ComboAddress& saddr, const bool udp = true, const string& logPrefix = "")
-{
+static ResponseType checkQuery(const MOADNSParser& mdp, const ComboAddress& saddr, const bool udp = true, const string& logPrefix="") {
   vector<string> info_msg;
 
   auto ret = ResponseType::ValidQuery;
 
-  g_log << Logger::Debug << logPrefix << "Had " << mdp.d_qname << "|" << QType(mdp.d_qtype).toString() << " query from " << saddr.toStringWithPort() << endl;
+  g_log<<Logger::Debug<<logPrefix<<"Had "<<mdp.d_qname<<"|"<<QType(mdp.d_qtype).toString()<<" query from "<<saddr.toStringWithPort()<<endl;
 
   if (mdp.d_header.opcode != Opcode::Query) { // NOLINT(bugprone-narrowing-conversions, cppcoreguidelines-narrowing-conversions) opcode is 4 bits, this is not a dangerous conversion
     info_msg.push_back("Opcode is unsupported (" + Opcode::to_s(mdp.d_header.opcode) + "), expected QUERY"); // note that we also emit this for a NOTIFY from a wrong source
@@ -601,18 +566,18 @@ static ResponseType checkQuery(const MOADNSParser& mdp, const ComboAddress& sadd
     }
   }
 
-  if (!info_msg.empty()) { // which means ret is not SOA
-    g_log << Logger::Warning << logPrefix << "Refusing " << mdp.d_qname << "|" << QType(mdp.d_qtype).toString() << " " << Opcode::to_s(mdp.d_header.opcode) << " from " << saddr.toStringWithPort();
-    g_log << Logger::Warning << ": ";
+  if (!info_msg.empty()) {  // which means ret is not SOA
+    g_log<<Logger::Warning<<logPrefix<<"Refusing "<<mdp.d_qname<<"|"<<QType(mdp.d_qtype).toString()<<" "<< Opcode::to_s(mdp.d_header.opcode) <<" from "<<saddr.toStringWithPort();
+    g_log<<Logger::Warning<<": ";
     bool first = true;
     for (const auto& s : info_msg) {
       if (!first) {
-        g_log << Logger::Warning << ", ";
+        g_log<<Logger::Warning<<", ";
       }
       first = false;
-      g_log << Logger::Warning << s;
+      g_log<<Logger::Warning<<s;
     }
-    g_log << Logger::Warning << endl;
+    g_log<<Logger::Warning<<endl;
     // fall through to return below
   }
 
@@ -623,8 +588,7 @@ static ResponseType checkQuery(const MOADNSParser& mdp, const ComboAddress& sadd
  * Returns a vector<uint8_t> that represents the full empty NOERROR response.
  * QNAME is read from mdp.
  */
-static bool makeEmptyNoErrorPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
-{
+static bool makeEmptyNoErrorPacket(const MOADNSParser& mdp, vector<uint8_t>& packet) {
   DNSPacketWriter pw(packet, mdp.d_qname, mdp.d_qtype);
   pw.getHeader()->opcode = mdp.d_header.opcode;
   pw.getHeader()->id = mdp.d_header.id;
@@ -641,8 +605,7 @@ static bool makeEmptyNoErrorPacket(const MOADNSParser& mdp, vector<uint8_t>& pac
  * Returns a vector<uint8_t> that represents the full positive response to a SOA
  * query. QNAME is read from mdp.
  */
-static bool makeSOAPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
-{
+static bool makeSOAPacket(const MOADNSParser& mdp, vector<uint8_t>& packet) {
 
   auto zoneInfo = getCurrentZoneInfo(mdp.d_qname);
   if (zoneInfo == nullptr) {
@@ -667,8 +630,7 @@ static bool makeSOAPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
  * Returns a vector<uint8_t> that represents the full REFUSED response to a
  * query. QNAME and type are read from mdp.
  */
-static bool makeRefusedPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
-{
+static bool makeRefusedPacket(const MOADNSParser& mdp, vector<uint8_t>& packet) {
   DNSPacketWriter pw(packet, mdp.d_qname, mdp.d_qtype);
   pw.getHeader()->opcode = mdp.d_header.opcode;
   pw.getHeader()->id = mdp.d_header.id;
@@ -683,8 +645,7 @@ static bool makeRefusedPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
  * Returns a vector<uint8_t> that represents the full NOTIMP response to a
  * query. QNAME and type are read from mdp.
  */
-static bool makeNotimpPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
-{
+static bool makeNotimpPacket(const MOADNSParser& mdp, vector<uint8_t>& packet) {
   DNSPacketWriter pw(packet, mdp.d_qname, mdp.d_qtype);
   pw.getHeader()->opcode = mdp.d_header.opcode;
   pw.getHeader()->id = mdp.d_header.id;
@@ -695,8 +656,7 @@ static bool makeNotimpPacket(const MOADNSParser& mdp, vector<uint8_t>& packet)
   return true;
 }
 
-static vector<uint8_t> getSOAPacket(const MOADNSParser& mdp, const shared_ptr<const SOARecordContent>& soa, uint32_t soaTTL)
-{
+static vector<uint8_t> getSOAPacket(const MOADNSParser& mdp, const shared_ptr<const SOARecordContent>& soa, uint32_t soaTTL) {
   vector<uint8_t> packet;
   DNSPacketWriter pw(packet, mdp.d_qname, mdp.d_qtype);
   pw.getHeader()->id = mdp.d_header.id;
@@ -713,8 +673,8 @@ static vector<uint8_t> getSOAPacket(const MOADNSParser& mdp, const shared_ptr<co
 static bool sendPacketOverTCP(int fd, const std::vector<uint8_t>& packet)
 {
   char sendBuf[2];
-  sendBuf[0] = packet.size() / 256;
-  sendBuf[1] = packet.size() % 256;
+  sendBuf[0]=packet.size()/256;
+  sendBuf[1]=packet.size()%256;
 
   writen2(fd, sendBuf, 2);
   writen2(fd, &packet[0], packet.size());
@@ -732,8 +692,7 @@ static bool addRecordToWriter(DNSPacketWriter& pw, const DNSName& zoneName, cons
   return true;
 }
 
-template <typename T>
-static bool sendRecordsOverTCP(int fd, const MOADNSParser& mdp, const T& records)
+template <typename T> static bool sendRecordsOverTCP(int fd, const MOADNSParser& mdp, const T& records)
 {
   vector<uint8_t> packet;
 
@@ -778,8 +737,8 @@ static bool sendRecordsOverTCP(int fd, const MOADNSParser& mdp, const T& records
   return true;
 }
 
-static bool handleAXFR(int fd, const MOADNSParser& mdp)
-{
+
+static bool handleAXFR(int fd, const MOADNSParser& mdp) {
   /* we get a shared pointer of the zone info that we can't modify, ever.
      A newer one may arise in the meantime, but this one will stay valid
      until we release it.
@@ -817,8 +776,7 @@ static bool handleAXFR(int fd, const MOADNSParser& mdp)
 /* Produces an IXFR if one can be made according to the rules in RFC 1995 and
  * creates a SOA or AXFR packet when required by the RFC.
  */
-static bool handleIXFR(int fd, const MOADNSParser& mdp, const shared_ptr<const SOARecordContent>& clientSOA)
-{
+static bool handleIXFR(int fd, const MOADNSParser& mdp, const shared_ptr<const SOARecordContent>& clientSOA) {
   vector<std::shared_ptr<ixfrdiff_t>> toSend;
 
   /* we get a shared pointer of the zone info that we can't modify, ever.
@@ -866,9 +824,10 @@ static bool handleIXFR(int fd, const MOADNSParser& mdp, const shared_ptr<const S
 
   if (toSend.empty()) {
     // FIXME: incrementIXFRFallbacks
-    g_log << Logger::Warning << "No IXFR available from serial " << clientSOA->d_st.serial << " for zone " << mdp.d_qname << ", attempting to send AXFR" << endl;
+    g_log<<Logger::Warning<<"No IXFR available from serial "<<clientSOA->d_st.serial<<" for zone "<<mdp.d_qname<<", attempting to send AXFR"<<endl;
     return handleAXFR(fd, mdp);
   }
+
 
   /* An IXFR packet's ANSWER section looks as follows:
     * SOA latest_serial C
@@ -921,8 +880,7 @@ static bool handleIXFR(int fd, const MOADNSParser& mdp, const shared_ptr<const S
   return true;
 }
 
-static bool allowedByACL(const ComboAddress& addr, bool forNotify = false)
-{
+static bool allowedByACL(const ComboAddress& addr, bool forNotify = false) {
   if (forNotify) {
     return g_notifySources.match(addr);
   }
@@ -931,31 +889,32 @@ static bool allowedByACL(const ComboAddress& addr, bool forNotify = false)
 }
 
 static void handleUDPRequest(int fd, boost::any& /*unused*/)
-try {
+try
+{
   // TODO make the buffer-size configurable
   char buf[4096];
   ComboAddress saddr;
   socklen_t fromlen = sizeof(saddr);
-  int res = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr*)&saddr, &fromlen);
+  int res = recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr*) &saddr, &fromlen);
 
   if (res == 0) {
-    g_log << Logger::Warning << "Got an empty message from " << saddr.toStringWithPort() << endl;
+    g_log<<Logger::Warning<<"Got an empty message from "<<saddr.toStringWithPort()<<endl;
     return;
   }
 
-  if (res < 0) {
+  if(res < 0) {
     auto savedErrno = errno;
-    g_log << Logger::Warning << "Could not read message from " << saddr.toStringWithPort() << ": " << strerror(savedErrno) << endl;
+    g_log<<Logger::Warning<<"Could not read message from "<<saddr.toStringWithPort()<<": "<<strerror(savedErrno)<<endl;
     return;
   }
 
   if (saddr == ComboAddress("0.0.0.0", 0)) {
-    g_log << Logger::Warning << "Could not determine source of message" << endl;
+    g_log<<Logger::Warning<<"Could not determine source of message"<<endl;
     return;
   }
 
   if (!allowedByACL(saddr, true) && !allowedByACL(saddr, false)) {
-    g_log << Logger::Warning << "UDP query from " << saddr.toString() << " did not match any valid query or NOTIFY source, dropping" << endl;
+    g_log<<Logger::Warning<<"UDP query from "<<saddr.toString()<<" did not match any valid query or NOTIFY source, dropping"<<endl;
     return;
   }
 
@@ -968,7 +927,7 @@ try {
     respt = maybeHandleNotify(mdp, saddr);
   }
   else if (!allowedByACL(saddr)) {
-    g_log << Logger::Warning << "UDP query from " << saddr.toString() << " is not allowed, dropping" << endl;
+    g_log<<Logger::Warning<<"UDP query from "<<saddr.toString()<<" is not allowed, dropping"<<endl;
     return;
   }
 
@@ -990,45 +949,41 @@ try {
      */
     g_stats.incrementSOAinQueries(mdp.d_qname); // FIXME: this also counts IXFR queries (but the response is the same as to a SOA query)
     makeSOAPacket(mdp, packet);
-  }
-  else if (respt == ResponseType::EmptyNoError) {
+  } else if (respt == ResponseType::EmptyNoError) {
     makeEmptyNoErrorPacket(mdp, packet);
-  }
-  else if (respt == ResponseType::RefusedQuery) {
+  } else if (respt == ResponseType::RefusedQuery) {
     g_stats.incrementUnknownDomainInQueries(mdp.d_qname);
     makeRefusedPacket(mdp, packet);
-  }
-  else if (respt == ResponseType::RefusedOpcode) {
+  } else if (respt == ResponseType::RefusedOpcode) {
     g_stats.incrementNotImplemented(mdp.d_header.opcode);
     makeNotimpPacket(mdp, packet);
   }
 
-  if (sendto(fd, &packet[0], packet.size(), 0, (struct sockaddr*)&saddr, fromlen) < 0) {
+  if(sendto(fd, &packet[0], packet.size(), 0, (struct sockaddr*) &saddr, fromlen) < 0) {
     auto savedErrno = errno;
-    g_log << Logger::Warning << "Could not send reply for " << mdp.d_qname << "|" << QType(mdp.d_qtype).toString() << " to " << saddr.toStringWithPort() << ": " << strerror(savedErrno) << endl;
+    g_log<<Logger::Warning<<"Could not send reply for "<<mdp.d_qname<<"|"<<QType(mdp.d_qtype).toString()<<" to "<<saddr.toStringWithPort()<<": "<<strerror(savedErrno)<<endl;
   }
   return;
 }
-catch (std::exception& e) {
+catch(std::exception& e) {
   return;
 }
 
-static void handleTCPRequest(int fd, boost::any&)
-{
+
+static void handleTCPRequest(int fd, boost::any&) {
   ComboAddress saddr;
   int cfd = 0;
 
   try {
     cfd = SAccept(fd, saddr);
     setBlocking(cfd);
-  }
-  catch (runtime_error& e) {
-    g_log << Logger::Error << e.what() << endl;
+  } catch(runtime_error &e) {
+    g_log<<Logger::Error<<e.what()<<endl;
     return;
   }
 
   if (saddr == ComboAddress("0.0.0.0", 0)) {
-    g_log << Logger::Warning << "Could not determine source of message" << endl;
+    g_log<<Logger::Warning<<"Could not determine source of message"<<endl;
     close(cfd);
     return;
   }
@@ -1036,7 +991,7 @@ static void handleTCPRequest(int fd, boost::any&)
   // we allow the connection if this is a legit client or a legit NOTIFY source
   // need to check per-operation later
   if (!allowedByACL(saddr) && !allowedByACL(saddr, true)) {
-    g_log << Logger::Warning << "TCP query from " << saddr.toString() << " is not allowed, dropping" << endl;
+    g_log<<Logger::Warning<<"TCP query from "<<saddr.toString()<<" is not allowed, dropping"<<endl;
     close(cfd);
     return;
   }
@@ -1050,20 +1005,19 @@ static void handleTCPRequest(int fd, boost::any&)
 
 /* Thread to handle TCP traffic
  */
-static void tcpWorker(int tid)
-{
+static void tcpWorker(int tid) {
   setThreadName("ixfrdist/tcpWor");
   string prefix = "TCP Worker " + std::to_string(tid) + ": ";
 
-  while (true) {
-    g_log << Logger::Debug << prefix << "ready for a new request!" << endl;
+  while(true) {
+    g_log<<Logger::Debug<<prefix<<"ready for a new request!"<<endl;
     std::unique_lock<std::mutex> lk(g_tcpRequestFDsMutex);
-    g_tcpHandlerCV.wait(lk, [] { return g_tcpRequestFDs.size() || g_exiting; });
+    g_tcpHandlerCV.wait(lk, []{return g_tcpRequestFDs.size() || g_exiting ;});
     if (g_exiting) {
-      g_log << Logger::Debug << prefix << "Stopping thread" << endl;
+      g_log<<Logger::Debug<<prefix<<"Stopping thread"<<endl;
       break;
     }
-    g_log << Logger::Debug << prefix << "Going to handle a query" << endl;
+    g_log<<Logger::Debug<<prefix<<"Going to handle a query"<<endl;
     auto request = g_tcpRequestFDs.front();
     g_tcpRequestFDs.pop();
     lk.unlock();
@@ -1077,11 +1031,10 @@ static void tcpWorker(int tid)
       uint16_t toRead;
       readn2(cfd, &toRead, sizeof(toRead));
       toRead = std::min(ntohs(toRead), static_cast<uint16_t>(sizeof(buf)));
-      res = readn2WithTimeout(cfd, &buf, toRead, timeval{2, 0});
-      g_log << Logger::Debug << prefix << "Had message of " << std::to_string(toRead) << " bytes from " << saddr.toStringWithPort() << endl;
-    }
-    catch (runtime_error& e) {
-      g_log << Logger::Warning << prefix << "Could not read message from " << saddr.toStringWithPort() << ": " << e.what() << endl;
+      res = readn2WithTimeout(cfd, &buf, toRead, timeval{2,0});
+      g_log<<Logger::Debug<<prefix<<"Had message of "<<std::to_string(toRead)<<" bytes from "<<saddr.toStringWithPort()<<endl;
+    } catch (runtime_error &e) {
+      g_log<<Logger::Warning<<prefix<<"Could not read message from "<<saddr.toStringWithPort()<<": "<<e.what()<<endl;
       close(cfd);
       continue;
     }
@@ -1140,7 +1093,7 @@ static void tcpWorker(int tid)
          *  containing the SOA record of client's version of the zone.
          */
         shared_ptr<const SOARecordContent> clientSOA;
-        for (auto& answer : mdp.d_answers) {
+        for (auto &answer : mdp.d_answers) {
           // from dnsparser.hh:
           // typedef vector<pair<DNSRecord, uint16_t > > answers_t;
           if (answer.first.d_type == QType::SOA && answer.first.d_place == DNSResourceRecord::AUTHORITY) {
@@ -1152,7 +1105,7 @@ static void tcpWorker(int tid)
         } /* for (auto const &answer : mdp.d_answers) */
 
         if (clientSOA == nullptr) {
-          g_log << Logger::Warning << prefix << "IXFR request packet did not contain a SOA record in the AUTHORITY section" << endl;
+          g_log<<Logger::Warning<<prefix<<"IXFR request packet did not contain a SOA record in the AUTHORITY section"<<endl;
           close(cfd);
           continue;
         }
@@ -1164,12 +1117,10 @@ static void tcpWorker(int tid)
       } /* if (mdp.d_qtype == QType::IXFR) */
 
       shutdown(cfd, 2);
-    }
-    catch (const MOADNSException& mde) {
-      g_log << Logger::Warning << prefix << "Could not parse DNS packet from " << saddr.toStringWithPort() << ": " << mde.what() << endl;
-    }
-    catch (runtime_error& e) {
-      g_log << Logger::Warning << prefix << "Could not write reply to " << saddr.toStringWithPort() << ": " << e.what() << endl;
+    } catch (const MOADNSException &mde) {
+      g_log<<Logger::Warning<<prefix<<"Could not parse DNS packet from "<<saddr.toStringWithPort()<<": "<<mde.what()<<endl;
+    } catch (runtime_error &e) {
+      g_log<<Logger::Warning<<prefix<<"Could not write reply to "<<saddr.toStringWithPort()<<": "<<e.what()<<endl;
     }
     // bye!
     close(cfd);
@@ -1184,14 +1135,12 @@ static void tcpWorker(int tid)
  * missing parameters (if applicable), returning true if the config file was
  * good, false otherwise. Will log all issues with the config
  */
-static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
-{
-  g_log << Logger::Info << "Loading configuration file from " << configpath << endl;
+static bool parseAndCheckConfig(const string& configpath, YAML::Node& config) {
+  g_log<<Logger::Info<<"Loading configuration file from "<<configpath<<endl;
   try {
     config = YAML::LoadFile(configpath);
-  }
-  catch (const runtime_error& e) {
-    g_log << Logger::Error << "Unable to load configuration file '" << configpath << "': " << e.what() << endl;
+  } catch (const runtime_error &e) {
+    g_log<<Logger::Error<<"Unable to load configuration file '"<<configpath<<"': "<<e.what()<<endl;
     return false;
   }
 
@@ -1200,74 +1149,62 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
   if (config["keep"]) {
     try {
       config["keep"].as<uint16_t>();
-    }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'keep' value: " << e.what() << endl;
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'keep' value: "<<e.what()<<endl;
       retval = false;
     }
-  }
-  else {
+  } else {
     config["keep"] = 20;
   }
 
   if (config["axfr-max-records"]) {
     try {
       config["axfr-max-records"].as<uint32_t>();
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'axfr-max-records' value: "<<e.what()<<endl;
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'axfr-max-records' value: " << e.what() << endl;
-    }
-  }
-  else {
+  } else {
     config["axfr-max-records"] = 0;
   }
 
   if (config["axfr-timeout"]) {
     try {
       config["axfr-timeout"].as<uint16_t>();
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'axfr-timeout' value: "<<e.what()<<endl;
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'axfr-timeout' value: " << e.what() << endl;
-    }
-  }
-  else {
+  } else {
     config["axfr-timeout"] = 20;
   }
 
   if (config["failed-soa-retry"]) {
     try {
       config["failed-soa-retry"].as<uint16_t>();
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'failed-soa-retry' value: "<<e.what()<<endl;
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'failed-soa-retry' value: " << e.what() << endl;
-    }
-  }
-  else {
+  } else {
     config["failed-soa-retry"] = 30;
   }
 
   if (config["tcp-in-threads"]) {
     try {
       config["tcp-in-threads"].as<uint16_t>();
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'tcp-in-threads' value: "<<e.what()<<endl;
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'tcp-in-threads' value: " << e.what() << endl;
-    }
-  }
-  else {
+  } else {
     config["tcp-in-threads"] = 10;
   }
 
   if (config["listen"]) {
     try {
       config["listen"].as<vector<ComboAddress>>();
-    }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'listen' value: " << e.what() << endl;
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'listen' value: "<<e.what()<<endl;
       retval = false;
     }
-  }
-  else {
+  } else {
     config["listen"].push_back("127.0.0.1:53");
     config["listen"].push_back("[::1]:53");
   }
@@ -1275,13 +1212,11 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
   if (config["acl"]) {
     try {
       config["acl"].as<vector<string>>();
-    }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'acl' value: " << e.what() << endl;
+    } catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'acl' value: "<<e.what()<<endl;
       retval = false;
     }
-  }
-  else {
+  } else {
     config["acl"].push_back("127.0.0.0/8");
     config["acl"].push_back("::1/128");
   }
@@ -1289,24 +1224,20 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
   if (config["work-dir"]) {
     try {
       config["work-dir"].as<string>();
-    }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'work-dir' value: " << e.what() << endl;
+    } catch(const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'work-dir' value: "<<e.what()<<endl;
       retval = false;
     }
-  }
-  else {
+  } else {
     char tmp[512];
-    config["work-dir"] = getcwd(tmp, sizeof(tmp)) ? string(tmp) : "";
-    ;
+    config["work-dir"] = getcwd(tmp, sizeof(tmp)) ? string(tmp) : "";;
   }
 
   if (config["uid"]) {
     try {
       config["uid"].as<string>();
-    }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'uid' value: " << e.what() << endl;
+    } catch(const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'uid' value: "<<e.what()<<endl;
       retval = false;
     }
   }
@@ -1314,29 +1245,27 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
   if (config["gid"]) {
     try {
       config["gid"].as<string>();
-    }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'gid' value: " << e.what() << endl;
+    } catch(const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'gid' value: "<<e.what()<<endl;
       retval = false;
     }
   }
 
   if (config["domains"]) {
     if (config["domains"].size() == 0) {
-      g_log << Logger::Error << "No domains configured" << endl;
+      g_log<<Logger::Error<<"No domains configured"<<endl;
       retval = false;
     }
-    for (auto const& domain : config["domains"]) {
+    for (auto const &domain : config["domains"]) {
       try {
         if (!domain["domain"]) {
-          g_log << Logger::Error << "An entry in 'domains' is missing a 'domain' key!" << endl;
+          g_log<<Logger::Error<<"An entry in 'domains' is missing a 'domain' key!"<<endl;
           retval = false;
           continue;
         }
         domain["domain"].as<DNSName>();
-      }
-      catch (const runtime_error& e) {
-        g_log << Logger::Error << "Unable to read domain '" << domain["domain"].as<string>() << "': " << e.what() << endl;
+      } catch (const runtime_error &e) {
+        g_log<<Logger::Error<<"Unable to read domain '"<<domain["domain"].as<string>()<<"': "<<e.what()<<endl;
       }
       try {
         if (!domain["master"]) {
@@ -1349,23 +1278,20 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
         auto notifySource = domain["master"].as<ComboAddress>();
 
         g_notifySources.addMask(notifySource);
-      }
-      catch (const runtime_error& e) {
+      } catch (const runtime_error &e) {
         g_log << Logger::Error << "Unable to read domain '" << domain["domain"].as<string>() << "' primary address: " << e.what() << endl;
         retval = false;
       }
       if (domain["max-soa-refresh"]) {
         try {
           domain["max-soa-refresh"].as<uint32_t>();
-        }
-        catch (const runtime_error& e) {
-          g_log << Logger::Error << "Unable to read 'max-soa-refresh' value for domain '" << domain["domain"].as<string>() << "': " << e.what() << endl;
+        } catch (const runtime_error &e) {
+          g_log<<Logger::Error<<"Unable to read 'max-soa-refresh' value for domain '"<<domain["domain"].as<string>()<<"': "<<e.what()<<endl;
         }
       }
     }
-  }
-  else {
-    g_log << Logger::Error << "No domains configured" << endl;
+  } else {
+    g_log<<Logger::Error<<"No domains configured"<<endl;
     retval = false;
   }
 
@@ -1373,8 +1299,8 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
     try {
       config["compress"].as<bool>();
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'compress' value: " << e.what() << endl;
+    catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'compress' value: "<<e.what()<<endl;
       retval = false;
     }
   }
@@ -1386,8 +1312,8 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
     try {
       config["webserver-address"].as<ComboAddress>();
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'webserver-address' value: " << e.what() << endl;
+    catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'webserver-address' value: "<<e.what()<<endl;
       retval = false;
     }
   }
@@ -1396,8 +1322,8 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
     try {
       config["webserver-acl"].as<vector<Netmask>>();
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'webserver-acl' value: " << e.what() << endl;
+    catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'webserver-acl' value: "<<e.what()<<endl;
       retval = false;
     }
   }
@@ -1406,8 +1332,8 @@ static bool parseAndCheckConfig(const string& configpath, YAML::Node& config)
     try {
       config["webserver-loglevel"].as<string>();
     }
-    catch (const runtime_error& e) {
-      g_log << Logger::Error << "Unable to read 'webserver-loglevel' value: " << e.what() << endl;
+    catch (const runtime_error &e) {
+      g_log<<Logger::Error<<"Unable to read 'webserver-loglevel' value: "<<e.what()<<endl;
       retval = false;
     }
   }
@@ -1441,7 +1367,13 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
 
   try {
     po::options_description desc("IXFR distribution tool");
-    desc.add_options()("help", "produce help message")("version", "Display the version of ixfrdist")("verbose", "Be verbose")("debug", "Be even more verbose")("config", po::value<string>()->default_value(SYSCONFDIR + string("/ixfrdist.yml")), "Configuration file to use");
+    desc.add_options()
+      ("help", "produce help message")
+      ("version", "Display the version of ixfrdist")
+      ("verbose", "Be verbose")
+      ("debug", "Be even more verbose")
+      ("config", po::value<string>()->default_value(SYSCONFDIR + string("/ixfrdist.yml")), "Configuration file to use")
+      ;
 
     po::store(po::command_line_parser(argc, argv).options(desc).run(), g_vm);
     po::notify(g_vm);
@@ -1453,19 +1385,19 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
     }
 
     if (g_vm.count("version") > 0) {
-      cout << "ixfrdist " << VERSION << endl;
+      cout<<"ixfrdist "<<VERSION<<endl;
       configuration.shouldExit = true;
       return configuration;
     }
 
     configPath = g_vm["config"].as<string>();
   }
-  catch (const po::error& e) {
-    g_log << Logger::Error << e.what() << ". See `ixfrdist --help` for valid options" << endl;
+  catch (const po::error &e) {
+    g_log<<Logger::Error<<e.what()<<". See `ixfrdist --help` for valid options"<<endl;
     return std::nullopt;
   }
   catch (const std::exception& exp) {
-    g_log << Logger::Error << exp.what() << ". See `ixfrdist --help` for valid options" << endl;
+    g_log<<Logger::Error<<exp.what()<<". See `ixfrdist --help` for valid options"<<endl;
     return std::nullopt;
   }
 
@@ -1481,7 +1413,7 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
     g_log.toConsole(Logger::Debug);
   }
 
-  g_log << Logger::Notice << "IXFR distributor version " << VERSION << " starting up!" << endl;
+  g_log<<Logger::Notice<<"IXFR distributor version "<<VERSION<<" starting up!"<<endl;
 
   try {
     YAML::Node config;
@@ -1492,7 +1424,7 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
 
     /*  From hereon out, we known that all the values in config are valid. */
 
-    for (auto const& domain : config["domains"]) {
+    for (auto const &domain : config["domains"]) {
       set<ComboAddress> s;
       s.insert(domain["master"].as<ComboAddress>());
       g_domainConfigs[domain["domain"].as<DNSName>()].primaries = s;
@@ -1502,33 +1434,33 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
       g_stats.registerDomain(domain["domain"].as<DNSName>());
     }
 
-    for (const auto& addr : config["acl"].as<vector<string>>()) {
+    for (const auto &addr : config["acl"].as<vector<string>>()) {
       try {
         g_acl.addMask(addr);
       }
       catch (const std::exception& exp) {
-        g_log << Logger::Error << exp.what() << endl;
+        g_log<<Logger::Error<<exp.what()<<endl;
         had_error = true;
       }
-      catch (const NetmaskException& e) {
-        g_log << Logger::Error << e.reason << endl;
+      catch (const NetmaskException &e) {
+        g_log<<Logger::Error<<e.reason<<endl;
         had_error = true;
       }
     }
 
     try {
-      g_log << Logger::Notice << "ACL set to " << g_acl.toString() << "." << endl;
+      g_log<<Logger::Notice<<"ACL set to "<<g_acl.toString()<<"."<<endl;
     }
     catch (const std::exception& exp) {
-      g_log << Logger::Error << "Error printing ACL: " << exp.what() << endl;
+      g_log<<Logger::Error<<"Error printing ACL: "<<exp.what()<<endl;
     }
 
-    g_log << Logger::Notice << "NOTIFY accepted from " << g_notifySources.toString() << "." << endl;
+    g_log<<Logger::Notice<<"NOTIFY accepted from "<<g_notifySources.toString()<<"."<<endl;
 
     if (config["compress"].IsDefined()) {
       g_compress = config["compress"].as<bool>();
       if (g_compress) {
-        g_log << Logger::Notice << "Record compression is enabled." << endl;
+        g_log<<Logger::Notice<<"Record compression is enabled."<<endl;
       }
     }
 
@@ -1546,12 +1478,12 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
           configuration.listeningSockets.insert(s);
         }
         catch (const runtime_error& exp) {
-          g_log << Logger::Error << exp.what() << endl;
+          g_log<<Logger::Error<<exp.what()<<endl;
           had_error = true;
           continue;
         }
         catch (const PDNSException& exp) {
-          g_log << Logger::Error << exp.reason << endl;
+          g_log<<Logger::Error<<exp.reason<<endl;
           had_error = true;
           continue;
         }
@@ -1564,17 +1496,16 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
         configuration.gid = pdns::checked_stoi<gid_t>(gid);
       }
       catch (const std::exception& e) {
-        g_log << Logger::Error << "Can not parse gid " << gid << endl;
+        g_log<<Logger::Error<<"Can not parse gid "<<gid<<endl;
         had_error = true;
       }
       if (configuration.gid != 0) {
-        // NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
-        const struct group* gr = getgrnam(gid.c_str());
+        //NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
+        const struct group *gr = getgrnam(gid.c_str());
         if (gr == nullptr) {
-          g_log << Logger::Error << "Can not determine group-id for gid " << gid << endl;
+          g_log<<Logger::Error<<"Can not determine group-id for gid "<<gid<<endl;
           had_error = true;
-        }
-        else {
+        } else {
           configuration.gid = gr->gr_gid;
         }
       }
@@ -1589,17 +1520,17 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
 
         if (config["webserver-acl"].IsDefined()) {
           configuration.wsACL.clear();
-          for (const auto& acl : config["webserver-acl"].as<vector<Netmask>>()) {
+          for (const auto &acl : config["webserver-acl"].as<vector<Netmask>>()) {
             configuration.wsACL.addMask(acl);
           }
         }
       }
       catch (const NetmaskException& ne) {
-        g_log << Logger::Error << "Could not set the webserver ACL: " << ne.reason << endl;
+        g_log<<Logger::Error<<"Could not set the webserver ACL: "<<ne.reason<<endl;
         had_error = true;
       }
       catch (const std::exception& exp) {
-        g_log << Logger::Error << "Could not set the webserver ACL: " << exp.what() << endl;
+        g_log<<Logger::Error<<"Could not set the webserver ACL: "<<exp.what()<<endl;
         had_error = true;
       }
 
@@ -1614,20 +1545,19 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
         configuration.uid = pdns::checked_stoi<uid_t>(uid);
       }
       catch (const std::exception& e) {
-        g_log << Logger::Error << "Can not parse uid " << uid << endl;
+        g_log<<Logger::Error<<"Can not parse uid "<<uid<<endl;
         had_error = true;
       }
       if (configuration.uid != 0) {
-        // NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
-        const struct passwd* pw = getpwnam(uid.c_str());
+        //NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
+        const struct passwd *pw = getpwnam(uid.c_str());
         if (pw == nullptr) {
-          g_log << Logger::Error << "Can not determine user-id for uid " << uid << endl;
+          g_log<<Logger::Error<<"Can not determine user-id for uid "<<uid<<endl;
           had_error = true;
-        }
-        else {
+        } else {
           configuration.uid = pw->pw_uid;
         }
-        // NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
+        //NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
         configuration.userInfo = getpwuid(configuration.uid);
       }
     }
@@ -1646,13 +1576,12 @@ static std::optional<IXFRDistConfiguration> parseConfiguration(int argc, char** 
   }
   catch (const YAML::Exception& exp) {
     had_error = true;
-    g_log << Logger::Error << "Got an exception while applying our configuration: " << exp.msg << endl;
+    g_log<<Logger::Error<<"Got an exception while applying our configuration: "<<exp.msg<<endl;
     return std::nullopt;
   }
 }
 
-int main(int argc, char** argv)
-{
+int main(int argc, char** argv) {
   bool had_error = false;
   std::optional<IXFRDistConfiguration> configuration{std::nullopt};
   std::unique_ptr<FDMultiplexer> fdm{nullptr};
@@ -1666,7 +1595,7 @@ int main(int argc, char** argv)
 
     fdm = std::unique_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent());
     if (!fdm) {
-      g_log << Logger::Error << "Could not enable a multiplexer for the listen sockets!" << endl;
+      g_log<<Logger::Error<<"Could not enable a multiplexer for the listen sockets!"<<endl;
       return EXIT_FAILURE;
     }
 
@@ -1682,14 +1611,14 @@ int main(int argc, char** argv)
   }
   catch (const YAML::Exception& exp) {
     had_error = true;
-    g_log << Logger::Error << "Got an exception while processing our configuration: " << exp.msg << endl;
+    g_log<<Logger::Error<<"Got an exception while processing our configuration: "<<exp.msg<<endl;
   }
 
   try {
     if (configuration->gid != 0) {
-      g_log << Logger::Notice << "Dropping effective group-id to " << configuration->gid << endl;
+      g_log<<Logger::Notice<<"Dropping effective group-id to "<<configuration->gid<<endl;
       if (setgid(configuration->gid) < 0) {
-        g_log << Logger::Error << "Could not set group id to " << configuration->gid << ": " << stringerror() << endl;
+        g_log<<Logger::Error<<"Could not set group id to "<<configuration->gid<<": "<<stringerror()<<endl;
         had_error = true;
       }
     }
@@ -1697,7 +1626,7 @@ int main(int argc, char** argv)
     // It all starts here
     signal(SIGTERM, handleSignal);
     signal(SIGINT, handleSignal);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
+    //NOLINTNEXTLINE(cppcoreguidelines-pro-type-cstyle-cast)
     signal(SIGPIPE, SIG_IGN);
 
     // Launch the webserver!
@@ -1705,29 +1634,28 @@ int main(int argc, char** argv)
       std::thread(&IXFRDistWebServer::go, IXFRDistWebServer(configuration->wsAddr, configuration->wsACL, configuration->wsLogLevel)).detach();
     }
     catch (const std::exception& exp) {
-      g_log << Logger::Error << "Unable to start webserver: " << exp.what() << endl;
+      g_log<<Logger::Error<<"Unable to start webserver: "<<exp.what()<<endl;
       had_error = true;
     }
-    catch (const PDNSException& e) {
-      g_log << Logger::Error << "Unable to start webserver: " << e.reason << endl;
+    catch (const PDNSException &e) {
+      g_log<<Logger::Error<<"Unable to start webserver: "<<e.reason<<endl;
       had_error = true;
     }
 
     if (configuration->uid != 0) {
-      g_log << Logger::Notice << "Dropping effective user-id to " << configuration->uid << endl;
+      g_log<<Logger::Notice<<"Dropping effective user-id to "<<configuration->uid<<endl;
       if (setuid(configuration->uid) < 0) {
-        g_log << Logger::Error << "Could not set user id to " << configuration->uid << ": " << stringerror() << endl;
+        g_log<<Logger::Error<<"Could not set user id to "<<configuration->uid<<": "<<stringerror()<<endl;
         had_error = true;
       }
       if (configuration->userInfo == nullptr) {
         if (setgroups(0, nullptr) < 0) {
-          g_log << Logger::Error << "Unable to drop supplementary gids: " << stringerror() << endl;
+          g_log<<Logger::Error<<"Unable to drop supplementary gids: "<<stringerror()<<endl;
           had_error = true;
         }
-      }
-      else {
+      } else {
         if (initgroups(configuration->userInfo->pw_name, configuration->gid) < 0) {
-          g_log << Logger::Error << "Unable to set supplementary groups: " << stringerror() << endl;
+          g_log<<Logger::Error<<"Unable to set supplementary groups: "<<stringerror()<<endl;
           had_error = true;
         }
       }
@@ -1739,7 +1667,7 @@ int main(int argc, char** argv)
   }
   catch (const YAML::Exception& exp) {
     had_error = true;
-    g_log << Logger::Error << "Got an exception while applying our configuration: " << exp.msg << endl;
+    g_log<<Logger::Error<<"Got an exception while applying our configuration: "<<exp.msg<<endl;
   }
 
   try {
@@ -1764,30 +1692,29 @@ int main(int argc, char** argv)
       gettimeofday(&now, 0);
       fdm->run(&now);
       if (g_exiting) {
-        g_log << Logger::Debug << "Closing listening sockets" << endl;
+        g_log<<Logger::Debug<<"Closing listening sockets"<<endl;
         for (const int& fd : configuration->listeningSockets) {
           try {
             closesocket(fd);
-          }
-          catch (const PDNSException& e) {
-            g_log << Logger::Error << e.reason << endl;
+          } catch (const PDNSException &e) {
+            g_log<<Logger::Error<<e.reason<<endl;
           }
         }
         break;
       }
     }
 
-    g_log << Logger::Debug << "Waiting for all threads to stop" << endl;
+    g_log<<Logger::Debug<<"Waiting for all threads to stop"<<endl;
     g_tcpHandlerCV.notify_all();
     ut.join();
-    for (auto& t : tcpHandlers) {
+    for (auto &t : tcpHandlers) {
       t.join();
     }
-    g_log << Logger::Notice << "IXFR distributor stopped" << endl;
+    g_log<<Logger::Notice<<"IXFR distributor stopped"<<endl;
   }
   catch (const YAML::Exception& exp) {
     had_error = true;
-    g_log << Logger::Error << "Got an exception: " << exp.msg << endl;
+    g_log<<Logger::Error<<"Got an exception: "<<exp.msg<<endl;
   }
 
   return had_error ? EXIT_FAILURE : EXIT_SUCCESS;

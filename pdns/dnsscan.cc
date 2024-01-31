@@ -28,6 +28,7 @@
 #include "sstuff.hh"
 #include "anadns.hh"
 
+
 #include <set>
 #include <deque>
 
@@ -43,62 +44,66 @@ using namespace ::boost::multi_index;
 #include "namespaces.hh"
 StatBag S;
 
-static void usage()
-{
-  cerr << "syntax: dnsscan INFILE ..." << endl;
+static void usage() {
+  cerr<<"syntax: dnsscan INFILE ..."<<endl;
 }
 
 int main(int argc, char** argv)
-try {
+try
+{
   Socket sock(AF_INET, SOCK_DGRAM);
 
   /*
-  IPEndpoint remote(argc > 2 ? argv[2] : "127.0.0.1",
+  IPEndpoint remote(argc > 2 ? argv[2] : "127.0.0.1", 
                     argc > 3 ? atoi(argv[3]) : 5300);
 
   */
 
-  if (argc < 2) {
+  if(argc<2) {
     usage();
     exit(EXIT_SUCCESS);
   }
 
-  for (int n = 1; n < argc; ++n) {
-    if ((string)argv[n] == "--help") {
+  for(int n=1; n < argc; ++n) {
+    if ((string) argv[n] == "--help") {
       usage();
       return EXIT_SUCCESS;
     }
 
-    if ((string)argv[n] == "--version") {
-      cerr << "dnsscan " << VERSION << endl;
+    if ((string) argv[n] == "--version") {
+      cerr<<"dnsscan "<<VERSION<<endl;
       return EXIT_SUCCESS;
     }
   }
 
   unsigned int counts[256];
-  for (unsigned int n = 0; n < 256; ++n)
-    counts[n] = 0;
-
-  for (int n = 1; n < argc; ++n) {
+  for(unsigned int n=0 ; n < 256; ++n) 
+    counts[n]=0;
+    
+  for(int n=1; n < argc; ++n) {
     PcapPacketReader pr(argv[n]);
-
-    while (pr.getUDPPacket()) {
+    
+    while(pr.getUDPPacket()) {
       try {
         MOADNSParser mdp(false, (const char*)pr.d_payload, pr.d_len);
-        if (mdp.d_qtype < 256)
+        if(mdp.d_qtype < 256)
           counts[mdp.d_qtype]++;
+
       }
-      catch (const MOADNSException& mde) {
-        cout << "Error from remote " << pr.getSource().toString() << ": " << mde.what() << "\n";
+      catch(const MOADNSException &mde) {
+        cout<<"Error from remote "<<pr.getSource().toString()<<": "<<mde.what()<<"\n";
         //        sock.sendTo(string(pr.d_payload, pr.d_payload + pr.d_len), remote);
       }
     }
   }
-  for (unsigned int n = 0; n < 256; ++n) {
-    if (counts[n])
+  for(unsigned int n=0 ; n < 256; ++n) {
+    if(counts[n])
       cout << n << "\t" << counts[n] << "\n";
   }
+
 }
-catch (std::exception& e) {
-  cout << "Fatal: " << e.what() << endl;
+catch(std::exception& e)
+{
+  cout<<"Fatal: "<<e.what()<<endl;
 }
+

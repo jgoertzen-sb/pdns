@@ -27,8 +27,7 @@
 class Comment
 {
 public:
-  Comment() :
-    modified_at(0), domain_id(0){};
+  Comment() : modified_at(0), domain_id(0)  {};
   ~Comment() = default;
 
   // data

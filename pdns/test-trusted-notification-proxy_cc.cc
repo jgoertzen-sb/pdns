@@ -11,16 +11,14 @@ using namespace boost;
 
 BOOST_AUTO_TEST_SUITE(test_trusted_notification_proxy_cc)
 
-BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_bad_addrs)
-{
+BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_bad_addrs) {
   string addrs = "127.0.0.1111";
   BOOST_CHECK_THROW(pdns::parseTrustedNotificationProxy(addrs), PDNSException);
   addrs = "127.0.0.1,:::2";
   BOOST_CHECK_THROW(pdns::parseTrustedNotificationProxy(addrs), PDNSException);
 }
 
-BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_addresses_only)
-{
+BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_addresses_only) {
   string addrs = "127.0.0.1";
   BOOST_CHECK_NO_THROW(pdns::parseTrustedNotificationProxy(addrs));
   BOOST_CHECK(pdns::isAddressTrustedNotificationProxy(ComboAddress("127.0.0.1")));
@@ -42,8 +40,7 @@ BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_addresses_only)
   BOOST_CHECK(!pdns::isAddressTrustedNotificationProxy(ComboAddress("192.0.2.1")));
 }
 
-BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_with_netmasks)
-{
+BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_with_netmasks) {
   string addrs = "127.0.0.0/8";
   BOOST_CHECK_NO_THROW(pdns::parseTrustedNotificationProxy(addrs));
   BOOST_CHECK(pdns::isAddressTrustedNotificationProxy(ComboAddress("127.0.0.1")));
@@ -80,8 +77,7 @@ BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_with_netmasks)
   BOOST_CHECK(pdns::isAddressTrustedNotificationProxy(ComboAddress("2001:db8:16::5353")));
 }
 
-BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_with_netmasks_and_addresses)
-{
+BOOST_AUTO_TEST_CASE(test_trusted_notification_proxy_with_netmasks_and_addresses) {
   string addrs = "192.0.2.1,2001:db8:16::/64";
   BOOST_CHECK_NO_THROW(pdns::parseTrustedNotificationProxy(addrs));
   BOOST_CHECK(!pdns::isAddressTrustedNotificationProxy(ComboAddress("127.0.0.1")));

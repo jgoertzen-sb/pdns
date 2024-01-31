@@ -26,3 +26,4 @@
 
 std::string generateXPFPayload(bool tcp, const ComboAddress& source, const ComboAddress& destination);
 bool parseXPFPayload(const char* payload, size_t len, ComboAddress& source, ComboAddress* destination);
+

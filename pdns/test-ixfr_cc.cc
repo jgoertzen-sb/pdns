@@ -15,8 +15,7 @@
 
 BOOST_AUTO_TEST_SUITE(test_ixfr_cc)
 
-BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -38,8 +37,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr)
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -86,8 +84,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental)
   BOOST_CHECK_EQUAL(ret.at(1).second.at(1).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -118,8 +115,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental)
   BOOST_CHECK_EQUAL(ret.at(0).second.at(2).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -162,8 +158,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence)
   BOOST_CHECK_EQUAL(ret.at(1).second.at(1).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -208,8 +203,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence)
   BOOST_CHECK_EQUAL(ret.at(1).second.at(1).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_same_serial)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_same_serial) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -230,8 +224,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_same_serial)
   BOOST_CHECK_EQUAL(ret.at(0).second.at(1).d_type, QType(QType::SOA).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_records)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_records) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -246,7 +239,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_primary_soa)
 {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
-  ;
+;
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
@@ -254,8 +247,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_primary_soa)
   BOOST_CHECK_EQUAL(ret.size(), 0U);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_trailing_soa)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_trailing_soa) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -271,8 +263,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_trailing_soa)
   BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_soa_after_removals)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_soa_after_removals) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -285,8 +276,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_soa_after_removals)
   BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_mismatching_serial_before_and_after_additions)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_mismatching_serial_before_and_after_additions) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
@@ -303,8 +293,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_mismatching_serial_before_and_after_additions)
   BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_trailing_record_after_end)
-{
+BOOST_AUTO_TEST_CASE(test_ixfr_trailing_record_after_end) {
   const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 

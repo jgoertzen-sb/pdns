@@ -33,8 +33,7 @@
  *
  * Will raise a PDNSException() if algorithm is invalid
  */
-std::string makeTSIGKey(const DNSName& algorithm)
-{
+std::string makeTSIGKey(const DNSName& algorithm) {
   TSIGHashEnum tsigHashEnum;
   if (!getTSIGHashEnum(algorithm, tsigHashEnum)) {
     throw PDNSException("Invalid TSIG algorithm: " + algorithm.toStringNoDot());

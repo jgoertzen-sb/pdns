@@ -22,11 +22,7 @@
 #pragma once
 #include "namespaces.hh"
 
-enum ProductType
-{
-  ProductAuthoritative,
-  ProductRecursor
-};
+enum ProductType { ProductAuthoritative, ProductRecursor };
 
 string compilerVersion();
 void showProductVersion();

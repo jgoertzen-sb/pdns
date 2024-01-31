@@ -36,9 +36,9 @@ const DNSName g_rootdnsname("."), g_wildcarddnsname("*");
    www.powerdns.com = 3www8powerdns3com0
 */
 
-std::ostream& operator<<(std::ostream& os, const DNSName& d)
+std::ostream & operator<<(std::ostream &os, const DNSName& d)
 {
-  return os << d.toLogString();
+  return os <<d.toLogString();
 }
 
 void DNSName::throwSafeRangeError(const std::string& msg, const char* buf, size_t length)
@@ -58,42 +58,41 @@ DNSName::DNSName(const std::string_view sw)
   const char* p = sw.data();
   size_t length = sw.length();
 
-  if (length == 0 || (length == 1 && p[0] == '.')) {
+  if(length == 0 || (length == 1 && p[0]=='.')) {
     d_storage.assign(1, '\0');
-  }
-  else {
-    if (!std::memchr(p, '\\', length)) {
-      unsigned char lenpos = 0;
-      unsigned char labellen = 0;
-      const char *const pbegin = p, *pend = p + length;
+  } else {
+    if(!std::memchr(p, '\\', length)) {
+      unsigned char lenpos=0;
+      unsigned char labellen=0;
+      const char* const pbegin=p, *pend=p+length;
 
-      d_storage.reserve(length + 1);
-      for (auto iter = pbegin; iter != pend;) {
+      d_storage.reserve(length+1);
+      for(auto iter = pbegin; iter != pend; ) {
         lenpos = d_storage.size();
-        if (*iter == '.')
+        if(*iter=='.')
           throwSafeRangeError("Found . in wrong position in DNSName: ", p, length);
         d_storage.append(1, '\0');
-        labellen = 0;
-        auto begiter = iter;
-        for (; iter != pend && *iter != '.'; ++iter) {
+        labellen=0;
+        auto begiter=iter;
+        for(; iter != pend && *iter!='.'; ++iter) {
           labellen++;
         }
-        d_storage.append(begiter, iter);
-        if (iter != pend)
+        d_storage.append(begiter,iter);
+        if(iter != pend)
           ++iter;
-        if (labellen > 63)
+        if(labellen > 63)
           throwSafeRangeError("label too long to append: ", p, length);
 
-        if (iter - pbegin > static_cast<ptrdiff_t>(s_maxDNSNameLength - 1)) // reserve two bytes, one for length and one for the root label
+        if(iter-pbegin > static_cast<ptrdiff_t>(s_maxDNSNameLength - 1)) // reserve two bytes, one for length and one for the root label
           throwSafeRangeError("name too long to append: ", p, length);
 
-        d_storage[lenpos] = labellen;
+        d_storage[lenpos]=labellen;
       }
       d_storage.append(1, '\0');
     }
     else {
-      d_storage = segmentDNSNameRaw(p, length);
-      if (d_storage.size() > s_maxDNSNameLength) {
+      d_storage=segmentDNSNameRaw(p, length);
+      if(d_storage.size() > s_maxDNSNameLength) {
         throwSafeRangeError("name too long: ", p, length);
       }
     }
@@ -103,11 +102,11 @@ DNSName::DNSName(const std::string_view sw)
 DNSName::DNSName(const char* pos, size_t len, size_t offset, bool uncompress, uint16_t* qtype, uint16_t* qclass, unsigned int* consumed, uint16_t minOffset)
 {
   if (offset >= len)
-    throw std::range_error("Trying to read past the end of the buffer (" + std::to_string(offset) + " >= " + std::to_string(len) + ")");
+    throw std::range_error("Trying to read past the end of the buffer ("+std::to_string(offset)+ " >= "+std::to_string(len)+")");
 
-  if (!uncompress) {
-    if (const void* fnd = memchr(pos + offset, 0, len - offset)) {
-      d_storage.reserve(2 + (const char*)fnd - (pos + offset));
+  if(!uncompress) {
+    if(const void * fnd=memchr(pos+offset, 0, len-offset)) {
+      d_storage.reserve(2+(const char*)fnd-(pos+offset));
     }
   }
 
@@ -161,7 +160,8 @@ size_t DNSName::parsePacketUncompressed(const UnsignedCharView& view, size_t pos
     }
     pos += labellen;
     totalLength += 1 + labellen;
-  } while (pos < view.size());
+  }
+  while (pos < view.size());
 
   if (totalLength != 0) {
     auto existingSize = d_storage.size();
@@ -181,11 +181,11 @@ size_t DNSName::parsePacketUncompressed(const UnsignedCharView& view, size_t pos
 void DNSName::packetParser(const char* qpos, size_t len, size_t offset, bool uncompress, uint16_t* qtype, uint16_t* qclass, unsigned int* consumed, int depth, uint16_t minOffset)
 {
   if (offset >= len) {
-    throw std::range_error("Trying to read past the end of the buffer (" + std::to_string(offset) + " >= " + std::to_string(len) + ")");
+    throw std::range_error("Trying to read past the end of the buffer ("+std::to_string(offset)+ " >= "+std::to_string(len)+")");
   }
 
   if (offset < static_cast<size_t>(minOffset)) {
-    throw std::range_error("Trying to read before the beginning of the buffer (" + std::to_string(offset) + " < " + std::to_string(minOffset) + ")");
+    throw std::range_error("Trying to read before the beginning of the buffer ("+std::to_string(offset)+ " < "+std::to_string(minOffset)+")");
   }
   unsigned char labellen{0};
 
@@ -211,7 +211,7 @@ void DNSName::packetParser(const char* qpos, size_t len, size_t offset, bool unc
     }
 
     if (newpos < minOffset) {
-      throw std::range_error("Invalid label position during decompression (" + std::to_string(newpos) + " < " + std::to_string(minOffset) + ")");
+      throw std::range_error("Invalid label position during decompression ("+std::to_string(newpos)+ " < "+std::to_string(minOffset)+")");
     }
 
     if (++depth > 100) {
@@ -233,17 +233,17 @@ void DNSName::packetParser(const char* qpos, size_t len, size_t offset, bool unc
 
   if (qtype != nullptr) {
     if (pos + 2 > view.size()) {
-      throw std::range_error("Trying to read qtype past the end of the buffer (" + std::to_string(pos + 2) + " > " + std::to_string(len) + ")");
+      throw std::range_error("Trying to read qtype past the end of the buffer ("+std::to_string(pos + 2)+ " > "+std::to_string(len)+")");
     }
-    *qtype = view.at(pos) * 256 + view.at(pos + 1);
+    *qtype = view.at(pos)*256 + view.at(pos+1);
   }
 
   pos += 2;
   if (qclass != nullptr) {
     if (pos + 2 > view.size()) {
-      throw std::range_error("Trying to read qclass past the end of the buffer (" + std::to_string(pos + 2) + " > " + std::to_string(len) + ")");
+      throw std::range_error("Trying to read qclass past the end of the buffer ("+std::to_string(pos + 2)+ " > "+std::to_string(len)+")");
     }
-    *qclass = view.at(pos) * 256 + view.at(pos + 1);
+    *qclass = view.at(pos)*256 + view.at(pos+1);
   }
 }
 
@@ -316,32 +316,31 @@ std::string DNSName::toDNSStringLC() const
  *
  * @return the total wirelength of the DNSName
  */
-size_t DNSName::wirelength() const
-{
+size_t DNSName::wirelength() const {
   return d_storage.length();
 }
 
 // Are WE part of parent
 bool DNSName::isPartOf(const DNSName& parent) const
 {
-  if (parent.empty() || empty()) {
+  if(parent.empty() || empty()) {
     throw std::out_of_range("empty dnsnames aren't part of anything");
   }
 
-  if (parent.d_storage.size() > d_storage.size()) {
+  if(parent.d_storage.size() > d_storage.size()) {
     return false;
   }
 
   // this is slightly complicated since we can't start from the end, since we can't see where a label begins/ends then
-  for (auto us = d_storage.cbegin(); us < d_storage.cend(); us += *us + 1) {
-    auto distance = std::distance(us, d_storage.cend());
+  for(auto us=d_storage.cbegin(); us<d_storage.cend(); us+=*us+1) {
+    auto distance = std::distance(us,d_storage.cend());
     if (distance < 0 || static_cast<size_t>(distance) < parent.d_storage.size()) {
       break;
     }
     if (static_cast<size_t>(distance) == parent.d_storage.size()) {
       auto p = parent.d_storage.cbegin();
-      for (; us != d_storage.cend(); ++us, ++p) {
-        if (dns_tolower(*p) != dns_tolower(*us))
+      for(; us != d_storage.cend(); ++us, ++p) {
+        if(dns_tolower(*p) != dns_tolower(*us))
           return false;
       }
       return true;
@@ -363,7 +362,7 @@ DNSName DNSName::makeRelative(const DNSName& zone) const
 void DNSName::makeUsRelative(const DNSName& zone)
 {
   if (isPartOf(zone)) {
-    d_storage.erase(d_storage.size() - zone.d_storage.size());
+    d_storage.erase(d_storage.size()-zone.d_storage.size());
     d_storage.append(1, static_cast<char>(0)); // put back the trailing 0
   }
   else {
@@ -405,8 +404,8 @@ DNSName DNSName::labelReverse() const
   }
 
   if (!empty()) {
-    vector<string> l = getRawLabels();
-    while (!l.empty()) {
+    vector<string> l=getRawLabels();
+    while(!l.empty()) {
       ret.appendRawLabel(l.back());
       l.pop_back();
     }
@@ -459,12 +458,12 @@ void DNSName::prependRawLabel(const std::string& label)
 
   string_t prep(1, static_cast<char>(label.size()));
   prep.append(label.c_str(), label.size());
-  d_storage = prep + d_storage;
+  d_storage = prep+d_storage;
 }
 
 bool DNSName::slowCanonCompare(const DNSName& rhs) const
 {
-  auto ours = getRawLabels(), rhsLabels = rhs.getRawLabels();
+  auto ours=getRawLabels(), rhsLabels = rhs.getRawLabels();
   return std::lexicographical_compare(ours.rbegin(), ours.rend(), rhsLabels.rbegin(), rhsLabels.rend(), CIStringCompare());
 }
 
@@ -473,8 +472,8 @@ vector<std::string> DNSName::getRawLabels() const
   vector<std::string> ret;
   ret.reserve(countLabels());
   // 3www4ds9a2nl0
-  for (const unsigned char* p = (const unsigned char*)d_storage.c_str(); p < ((const unsigned char*)d_storage.c_str()) + d_storage.size() && *p; p += *p + 1) {
-    ret.push_back({(const char*)p + 1, (size_t)*p}); // XXX FIXME
+  for(const unsigned char* p = (const unsigned char*) d_storage.c_str(); p < ((const unsigned char*) d_storage.c_str()) + d_storage.size() && *p; p+=*p+1) {
+    ret.push_back({(const char*)p+1, (size_t)*p}); // XXX FIXME
   }
   return ret;
 }
@@ -482,13 +481,13 @@ vector<std::string> DNSName::getRawLabels() const
 std::string DNSName::getRawLabel(unsigned int pos) const
 {
   unsigned int currentPos = 0;
-  for (const unsigned char* p = (const unsigned char*)d_storage.c_str(); p < ((const unsigned char*)d_storage.c_str()) + d_storage.size() && *p; p += *p + 1, currentPos++) {
+  for(const unsigned char* p = (const unsigned char*) d_storage.c_str(); p < ((const unsigned char*) d_storage.c_str()) + d_storage.size() && *p; p+=*p+1, currentPos++) {
     if (currentPos == pos) {
-      return std::string((const char*)p + 1, (size_t)*p);
+      return std::string((const char*)p+1, (size_t)*p);
     }
   }
 
-  throw std::out_of_range("trying to get label at position " + std::to_string(pos) + " of a DNSName that only has " + std::to_string(currentPos) + " labels");
+  throw std::out_of_range("trying to get label at position "+std::to_string(pos)+" of a DNSName that only has "+std::to_string(currentPos)+" labels");
 }
 
 DNSName DNSName::getLastLabel() const
@@ -500,10 +499,10 @@ DNSName DNSName::getLastLabel() const
 
 bool DNSName::chopOff()
 {
-  if (d_storage.empty() || d_storage[0] == 0) {
+  if (d_storage.empty() || d_storage[0]==0) {
     return false;
   }
-  d_storage.erase(0, (unsigned int)d_storage[0] + 1);
+  d_storage.erase(0, (unsigned int)d_storage[0]+1);
   return true;
 }
 
@@ -528,7 +527,7 @@ bool DNSName::isHostname() const
 
 unsigned int DNSName::countLabels() const
 {
-  unsigned int count = 0;
+  unsigned int count=0;
   const unsigned char* p = reinterpret_cast<const unsigned char*>(d_storage.c_str());
   const unsigned char* end = reinterpret_cast<const unsigned char*>(p + d_storage.size());
 
@@ -541,10 +540,11 @@ unsigned int DNSName::countLabels() const
 
 void DNSName::trimToLabels(unsigned int to)
 {
-  while (countLabels() > to && chopOff()) {
+  while(countLabels() > to && chopOff()) {
     ;
   }
 }
+
 
 size_t hash_value(DNSName const& d)
 {
@@ -557,11 +557,11 @@ void DNSName::appendEscapedLabel(std::string& appendTo, const char* orig, size_t
 
   while (pos < len) {
     auto p = static_cast<uint8_t>(orig[pos]);
-    if (p == '.') {
-      appendTo += "\\.";
+    if (p=='.') {
+      appendTo+="\\.";
     }
-    else if (p == '\\') {
-      appendTo += "\\\\";
+    else if (p=='\\') {
+      appendTo+="\\\\";
     }
     else if (p > 0x20 && p < 0x7f) {
       appendTo.append(1, static_cast<char>(p));
@@ -588,7 +588,10 @@ bool DNSName::has8bitBytes() const
     for (size_t idx = 0; idx < length; idx++) {
       ++pos;
       char c = s.at(pos);
-      if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '*' || c == '.' || c == '/' || c == '@' || c == ' ' || c == '\\' || c == ':')) {
+      if (!((c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c =='-' || c == '_' || c=='*' || c=='.' || c=='/' || c=='@' || c==' ' || c=='\\' || c==':')) {
         return true;
       }
     }

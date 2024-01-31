@@ -52,11 +52,11 @@ bool DLQuitPlease()
 
 string DLQuitHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
 {
-  string ret = "No return value";
-  if (parts[0] == "QUIT") {
-    s_pleasequit = true;
-    ret = "Scheduling exit";
-    g_log << Logger::Error << "Scheduling exit on remote request" << endl;
+  string ret="No return value";
+  if(parts[0]=="QUIT") {
+    s_pleasequit=true;
+    ret="Scheduling exit";
+    g_log<<Logger::Error<<"Scheduling exit on remote request"<<endl;
   }
   return ret;
 }
@@ -68,8 +68,8 @@ static void dokill(int)
 
 string DLCurrentConfigHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
 {
-  if (parts.size() > 1) {
-    if (parts.size() == 2 && parts[1] == "diff") {
+  if(parts.size() > 1) {
+    if(parts.size() == 2 && parts[1] == "diff") {
       return ::arg().configstring(true, false);
     }
     return "Syntax: current-config [diff]";
@@ -97,7 +97,7 @@ string DLShowHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
     if (parts.size() == 2) {
       if (parts[1] == "*")
         ret = S.directory();
-      else if (parts[1].length() && parts[1][parts[1].length() - 1] == '*')
+      else if (parts[1].length() && parts[1][parts[1].length() - 1 ] == '*')
         ret = S.directory(parts[1].substr(0, parts[1].length() - 1));
       else
         ret = S.getValueStr(parts[1]);
@@ -110,47 +110,47 @@ string DLShowHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
   }
 }
 
-void setStatus(const string& str)
+void setStatus(const string &str)
 {
-  d_status = str;
+  d_status=str;
 }
 
 string DLStatusHandler(const vector<string>& /* parts */, Utility::pid_t ppid)
 {
   ostringstream os;
-  os << ppid << ": " << d_status;
+  os<<ppid<<": "<<d_status;
   return os.str();
 }
 
 string DLUptimeHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid */)
 {
   ostringstream os;
-  os << humanDuration(time(nullptr) - g_starttime);
+  os<<humanDuration(time(nullptr)-g_starttime);
   return os.str();
 }
 
 string DLPurgeHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
 {
   ostringstream os;
-  int ret = 0;
+  int ret=0;
 
-  if (parts.size() > 1) {
-    for (vector<string>::const_iterator i = ++parts.begin(); i < parts.end(); ++i) {
-      g_log << Logger::Warning << "Cache clear request for '" << *i << "' received from operator" << endl;
-      ret += purgeAuthCaches(*i);
-      if (!boost::ends_with(*i, "$"))
+  if(parts.size()>1) {
+    for (vector<string>::const_iterator i=++parts.begin();i<parts.end();++i) {
+      g_log<<Logger::Warning<<"Cache clear request for '"<<*i<<"' received from operator"<<endl;
+      ret+=purgeAuthCaches(*i);
+      if(!boost::ends_with(*i, "$"))
         DNSSECKeeper::clearCaches(DNSName(*i));
       else
         DNSSECKeeper::clearAllCaches(); // at least we do what we promise.. and a bit more!
     }
   }
   else {
-    g_log << Logger::Warning << "Cache clear request received from operator" << endl;
+    g_log<<Logger::Warning<<"Cache clear request received from operator"<<endl;
     ret = purgeAuthCaches();
     DNSSECKeeper::clearAllCaches();
   }
 
-  os << ret;
+  os<<ret;
   return os.str();
 }
 
@@ -158,27 +158,27 @@ string DLCCHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid */)
 {
   extern AuthPacketCache PC;
   extern AuthQueryCache QC;
-  map<char, uint64_t> counts = QC.getCounts();
+  map<char,uint64_t> counts=QC.getCounts();
   uint64_t packetEntries = PC.size();
   ostringstream os;
-  bool first = true;
-  for (map<char, uint64_t>::const_iterator i = counts.begin(); i != counts.end(); ++i) {
-    if (!first)
-      os << ", ";
-    first = false;
+  bool first=true;
+  for(map<char,uint64_t>::const_iterator i=counts.begin();i!=counts.end();++i) {
+    if(!first)
+      os<<", ";
+    first=false;
 
-    if (i->first == '!')
-      os << "negative queries: ";
-    else if (i->first == 'Q')
-      os << "queries: ";
+    if(i->first=='!')
+      os<<"negative queries: ";
+    else if(i->first=='Q')
+      os<<"queries: ";
     else
-      os << "unknown: ";
+      os<<"unknown: ";
 
-    os << i->second;
+    os<<i->second;
   }
-  if (!first)
-    os << ", ";
-  os << "packets: " << packetEntries;
+  if(!first)
+    os<<", ";
+  os<<"packets: "<<packetEntries;
 
   return os.str();
 }
@@ -194,7 +194,7 @@ string DLRSizesHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid
   respsizes_t respsizes = g_rs.getSizeResponseCounts();
   ostringstream os;
   boost::format fmt("%d\t%d\n");
-  for (const respsizes_t::value_type& val : respsizes) {
+  for(const respsizes_t::value_type& val :  respsizes) {
     os << (fmt % val.first % val.second).str();
   }
   return os.str();
@@ -203,11 +203,11 @@ string DLRSizesHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid
 string DLRemotesHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid */)
 {
   extern StatBag S;
-  typedef vector<pair<string, unsigned int>> totals_t;
+  typedef vector<pair<string, unsigned int> > totals_t;
   totals_t totals = S.getRing("remotes");
   string ret;
   boost::format fmt("%s\t%d\n");
-  for (totals_t::value_type& val : totals) {
+  for(totals_t::value_type& val :  totals) {
     ret += (fmt % val.first % val.second).str();
   }
   return ret;
@@ -215,23 +215,24 @@ string DLRemotesHandler(const vector<string>& /* parts */, Utility::pid_t /* ppi
 
 string DLSettingsHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
 {
-  static const char* whitelist[] = {"query-logging", nullptr};
-  const char** p;
+  static const char *whitelist[]={"query-logging",nullptr};
+  const char **p;
 
-  if (parts.size() != 3) {
+  if(parts.size()!=3) {
     return "Syntax: set variable value";
   }
 
-  for (p = whitelist; *p; p++)
-    if (*p == parts[1])
+  for(p=whitelist;*p;p++)
+    if(*p==parts[1])
       break;
-  if (*p) {
-    ::arg().set(parts[1]) = parts[2];
-    g_log << Logger::Warning << "Configuration change for setting '" << parts[1] << "' to value '" << parts[2] << "' received from operator" << endl;
+  if(*p) {
+    ::arg().set(parts[1])=parts[2];
+    g_log<<Logger::Warning<<"Configuration change for setting '"<<parts[1]<<"' to value '"<<parts[2]<<"' received from operator"<<endl;
     return "done";
   }
   else
     return "This setting cannot be changed at runtime, or no such setting";
+
 }
 
 string DLVersionHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid */)
@@ -243,14 +244,13 @@ string DLNotifyRetrieveHandler(const vector<string>& parts, Utility::pid_t /* pp
 {
   extern CommunicatorClass Communicator;
   ostringstream os;
-  if (parts.size() != 2 && parts.size() != 3)
+  if(parts.size()!=2 && parts.size()!=3)
     return "syntax: retrieve zone [ip]";
 
   DNSName domain;
   try {
     domain = DNSName(parts[1]);
-  }
-  catch (...) {
+  } catch (...) {
     return "Failed to parse zone as valid DNS name";
   }
 
@@ -259,8 +259,7 @@ string DLNotifyRetrieveHandler(const vector<string>& parts, Utility::pid_t /* pp
   if (parts.size() == 3) {
     try {
       primary_ip = ComboAddress{parts[2], 53};
-    }
-    catch (...) {
+    } catch (...) {
       return "Invalid primary address";
     }
     override_primary = true;
@@ -268,7 +267,7 @@ string DLNotifyRetrieveHandler(const vector<string>& parts, Utility::pid_t /* pp
 
   DomainInfo di;
   UeberBackend B;
-  if (!B.getDomainInfo(domain, di)) {
+  if(!B.getDomainInfo(domain, di)) {
     return " Zone '" + domain.toString() + "' unknown";
   }
 
@@ -291,24 +290,23 @@ string DLNotifyHostHandler(const vector<string>& parts, Utility::pid_t /* ppid *
 {
   extern CommunicatorClass Communicator;
   ostringstream os;
-  if (parts.size() != 3)
+  if(parts.size()!=3)
     return "syntax: notify-host zone ip";
-  if (!::arg().mustDo("primary") && !(::arg().mustDo("secondary") && ::arg().mustDo("secondary-do-renotify")))
+  if(!::arg().mustDo("primary") && !(::arg().mustDo("secondary") && ::arg().mustDo("secondary-do-renotify")))
     return "PowerDNS not configured as primary, or secondary with re-notifications";
 
   DNSName domain;
   try {
     domain = DNSName(parts[1]);
-  }
-  catch (...) {
+  } catch (...) {
     return "Failed to parse zone as valid DNS name";
   }
 
   try {
     ComboAddress ca(parts[2]);
-  }
-  catch (...) {
-    return "Unable to convert '" + parts[2] + "' to an IP address";
+  } catch(...)
+  {
+    return "Unable to convert '"+parts[2]+"' to an IP address";
   }
 
   g_log << Logger::Warning << "Notification request to host " << parts[2] << " for zone '" << domain << "' received from operator" << endl;
@@ -320,9 +318,9 @@ string DLNotifyHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
 {
   extern CommunicatorClass Communicator;
   UeberBackend B;
-  if (parts.size() != 2)
+  if(parts.size()!=2)
     return "syntax: notify zone";
-  if (!::arg().mustDo("primary") && !(::arg().mustDo("secondary") && ::arg().mustDo("secondary-do-renotify")))
+  if(!::arg().mustDo("primary") && !(::arg().mustDo("secondary") && ::arg().mustDo("secondary-do-renotify")))
     return "PowerDNS not configured as primary (primary), or secondary (secondary) with re-notifications";
   g_log << Logger::Warning << "Notification request for zone '" << parts[1] << "' received from operator" << endl;
 
@@ -335,24 +333,22 @@ string DLNotifyHandler(const vector<string>& parts, Utility::pid_t /* ppid */)
     for (const auto& di : domains) {
       if (di.kind != DomainInfo::Native) { // Primary and secondary if secondary-do-renotify is enabled
         total++;
-        if (Communicator.notifyDomain(di.zone, &B))
+        if(Communicator.notifyDomain(di.zone, &B))
           notified++;
       }
     }
 
     if (total != notified)
-      return std::to_string(notified) + " out of " + std::to_string(total) + " zones added to queue - see log";
+      return std::to_string(notified)+" out of "+std::to_string(total)+" zones added to queue - see log";
     return "Added " + std::to_string(total) + " MASTER/SLAVE/PRODUCER/CONSUMER zones to queue";
-  }
-  else {
+  } else {
     DNSName domain;
     try {
       domain = DNSName(parts[1]);
-    }
-    catch (...) {
+    } catch (...) {
       return "Failed to parse zone as valid DNS name";
     }
-    if (!Communicator.notifyDomain(DNSName(parts[1]), &B))
+    if(!Communicator.notifyDomain(DNSName(parts[1]), &B))
       return "Failed to add to the queue - see log";
     return "Added to queue";
   }
@@ -362,28 +358,29 @@ string DLRediscoverHandler(const vector<string>& /* parts */, Utility::pid_t /* 
 {
   UeberBackend B;
   try {
-    g_log << Logger::Error << "Rediscovery was requested" << endl;
-    string status = "Ok";
+    g_log<<Logger::Error<<"Rediscovery was requested"<<endl;
+    string status="Ok";
     B.rediscover(&status);
     return status;
   }
-  catch (PDNSException& ae) {
+  catch(PDNSException &ae) {
     return ae.reason;
   }
+
 }
 
 string DLReloadHandler(const vector<string>& /* parts */, Utility::pid_t /* ppid */)
 {
   UeberBackend B;
   B.reload();
-  g_log << Logger::Error << "Reload was requested" << endl;
+  g_log<<Logger::Error<<"Reload was requested"<<endl;
   return "Ok";
 }
 
 string DLListZones(const vector<string>& parts, Utility::pid_t /* ppid */)
 {
   UeberBackend B;
-  g_log << Logger::Notice << "Received request to list zones." << endl;
+  g_log<<Logger::Notice<<"Received request to list zones."<<endl;
   vector<DomainInfo> domains;
   B.getAllDomains(&domains, false, false);
   ostringstream ret;
@@ -397,9 +394,9 @@ string DLListZones(const vector<string>& parts, Utility::pid_t /* ppid */)
 
   int count = 0;
 
-  for (const auto& di : domains) {
+  for (const auto& di: domains) {
     if (di.kind == kind || kind == DomainInfo::All) {
-      ret << di.zone.toString() << endl;
+      ret<<di.zone.toString()<<endl;
       count++;
     }
   }
@@ -424,8 +421,7 @@ string DLTokenLogin([[maybe_unused]] const vector<string>& parts, [[maybe_unused
 
   if (PKCS11ModuleSlotLogin(parts[1], parts[2], parts[3])) {
     return "logged in";
-  }
-  else {
+  } else {
     return "could not log in, check logs";
   }
 #endif
@@ -434,7 +430,7 @@ string DLTokenLogin([[maybe_unused]] const vector<string>& parts, [[maybe_unused
 string DLSuckRequests(const vector<string>& /* parts */, Utility::pid_t /* ppid */)
 {
   string ret;
-  for (auto const& d : Communicator.getSuckRequests()) {
+  for (auto const &d: Communicator.getSuckRequests()) {
     ret += d.first.toString() + " " + d.second.toString() + "\n";
   }
   return ret;

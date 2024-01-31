@@ -40,6 +40,7 @@ std::unique_ptr<CrossProtocolQuery> getDoHCrossProtocolQueryFromDQ(DNSQuestion& 
 struct H2ODOHFrontend : public DOHFrontend
 {
 public:
+
   void setup() override;
   void reloadCertificates() override;
 

@@ -25,8 +25,7 @@
 #include "sstuff.hh"
 
 #ifndef DISABLE_COMPLETION
-struct ConsoleKeyword
-{
+struct ConsoleKeyword {
   std::string name;
   bool function;
   std::string parameters;
@@ -43,9 +42,8 @@ struct ConsoleKeyword
   }
 };
 extern const std::vector<ConsoleKeyword> g_consoleKeywords;
-extern "C"
-{
-  char** my_completion(const char* text, int start, int end);
+extern "C" {
+char** my_completion( const char * text , int start,  int end);
 }
 
 #endif /* DISABLE_COMPLETION */
