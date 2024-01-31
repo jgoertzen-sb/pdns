@@ -11,6 +11,26 @@ clang_version = os.getenv('CLANG_VERSION', '13')
 quiche_version = '0.18.0'
 quiche_hash = 'eb242a14c4d801a90b57b6021dd29f7a62099f3a4d7a7ba889e105f8328e6c1f'
 
+oqs_build_deps = [
+    'astyle',
+    'cmake',
+    'gcc',
+    'ninja-build',
+    'libssl-dev',
+    'python3-pytest',
+    'python3-pytest-xdist',
+    'unzip',
+    'xsltproc',
+    'doxygen',
+    'graphviz',
+    'python3-yaml',
+    'valgrind',
+]
+openssl32_build_deps = [
+    'gcc',
+    'make',
+    'perl',
+]
 all_build_deps = [
     'ccache',
     'libboost-all-dev',
@@ -187,6 +207,38 @@ def install_libdecaf(c, product):
         c.run('sudo make -C build install')
     c.sudo(f'mkdir -p /opt/{product}/libdecaf')
     c.sudo(f'cp /usr/local/lib/libdecaf.so* /opt/{product}/libdecaf/.')
+
+@task
+def install_liboqs(c):
+    c.sudo('apt-get install -y ' + ' '.join(oqs_build_deps)
+    c.run('git clone https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs')
+    c.run('mkdir /tmp/liboqs/build')
+    with c.cd('/tmp/liboqs/build'):
+        # checkout liboqs 0.9.2
+        c.run('git checkout 62b58a3')
+        c.run('cmake -GNinja ..')
+        c.run('ninja')
+        c.run('ninja run_tests')
+        c.run('sudo ninja install')
+@task
+def install_openssl32(c):
+    c.sudo('apt-get install -y ' + ' '.join(ossl32_build_deps)
+    c.run('git clone https://github.com/openssl/openssl.git /tmp/openssl')
+    with c.cd('/tmp/openssl'):
+        # checkout openssl3.2
+        c.run('git checkout openssl-3.2')
+        c.run('./Configure -lm no-docs --libdir=lib')
+        c.run('make')
+        c.run('sudo make install')
+
+@task
+def install_oqs_provider(c):
+    c.run('git clone https://github.com/open-quantum-safe/oqs-provider.git /tmp/oqs-provider')
+    with c.cd('/tmp/oqs-provider'):
+        c.run('cmake -S . -B _build')
+        c.run('cmake --build _build')
+        c.run('ctest --test-dir _build')
+        c.run('sudo cmake --install _build')
 
 @task
 def install_doc_deps(c):

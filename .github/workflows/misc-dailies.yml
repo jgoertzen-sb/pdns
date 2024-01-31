@@ -56,6 +56,9 @@ jobs:
           submodules: recursive
       - run: build-scripts/gh-actions-setup-inv-no-dist-upgrade
       - run: inv install-clang
+      - run: inv install-oqs
+      - run: inv install-openssl32
+      - run: inv install-oqs-provider
       - run: inv install-auth-build-deps
       - run: inv install-coverity-tools PowerDNS
       - run: inv coverity-clang-configure
@@ -81,6 +84,9 @@ jobs:
           submodules: recursive
       - run: build-scripts/gh-actions-setup-inv-no-dist-upgrade
       - run: inv install-clang
+      - run: inv install-oqs
+      - run: inv install-openssl32
+      - run: inv install-oqs-provider
       - run: inv install-dnsdist-build-deps
       - run: inv install-coverity-tools dnsdist
       - run: inv coverity-clang-configure
@@ -113,6 +119,9 @@ jobs:
           submodules: recursive
       - run: build-scripts/gh-actions-setup-inv-no-dist-upgrade
       - run: inv install-clang
+      - run: inv install-oqs
+      - run: inv install-openssl32
+      - run: inv install-oqs-provider
       - run: inv install-rec-build-deps
       - run: inv install-coverity-tools 'PowerDNS+Recursor'
       - run: inv coverity-clang-configure
