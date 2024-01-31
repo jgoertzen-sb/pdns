@@ -36,7 +36,6 @@ all_build_deps = [
     'libboost-all-dev',
     'libluajit-5.1-dev',
     'libsodium-dev',
-    'libssl-dev', # This will install libssl 1.1 on Debian 11 and libssl3 on Debian 12
     'libsystemd-dev',
     'libtool',
     'make',
