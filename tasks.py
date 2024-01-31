@@ -11,6 +11,10 @@ clang_version = os.getenv('CLANG_VERSION', '13')
 quiche_version = '0.18.0'
 quiche_hash = 'eb242a14c4d801a90b57b6021dd29f7a62099f3a4d7a7ba889e105f8328e6c1f'
 
+
+valgrind_build_deps = [
+    'apt-get install build-essential',
+]
 oqs_build_deps = [
     'astyle',
     'cmake',
@@ -24,7 +28,6 @@ oqs_build_deps = [
     'doxygen',
     'graphviz',
     'python3-yaml',
-    'valgrind=3.20',
 ]
 openssl32_build_deps = [
     'gcc',
@@ -207,9 +210,22 @@ def install_libdecaf(c, product):
     c.sudo(f'mkdir -p /opt/{product}/libdecaf')
     c.sudo(f'cp /usr/local/lib/libdecaf.so* /opt/{product}/libdecaf/.')
 
+def install_valgrind(c):
+    c.sudo('apt-get install -y' + ' '.join(valgrind_build_deps))
+    c.run('mkdir /tmp/valgrind')
+    c.run('curl https://sourceware.org/pub/valgrind/valgrind-3.22.0.tar.bz2 > /tmp/valgrind/valgrind.tar.bz2')
+    with c.cd('/tmp/valgrind'):
+        c.run('tar -xvf valgrind.tar.bz2')
+    with c.cd('/tmp/valgrind/valgrind'):
+        c.run('./configure')
+        c.run('make')
+        c.run('sudo make install')
+        c.run('valgrind ls -l')
+
 @task
 def install_liboqs(c):
     c.sudo('apt-get install -y ' + ' '.join(oqs_build_deps))
+    install_valgrind(c)
     c.run('git clone https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs')
     c.run('mkdir /tmp/liboqs/build')
     with c.cd('/tmp/liboqs/build'):
