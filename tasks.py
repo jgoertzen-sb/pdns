@@ -49,7 +49,7 @@ all_build_deps = [
 ]
 git_build_deps = [
     'autoconf',
-    'automake'
+    'automake',
     'bison',
     'bzip2',
     'curl',
