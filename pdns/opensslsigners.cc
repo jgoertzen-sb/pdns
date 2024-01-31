@@ -2011,7 +2011,6 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromPublicKeyString(const std::string& conten
   if (!d_pqckey) {
     throw runtime_error(getName() + " allocation of public key structure failed");
   }
-#endif
 }
 #endif
 
