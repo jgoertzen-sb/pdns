@@ -35,8 +35,8 @@
 #undef PC
 
 /** Central DNS logic according to RFC1034. Ask this class a question in the form of a DNSPacket
-    and it will return, synchronously, a DNSPacket answer, suitable for 
-    sending out over the network. 
+    and it will return, synchronously, a DNSPacket answer, suitable for
+    sending out over the network.
 
     The PacketHandler gives your question to the PacketCache for possible inclusion
     in the cache.
@@ -54,11 +54,11 @@ class PacketHandler
 public:
   std::unique_ptr<DNSPacket> doQuestion(DNSPacket&); //!< hand us a DNS packet with a question, we give you an answer
   std::unique_ptr<DNSPacket> question(DNSPacket&); //!< hand us a DNS packet with a question, we give you an answer
-  PacketHandler(); 
+  PacketHandler();
   ~PacketHandler(); // defined in packethandler.cc, and does --count
-  static int numRunning(){return s_count;}; //!< Returns the number of running PacketHandlers. Called by Distributor
- 
-  UeberBackend *getBackend();
+  static int numRunning() { return s_count; }; //!< Returns the number of running PacketHandlers. Called by Distributor
+
+  UeberBackend* getBackend();
 
   int tryAutoPrimarySynchronous(const DNSPacket& p, const DNSName& tsigkeyname);
   static NetmaskGroup s_allowNotifyFrom;
@@ -69,42 +69,42 @@ public:
 
 private:
   int tryAutoPrimary(const DNSPacket& p, const DNSName& tsigkeyname);
-  int processNotify(const DNSPacket& );
+  int processNotify(const DNSPacket&);
   void addRootReferral(DNSPacket& r);
-  int doChaosRequest(const DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName &target) const;
+  int doChaosRequest(const DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName& target) const;
   bool addDNSKEY(DNSPacket& p, std::unique_ptr<DNSPacket>& r);
   bool addCDNSKEY(DNSPacket& p, std::unique_ptr<DNSPacket>& r);
   bool addCDS(DNSPacket& p, std::unique_ptr<DNSPacket>& r);
   bool addNSEC3PARAM(const DNSPacket& p, std::unique_ptr<DNSPacket>& r);
   void doAdditionalProcessing(DNSPacket& p, std::unique_ptr<DNSPacket>& r);
-  DNSName doAdditionalServiceProcessing(const DNSName &firstTarget, const uint16_t &qtype, std::unique_ptr<DNSPacket>& r, vector<DNSZoneRecord>& extraRecords);
+  DNSName doAdditionalServiceProcessing(const DNSName& firstTarget, const uint16_t& qtype, std::unique_ptr<DNSPacket>& r, vector<DNSZoneRecord>& extraRecords);
 
   //! Get all IPv4 or IPv6 addresses (based on |qtype|) for |target|.
-  vector<ComboAddress> getIPAddressFor(const DNSName &target, const uint16_t qtype);
-  void addNSECX(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target, const DNSName &wildcard, int mode);
-  void addNSEC(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target, const DNSName &wildcard, int mode);
-  bool getNSEC3Hashes(bool narrow, const std::string& hashed, bool decrement, DNSName& unhashed, std::string& before, std::string& after, int mode=0);
-  void addNSEC3(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target, const DNSName &wildcard, const NSEC3PARAMRecordContent& nsec3param, bool narrow, int mode);
+  vector<ComboAddress> getIPAddressFor(const DNSName& target, const uint16_t qtype);
+  void addNSECX(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard, int mode);
+  void addNSEC(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard, int mode);
+  bool getNSEC3Hashes(bool narrow, const std::string& hashed, bool decrement, DNSName& unhashed, std::string& before, std::string& after, int mode = 0);
+  void addNSEC3(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard, const NSEC3PARAMRecordContent& nsec3param, bool narrow, int mode);
   void emitNSEC(std::unique_ptr<DNSPacket>& r, const DNSName& name, const DNSName& next, int mode);
-  void emitNSEC3(std::unique_ptr<DNSPacket>& r, const NSEC3PARAMRecordContent &ns3rc, const DNSName& unhashed, const string& begin, const string& end, int mode);
+  void emitNSEC3(std::unique_ptr<DNSPacket>& r, const NSEC3PARAMRecordContent& ns3rc, const DNSName& unhashed, const string& begin, const string& end, int mode);
   int processUpdate(DNSPacket& p);
-  int forwardPacket(const string &msgPrefix, const DNSPacket& p, const DomainInfo& di);
-  uint performUpdate(const string &msgPrefix, const DNSRecord *rr, DomainInfo *di, bool isPresigned, bool* narrow, bool* haveNSEC3, NSEC3PARAMRecordContent *ns3pr, bool *updatedSerial);
-  int checkUpdatePrescan(const DNSRecord *rr);
-  int checkUpdatePrerequisites(const DNSRecord *rr, DomainInfo *di);
-  void increaseSerial(const string &msgPrefix, const DomainInfo *di, const string& soaEditSetting, bool haveNSEC3, bool narrow, const NSEC3PARAMRecordContent *ns3pr);
+  int forwardPacket(const string& msgPrefix, const DNSPacket& p, const DomainInfo& di);
+  uint performUpdate(const string& msgPrefix, const DNSRecord* rr, DomainInfo* di, bool isPresigned, bool* narrow, bool* haveNSEC3, NSEC3PARAMRecordContent* ns3pr, bool* updatedSerial);
+  int checkUpdatePrescan(const DNSRecord* rr);
+  int checkUpdatePrerequisites(const DNSRecord* rr, DomainInfo* di);
+  void increaseSerial(const string& msgPrefix, const DomainInfo* di, const string& soaEditSetting, bool haveNSEC3, bool narrow, const NSEC3PARAMRecordContent* ns3pr);
 
   void makeNXDomain(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard);
   void makeNOError(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, const DNSName& wildcard, int mode);
-  vector<DNSZoneRecord> getBestReferralNS(DNSPacket& p, const DNSName &target);
-  void getBestDNAMESynth(DNSPacket& p, DNSName &target, vector<DNSZoneRecord> &ret);
-  bool tryDNAME(DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName &target);
-  bool tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target, bool retargeted);
+  vector<DNSZoneRecord> getBestReferralNS(DNSPacket& p, const DNSName& target);
+  void getBestDNAMESynth(DNSPacket& p, DNSName& target, vector<DNSZoneRecord>& ret);
+  bool tryDNAME(DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName& target);
+  bool tryReferral(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target, bool retargeted);
 
-  bool getBestWildcard(DNSPacket& p, const DNSName &target, DNSName &wildcard, vector<DNSZoneRecord>* ret);
-  bool tryWildcard(DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName &target, DNSName &wildcard, bool& retargeted, bool& nodata);
+  bool getBestWildcard(DNSPacket& p, const DNSName& target, DNSName& wildcard, vector<DNSZoneRecord>* ret);
+  bool tryWildcard(DNSPacket& p, std::unique_ptr<DNSPacket>& r, DNSName& target, DNSName& wildcard, bool& retargeted, bool& nodata);
   bool addDSforNS(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& dsname);
-  void completeANYRecords(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName &target);
+  void completeANYRecords(DNSPacket& p, std::unique_ptr<DNSPacket>& r, const DNSName& target);
 
   void tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& r); //<! process TKEY record, and adds TKEY record to (r)eply, or error code.
 
@@ -121,4 +121,3 @@ private:
   UeberBackend B; // every thread an own instance
   DNSSECKeeper d_dk; // B is shared with DNSSECKeeper
 };
-

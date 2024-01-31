@@ -37,68 +37,67 @@ StatBag S;
 
 static void usage()
 {
-  cerr<<"This program reads DNS queries and responses from a PCAP file and stores them into our protobuf format."<<endl;
-  cerr<<"Usage: dnspcap2protobuf PCAPFILE OUTFILE"<<endl;
+  cerr << "This program reads DNS queries and responses from a PCAP file and stores them into our protobuf format." << endl;
+  cerr << "Usage: dnspcap2protobuf PCAPFILE OUTFILE" << endl;
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 try {
-  for(int n=1 ; n < argc; ++n) {
-    if ((string) argv[n] == "--help") {
+  for (int n = 1; n < argc; ++n) {
+    if ((string)argv[n] == "--help") {
       usage();
       return EXIT_SUCCESS;
     }
 
-    if ((string) argv[n] == "--version") {
-      cerr<<"dnspcap2protobuf "<<VERSION<<endl;
+    if ((string)argv[n] == "--version") {
+      cerr << "dnspcap2protobuf " << VERSION << endl;
       return EXIT_SUCCESS;
     }
   }
 
-  if(argc < 3) {
+  if (argc < 3) {
     usage();
     exit(EXIT_FAILURE);
   }
 
-
   PcapPacketReader pr(argv[1]);
 
-  auto fp = std::unique_ptr<FILE, int(*)(FILE*)>(fopen(argv[2], "w"), fclose);
+  auto fp = std::unique_ptr<FILE, int (*)(FILE*)>(fopen(argv[2], "w"), fclose);
   if (!fp) {
-    cerr<<"Error opening output file "<<argv[2]<<": "<<stringerror()<<endl;
+    cerr << "Error opening output file " << argv[2] << ": " << stringerror() << endl;
     exit(EXIT_FAILURE);
   }
 
-  int ind=0;
-  if(argc==4)
-    ind=atoi(argv[3]);
+  int ind = 0;
+  if (argc == 4)
+    ind = atoi(argv[3]);
 
-  std::map<uint16_t,std::pair<boost::uuids::uuid,struct timeval> > ids;
+  std::map<uint16_t, std::pair<boost::uuids::uuid, struct timeval>> ids;
   std::string pbBuffer;
   try {
     while (pr.getUDPPacket()) {
-      const dnsheader* dh=(dnsheader*)pr.d_payload;
+      const dnsheader* dh = (dnsheader*)pr.d_payload;
       if (!dh->qdcount)
         continue;
 
       if (pr.d_len < sizeof(dnsheader))
         continue;
 
-      if(!dh->rd)
+      if (!dh->rd)
         continue;
 
       uint16_t qtype, qclass;
       DNSName qname;
       try {
-        qname=DNSName((const char*)pr.d_payload, pr.d_len, sizeof(dnsheader), false, &qtype, &qclass);
+        qname = DNSName((const char*)pr.d_payload, pr.d_len, sizeof(dnsheader), false, &qtype, &qclass);
       }
-      catch(const std::exception& e) {
-        cerr<<"Error while parsing qname: "<<e.what()<<endl;
+      catch (const std::exception& e) {
+        cerr << "Error while parsing qname: " << e.what() << endl;
         continue;
       }
 
       boost::uuids::uuid uniqueId;
-      struct timeval queryTime = { 0, 0 };
+      struct timeval queryTime = {0, 0};
       bool hasQueryTime = false;
       if (!dh->qr) {
         queryTime.tv_sec = pr.d_pheader.ts.tv_sec;
@@ -120,8 +119,8 @@ try {
 
       const ComboAddress requestor = dh->qr ? pr.getDest() : pr.getSource();
       const ComboAddress responder = dh->qr ? pr.getSource() : pr.getDest();
-      *((char*)&requestor.sin4.sin_addr.s_addr)|=ind;
-      *((char*)&responder.sin4.sin_addr.s_addr)|=ind;
+      *((char*)&requestor.sin4.sin_addr.s_addr) |= ind;
+      *((char*)&responder.sin4.sin_addr.s_addr) |= ind;
 
       pbBuffer.clear();
       pdns::ProtoZero::Message pbMessage(pbBuffer);
@@ -137,15 +136,13 @@ try {
         }
 
         try {
-          pbMessage.addRRsFromPacket((const char*) dh, pr.d_len, true);
+          pbMessage.addRRsFromPacket((const char*)dh, pr.d_len, true);
         }
-        catch (const std::exception& e)
-        {
-          cerr<<"Error parsing response records: "<<e.what()<<endl;
+        catch (const std::exception& e) {
+          cerr << "Error parsing response records: " << e.what() << endl;
         }
-        catch(const PDNSException& e)
-        {
-          cerr<<"Error parsing response records: "<<e.reason<<endl;
+        catch (const PDNSException& e) {
+          cerr << "Error parsing response records: " << e.reason << endl;
         }
       }
 
@@ -155,11 +152,11 @@ try {
     }
   }
   catch (const std::exception& e) {
-    cerr<<"Error while parsing the PCAP file: "<<e.what()<<endl;
+    cerr << "Error while parsing the PCAP file: " << e.what() << endl;
     exit(EXIT_FAILURE);
   }
 }
-catch(const std::exception& e) {
-  cerr<<"Error opening PCAP file: "<<e.what()<<endl;
+catch (const std::exception& e) {
+  cerr << "Error opening PCAP file: " << e.what() << endl;
   exit(EXIT_FAILURE);
 }

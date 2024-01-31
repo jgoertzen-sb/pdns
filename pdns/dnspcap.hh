@@ -34,10 +34,10 @@
 #if defined(__NetBSD__)
 #include <net/if.h>
 #include <net/if_ether.h>
-#elif defined (__OpenBSD__)
+#elif defined(__OpenBSD__)
 #include <net/if.h>
 #include <netinet/if_ether.h>
-#elif defined (__SVR4) && defined (__sun)
+#elif defined(__SVR4) && defined(__sun)
 #include <sys/ethernet.h>
 #else
 #include <net/ethernet.h>
@@ -45,16 +45,16 @@
 
 #include "namespaces.hh"
 
-struct pdns_pcap_file_header {
+struct pdns_pcap_file_header
+{
   uint32_t magic;
   uint16_t version_major;
   uint16_t version_minor;
-  uint32_t thiszone;     /* gmt to local correction */
-  uint32_t sigfigs;    /* accuracy of timestamps */
-  uint32_t snaplen;    /* max length saved portion of each pkt */
-  uint32_t linktype;   /* data link type (LINKTYPE_*) */
+  uint32_t thiszone; /* gmt to local correction */
+  uint32_t sigfigs; /* accuracy of timestamps */
+  uint32_t snaplen; /* max length saved portion of each pkt */
+  uint32_t linktype; /* data link type (LINKTYPE_*) */
 };
-
 
 struct pdns_timeval
 {
@@ -62,18 +62,20 @@ struct pdns_timeval
   uint32_t tv_usec{0};
 };
 
-struct pdns_pcap_pkthdr {
-  struct pdns_timeval ts;      /* time stamp */
-  uint32_t caplen{0};     /* length of portion present */
-  uint32_t len{0};        /* length this packet (off wire) */
+struct pdns_pcap_pkthdr
+{
+  struct pdns_timeval ts; /* time stamp */
+  uint32_t caplen{0}; /* length of portion present */
+  uint32_t len{0}; /* length this packet (off wire) */
 };
 
-struct pdns_lcc_header {
-  uint16_t lcc_pkttype;/* packet type */
-  uint16_t lcc_hatype;/* link-layer address type */
-  uint16_t lcc_halen;/* link-layer address length */
-  uint8_t lcc_addr[8];/* link-layer address */
-  uint16_t lcc_protocol;/* protocol */
+struct pdns_lcc_header
+{
+  uint16_t lcc_pkttype; /* packet type */
+  uint16_t lcc_hatype; /* link-layer address type */
+  uint16_t lcc_halen; /* link-layer address length */
+  uint8_t lcc_addr[8]; /* link-layer address */
+  uint16_t lcc_protocol; /* protocol */
 };
 
 class PcapPacketReader
@@ -82,20 +84,21 @@ public:
   class EofException : public runtime_error
   {
   public:
-    EofException(const string& str="PcapPacketReader::EofException") : runtime_error(str)
+    EofException(const string& str = "PcapPacketReader::EofException") :
+      runtime_error(str)
     {
     }
   };
 
-  PcapPacketReader(const string& fname); 
+  PcapPacketReader(const string& fname);
 
-  template<typename T>
+  template <typename T>
   void checkedFread(T* ptr)
   {
     checkedFreadSize(ptr, sizeof(*ptr));
   }
 
-  void checkedFreadSize(void* ptr, size_t size) ;
+  void checkedFreadSize(void* ptr, size_t size);
 
   bool getUDPPacket();
 
@@ -104,31 +107,32 @@ public:
 
   struct pdns_lcc_header* d_lcc{nullptr};
   struct ether_header* d_ether{nullptr};
-  struct ip *d_ip{nullptr};
-  struct ip6_hdr *d_ip6{nullptr};
-  const struct tcphdr *d_tcp{nullptr};
-  const struct udphdr *d_udp{nullptr};
+  struct ip* d_ip{nullptr};
+  struct ip6_hdr* d_ip6{nullptr};
+  const struct tcphdr* d_tcp{nullptr};
+  const struct udphdr* d_udp{nullptr};
   const uint8_t* d_payload{nullptr};
   unsigned int d_len{0};
   struct pdns_pcap_pkthdr d_pheader;
 
   pdns_pcap_file_header d_pfh;
   unsigned int d_runts, d_oversized, d_correctpackets, d_nonetheripudp;
-  alignas (struct ip) char d_readbuffer[32768];
-  char *d_buffer;
+  alignas(struct ip) char d_readbuffer[32768];
+  char* d_buffer;
   size_t d_bufsize;
+
 private:
-  std::unique_ptr<FILE, int(*)(FILE*)> d_fp{nullptr, fclose};
+  std::unique_ptr<FILE, int (*)(FILE*)> d_fp{nullptr, fclose};
   string d_fname;
   unsigned int d_skipMediaHeader;
 };
 
 class PcapPacketWriter
 {
-public: 
+public:
   PcapPacketWriter(const string& fname, const PcapPacketReader& ppr);
   PcapPacketWriter(const string& fname);
-  
+
   void write();
   void setPPR(const PcapPacketReader& ppr) { d_ppr = &ppr; }
 
@@ -136,6 +140,6 @@ private:
   string d_fname;
   const PcapPacketReader* d_ppr{nullptr};
 
-  std::unique_ptr<FILE, int(*)(FILE*)> d_fp{nullptr, fclose};
+  std::unique_ptr<FILE, int (*)(FILE*)> d_fp{nullptr, fclose};
   bool d_first{true};
-}; 
+};

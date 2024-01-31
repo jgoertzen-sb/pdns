@@ -33,14 +33,15 @@
 class RecordTextException : public runtime_error
 {
 public:
-  RecordTextException(const string& str) : runtime_error(str)
+  RecordTextException(const string& str) :
+    runtime_error(str)
   {}
 };
 
 class RecordTextReader
 {
 public:
-  RecordTextReader(string  str, DNSName  zone=DNSName(""));
+  RecordTextReader(string str, DNSName zone = DNSName(""));
   void xfrNodeOrLocatorID(NodeOrLocatorID& val);
   void xfr64BitInt(uint64_t& val);
   void xfr48BitInt(uint64_t& val);
@@ -51,29 +52,30 @@ public:
   void xfrType(uint16_t& val);
   void xfrIP(uint32_t& val);
   void xfrIP6(std::string& val);
-  void xfrCAWithoutPort(uint8_t version, ComboAddress &val);
-  void xfrCAPort(ComboAddress &val);
+  void xfrCAWithoutPort(uint8_t version, ComboAddress& val);
+  void xfrCAPort(ComboAddress& val);
   void xfrTime(uint32_t& val);
 
-  void xfrName(DNSName& val, bool compress=false, bool noDot=false);
-  void xfrText(string& val, bool multi=false, bool lenField=true);
-  void xfrUnquotedText(string& val, bool lenField=true);
-  void xfrHexBlob(string& val, bool keepReading=false);
+  void xfrName(DNSName& val, bool compress = false, bool noDot = false);
+  void xfrText(string& val, bool multi = false, bool lenField = true);
+  void xfrUnquotedText(string& val, bool lenField = true);
+  void xfrHexBlob(string& val, bool keepReading = false);
   void xfrBase32HexBlob(string& val);
 
-  void xfrBlobNoSpaces(string& val, int len=-1);
-  void xfrBlob(string& val, int len=-1);
+  void xfrBlobNoSpaces(string& val, int len = -1);
+  void xfrBlob(string& val, int len = -1);
 
   void xfrSvcParamKeyVals(set<SvcParam>& val);
-  void xfrRFC1035CharString(string &val);
-  void xfrSVCBValueList(vector<string> &val);
+  void xfrRFC1035CharString(string& val);
+  void xfrSVCBValueList(vector<string>& val);
 
-  const string getRemaining() const {
+  const string getRemaining() const
+  {
     return d_string.substr(d_pos);
   }
 
-
   bool eof();
+
 private:
   string d_string;
   DNSName d_zone;
@@ -85,7 +87,7 @@ private:
 class RecordTextWriter
 {
 public:
-  RecordTextWriter(string& str, bool noDot=false);
+  RecordTextWriter(string& str, bool noDot = false);
   void xfrNodeOrLocatorID(const NodeOrLocatorID& val);
   void xfr48BitInt(const uint64_t& val);
   void xfr32BitInt(const uint32_t& val);
@@ -93,26 +95,28 @@ public:
   void xfr8BitInt(const uint8_t& val);
   void xfrIP(const uint32_t& val);
   void xfrIP6(const std::string& val);
-  void xfrCAWithoutPort(uint8_t version, ComboAddress &val);
-  void xfrCAPort(ComboAddress &val);
+  void xfrCAWithoutPort(uint8_t version, ComboAddress& val);
+  void xfrCAPort(ComboAddress& val);
   void xfrTime(const uint32_t& val);
   void xfrBase32HexBlob(const string& val);
 
   void xfrType(const uint16_t& val);
-  void xfrName(const DNSName& val, bool compress=false, bool noDot=false);
-  void xfrText(const string& val, bool multi=false, bool lenField=true);
-  void xfrUnquotedText(const string& val, bool lenField=true);
-  void xfrBlobNoSpaces(const string& val, int len=-1);
-  void xfrBlob(const string& val, int len=-1);
-  void xfrHexBlob(const string& val, bool keepReading=false);
+  void xfrName(const DNSName& val, bool compress = false, bool noDot = false);
+  void xfrText(const string& val, bool multi = false, bool lenField = true);
+  void xfrUnquotedText(const string& val, bool lenField = true);
+  void xfrBlobNoSpaces(const string& val, int len = -1);
+  void xfrBlob(const string& val, int len = -1);
+  void xfrHexBlob(const string& val, bool keepReading = false);
   void xfrSvcParamKeyVals(const set<SvcParam>& val);
   bool eof() { return true; };
 
-  void xfrSVCBValueList(const vector<string> &val);
+  void xfrSVCBValueList(const vector<string>& val);
 
-  const string getRemaining() const {
-     return "";
+  const string getRemaining() const
+  {
+    return "";
   }
+
 private:
   string& d_string;
   bool d_nodot;

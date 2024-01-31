@@ -29,51 +29,53 @@
 #include "dnsrecords.hh"
 #include "iputils.hh"
 
-void DNSResourceRecord::setContent(const string &cont) {
+void DNSResourceRecord::setContent(const string& cont)
+{
   content = cont;
-  switch(qtype.getCode()) {
-    case QType::SRV:
-    case QType::MX:
-      if (content.size() >= 2 && *(content.rbegin()+1) == ' ')
-        return;
-      /* Falls through. */
-    case QType::CNAME:
-    case QType::DNAME:
-    case QType::NS:
-    case QType::PTR:
-      if (content.size() >= 2 && *(content.rbegin()) == '.')
-        boost::erase_tail(content, 1);
+  switch (qtype.getCode()) {
+  case QType::SRV:
+  case QType::MX:
+    if (content.size() >= 2 && *(content.rbegin() + 1) == ' ')
+      return;
+    /* Falls through. */
+  case QType::CNAME:
+  case QType::DNAME:
+  case QType::NS:
+  case QType::PTR:
+    if (content.size() >= 2 && *(content.rbegin()) == '.')
+      boost::erase_tail(content, 1);
   }
 }
 
-string DNSResourceRecord::getZoneRepresentation(bool noDot) const {
+string DNSResourceRecord::getZoneRepresentation(bool noDot) const
+{
   ostringstream ret;
   vector<string> parts;
   string last;
 
-  switch(qtype.getCode()) {
-    case QType::SRV:
-    case QType::MX:
-      stringtok(parts, content);
-      if (parts.empty())
-        return "";
-      last = *parts.rbegin();
-      ret << content;
-      if (last == ".")
-        break;
-      if (*(last.rbegin()) != '.' && !noDot)
-        ret << ".";
+  switch (qtype.getCode()) {
+  case QType::SRV:
+  case QType::MX:
+    stringtok(parts, content);
+    if (parts.empty())
+      return "";
+    last = *parts.rbegin();
+    ret << content;
+    if (last == ".")
       break;
-    case QType::CNAME:
-    case QType::DNAME:
-    case QType::NS:
-    case QType::PTR:
-      ret<<content;
-      if (*(content.rbegin()) != '.' && !noDot)
-        ret<<".";
-      break;
-    default:
-      ret<<content;
+    if (*(last.rbegin()) != '.' && !noDot)
+      ret << ".";
+    break;
+  case QType::CNAME:
+  case QType::DNAME:
+  case QType::NS:
+  case QType::PTR:
+    ret << content;
+    if (*(content.rbegin()) != '.' && !noDot)
+      ret << ".";
+    break;
+  default:
+    ret << content;
     break;
   }
   return ret.str();
@@ -81,12 +83,10 @@ string DNSResourceRecord::getZoneRepresentation(bool noDot) const {
 
 bool DNSResourceRecord::operator==(const DNSResourceRecord& rhs)
 {
-  string lcontent=toLower(content);
-  string rcontent=toLower(rhs.content);
+  string lcontent = toLower(content);
+  string rcontent = toLower(rhs.content);
 
-  return
-    std::tie(qname, qtype, lcontent, ttl) ==
-    std::tie(rhs.qname, rhs.qtype, rcontent, rhs.ttl);
+  return std::tie(qname, qtype, lcontent, ttl) == std::tie(rhs.qname, rhs.qtype, rcontent, rhs.ttl);
 }
 
 boilerplate_conv(A, conv.xfrIP(d_ip));
@@ -106,13 +106,11 @@ AAAARecordContent::AAAARecordContent(const ComboAddress& ca)
   d_ip6.assign((const char*)ca.sin6.sin6_addr.s6_addr, 16);
 }
 
-
-
 ComboAddress ARecordContent::getCA(int port) const
 {
   ComboAddress ret;
-  ret.sin4.sin_family=AF_INET;
-  ret.sin4.sin_port=htons(port);
+  ret.sin4.sin_family = AF_INET;
+  ret.sin4.sin_port = htons(port);
   memcpy(&ret.sin4.sin_addr.s_addr, &d_ip, sizeof(ret.sin4.sin_addr.s_addr));
   return ret;
 }
@@ -122,20 +120,19 @@ ComboAddress AAAARecordContent::getCA(int port) const
   ComboAddress ret;
   ret.reset();
 
-  ret.sin4.sin_family=AF_INET6;
+  ret.sin4.sin_family = AF_INET6;
   ret.sin6.sin6_port = htons(port);
   memcpy(&ret.sin6.sin6_addr.s6_addr, d_ip6.c_str(), sizeof(ret.sin6.sin6_addr.s6_addr));
   return ret;
 }
 
-
 void ARecordContent::doRecordCheck(const DNSRecord& dr)
 {
-  if(dr.d_clen!=4)
-    throw MOADNSException("Wrong size for A record ("+std::to_string(dr.d_clen)+")");
+  if (dr.d_clen != 4)
+    throw MOADNSException("Wrong size for A record (" + std::to_string(dr.d_clen) + ")");
 }
 
-boilerplate_conv(AAAA, conv.xfrIP6(d_ip6); );
+boilerplate_conv(AAAA, conv.xfrIP6(d_ip6););
 
 boilerplate_conv(NS, conv.xfrName(d_content, true));
 boilerplate_conv(PTR, conv.xfrName(d_content, true));
@@ -154,17 +151,14 @@ boilerplate_conv(LUA, conv.xfrType(d_type); conv.xfrText(d_code, true));
 #endif
 boilerplate_conv(ENT, );
 boilerplate_conv(SPF, conv.xfrText(d_text, true));
-boilerplate_conv(HINFO, conv.xfrText(d_cpu);   conv.xfrText(d_host));
+boilerplate_conv(HINFO, conv.xfrText(d_cpu); conv.xfrText(d_host));
 
 boilerplate_conv(RP,
                  conv.xfrName(d_mbox);
-                 conv.xfrName(d_info)
-                 );
-
+                 conv.xfrName(d_info));
 
 boilerplate_conv(OPT,
-                   conv.xfrBlob(d_data)
-                 );
+                 conv.xfrBlob(d_data));
 
 #ifdef HAVE_LUA_RECORDS
 string LUARecordContent::getCode() const
@@ -173,7 +167,7 @@ string LUARecordContent::getCode() const
   vector<string> parts;
   stringtok(parts, d_code, "\"");
   string ret;
-  for(const auto& p : parts) {
+  for (const auto& p : parts) {
     ret += p;
     ret.append(1, ' ');
   }
@@ -181,20 +175,20 @@ string LUARecordContent::getCode() const
 }
 #endif
 
-void OPTRecordContent::getData(vector<pair<uint16_t, string> >& options) const
+void OPTRecordContent::getData(vector<pair<uint16_t, string>>& options) const
 {
-  string::size_type pos=0;
+  string::size_type pos = 0;
   uint16_t code, len;
-  while(d_data.size() >= 4 + pos) {
-    code = 256 * (unsigned char)d_data.at(pos) + (unsigned char)d_data.at(pos+1);
-    len = 256 * (unsigned char)d_data.at(pos+2) + (unsigned char)d_data.at(pos+3);
-    pos+=4;
+  while (d_data.size() >= 4 + pos) {
+    code = 256 * (unsigned char)d_data.at(pos) + (unsigned char)d_data.at(pos + 1);
+    len = 256 * (unsigned char)d_data.at(pos + 2) + (unsigned char)d_data.at(pos + 3);
+    pos += 4;
 
-    if(pos + len > d_data.size())
+    if (pos + len > d_data.size())
       break;
 
     string field(d_data.c_str() + pos, len);
-    pos+=len;
+    pos += len;
     options.emplace_back(code, std::move(field));
   }
 }
@@ -203,93 +197,86 @@ boilerplate_conv(TSIG,
                  conv.xfrName(d_algoName);
                  conv.xfr48BitInt(d_time);
                  conv.xfr16BitInt(d_fudge);
-                 uint16_t size=d_mac.size();
+                 uint16_t size = d_mac.size();
                  conv.xfr16BitInt(size);
-                 if (size>0) conv.xfrBlobNoSpaces(d_mac, size);
+                 if (size > 0) conv.xfrBlobNoSpaces(d_mac, size);
                  conv.xfr16BitInt(d_origID);
                  conv.xfr16BitInt(d_eRcode);
-                 size=d_otherData.size();
+                 size = d_otherData.size();
                  conv.xfr16BitInt(size);
-                 if (size>0) conv.xfrBlobNoSpaces(d_otherData, size);
-                 );
+                 if (size > 0) conv.xfrBlobNoSpaces(d_otherData, size););
 
-MXRecordContent::MXRecordContent(uint16_t preference, DNSName  mxname):  d_preference(preference), d_mxname(std::move(mxname))
+MXRecordContent::MXRecordContent(uint16_t preference, DNSName mxname) :
+  d_preference(preference), d_mxname(std::move(mxname))
 {
 }
 
 boilerplate_conv(MX,
                  conv.xfr16BitInt(d_preference);
-                 conv.xfrName(d_mxname, true);
-                 )
+                 conv.xfrName(d_mxname, true);)
 
-boilerplate_conv(KX,
-                 conv.xfr16BitInt(d_preference);
-                 conv.xfrName(d_exchanger, false);
-                 )
+  boilerplate_conv(KX,
+                   conv.xfr16BitInt(d_preference);
+                   conv.xfrName(d_exchanger, false);)
 
-boilerplate_conv(IPSECKEY,
-   conv.xfr8BitInt(d_preference);
-   conv.xfr8BitInt(d_gatewaytype);
-   conv.xfr8BitInt(d_algorithm);
+    boilerplate_conv(
+      IPSECKEY,
+      conv.xfr8BitInt(d_preference);
+      conv.xfr8BitInt(d_gatewaytype);
+      conv.xfr8BitInt(d_algorithm);
 
-   // now we need to determine values
-   switch(d_gatewaytype) {
-   case 0: // NO KEY
-     break;
-   case 1: // IPv4 GW
-     conv.xfrIP(d_ip4);
-     break;
-   case 2: // IPv6 GW
-     conv.xfrIP6(d_ip6);
-     break;
-   case 3: // DNS label
-     conv.xfrName(d_gateway, false);
-     break;
-   default:
-     throw MOADNSException("Parsing record content: invalid gateway type");
-   };
+      // now we need to determine values
+      switch (d_gatewaytype) {
+case 0: // NO KEY
+  break;
+case 1: // IPv4 GW
+  conv.xfrIP(d_ip4);
+  break;
+case 2: // IPv6 GW
+  conv.xfrIP6(d_ip6);
+  break;
+case 3: // DNS label
+  conv.xfrName(d_gateway, false);
+  break;
+default:
+  throw MOADNSException("Parsing record content: invalid gateway type");
+      };
 
-   switch(d_algorithm) {
-   case 0:
-     break;
-   case 1:
-   case 2:
-     conv.xfrBlob(d_publickey);
-     break;
-   default:
-     throw MOADNSException("Parsing record content: invalid algorithm type");
-   }
-)
+      switch (d_algorithm) {
+case 0:
+  break;
+case 1:
+case 2:
+  conv.xfrBlob(d_publickey);
+  break;
+default:
+  throw MOADNSException("Parsing record content: invalid algorithm type");
+      })
 
-boilerplate_conv(DHCID,
-                 conv.xfrBlob(d_content);
-                 )
+      boilerplate_conv(DHCID,
+                       conv.xfrBlob(d_content);)
 
+        boilerplate_conv(AFSDB,
+                         conv.xfr16BitInt(d_subtype);
+                         conv.xfrName(d_hostname);)
 
-boilerplate_conv(AFSDB,
-                 conv.xfr16BitInt(d_subtype);
-                 conv.xfrName(d_hostname);
-                 )
+          boilerplate_conv(NAPTR,
+                           conv.xfr16BitInt(d_order);
+                           conv.xfr16BitInt(d_preference);
+                           conv.xfrText(d_flags); conv.xfrText(d_services); conv.xfrText(d_regexp);
+                           conv.xfrName(d_replacement);)
 
-
-boilerplate_conv(NAPTR,
-                 conv.xfr16BitInt(d_order);    conv.xfr16BitInt(d_preference);
-                 conv.xfrText(d_flags);        conv.xfrText(d_services);         conv.xfrText(d_regexp);
-                 conv.xfrName(d_replacement);
-                 )
-
-
-SRVRecordContent::SRVRecordContent(uint16_t preference, uint16_t weight, uint16_t port, DNSName  target)
-: d_weight(weight), d_port(port), d_target(std::move(target)), d_preference(preference)
+            SRVRecordContent::SRVRecordContent(uint16_t preference, uint16_t weight, uint16_t port, DNSName target) :
+  d_weight(weight), d_port(port), d_target(std::move(target)), d_preference(preference)
 {}
 
 boilerplate_conv(SRV,
-                 conv.xfr16BitInt(d_preference);   conv.xfr16BitInt(d_weight);   conv.xfr16BitInt(d_port);
-                 conv.xfrName(d_target);
-                 )
+                 conv.xfr16BitInt(d_preference);
+                 conv.xfr16BitInt(d_weight); conv.xfr16BitInt(d_port);
+                 conv.xfrName(d_target);)
 
-SOARecordContent::SOARecordContent(DNSName  mname, DNSName  rname, const struct soatimes& st)
-: d_mname(std::move(mname)), d_rname(std::move(rname)), d_st(st)
+  SOARecordContent::SOARecordContent(DNSName mname, DNSName rname, const struct soatimes& st) :
+  d_mname(std::move(mname)), d_rname(std::move(rname)), d_st(st)
 {
 }
 
@@ -300,22 +287,20 @@ boilerplate_conv(SOA,
                  conv.xfr32BitInt(d_st.refresh);
                  conv.xfr32BitInt(d_st.retry);
                  conv.xfr32BitInt(d_st.expire);
-                 conv.xfr32BitInt(d_st.minimum);
-                 );
+                 conv.xfr32BitInt(d_st.minimum););
 #undef KEY
 boilerplate_conv(KEY,
                  conv.xfr16BitInt(d_flags);
                  conv.xfr8BitInt(d_protocol);
                  conv.xfr8BitInt(d_algorithm);
-                 conv.xfrBlob(d_certificate);
-                 );
+                 conv.xfrBlob(d_certificate););
 
 boilerplate_conv(ZONEMD,
                  conv.xfr32BitInt(d_serial);
                  conv.xfr8BitInt(d_scheme);
                  conv.xfr8BitInt(d_hashalgo);
                  conv.xfrHexBlob(d_digest, true); // keep reading across spaces
-                 );
+);
 
 boilerplate_conv(CERT,
                  conv.xfr16BitInt(d_type);
@@ -323,44 +308,41 @@ boilerplate_conv(CERT,
 
                  conv.xfr16BitInt(d_tag);
                  conv.xfr8BitInt(d_algorithm);
-                 conv.xfrBlob(d_certificate);
-                 )
+                 conv.xfrBlob(d_certificate);)
 
-boilerplate_conv(TLSA,
-                 conv.xfr8BitInt(d_certusage);
-                 conv.xfr8BitInt(d_selector);
-                 conv.xfr8BitInt(d_matchtype);
-                 conv.xfrHexBlob(d_cert, true);
-                 )
+  boilerplate_conv(TLSA,
+                   conv.xfr8BitInt(d_certusage);
+                   conv.xfr8BitInt(d_selector);
+                   conv.xfr8BitInt(d_matchtype);
+                   conv.xfrHexBlob(d_cert, true);)
 
-boilerplate_conv(OPENPGPKEY,
-                 conv.xfrBlob(d_keyring);
-                 )
+    boilerplate_conv(OPENPGPKEY,
+                     conv.xfrBlob(d_keyring);)
 
-boilerplate_conv(SVCB,
-                 conv.xfr16BitInt(d_priority);
-                 conv.xfrName(d_target, false, true);
-                 if (d_priority != 0) {
-                   conv.xfrSvcParamKeyVals(d_params);
-                 }
-                 )
+      boilerplate_conv(
+        SVCB,
+        conv.xfr16BitInt(d_priority);
+        conv.xfrName(d_target, false, true);
+        if (d_priority != 0) {
+          conv.xfrSvcParamKeyVals(d_params);
+        })
 
-boilerplate_conv(HTTPS,
-                 conv.xfr16BitInt(d_priority);
-                 conv.xfrName(d_target, false, true);
-                 if (d_priority != 0) {
-                   conv.xfrSvcParamKeyVals(d_params);
-                 }
-                 )
+        boilerplate_conv(
+          HTTPS,
+          conv.xfr16BitInt(d_priority);
+          conv.xfrName(d_target, false, true);
+          if (d_priority != 0) {
+            conv.xfrSvcParamKeyVals(d_params);
+          })
 
-boilerplate_conv(SMIMEA,
-                 conv.xfr8BitInt(d_certusage);
-                 conv.xfr8BitInt(d_selector);
-                 conv.xfr8BitInt(d_matchtype);
-                 conv.xfrHexBlob(d_cert, true);
-                 )
+          boilerplate_conv(SMIMEA,
+                           conv.xfr8BitInt(d_certusage);
+                           conv.xfr8BitInt(d_selector);
+                           conv.xfr8BitInt(d_matchtype);
+                           conv.xfrHexBlob(d_cert, true);)
 
-DSRecordContent::DSRecordContent() = default;
+            DSRecordContent::DSRecordContent()
+  = default;
 boilerplate_conv(DS,
                  conv.xfr16BitInt(d_tag);
                  conv.xfr8BitInt(d_algorithm);
@@ -368,7 +350,8 @@ boilerplate_conv(DS,
                  conv.xfrHexBlob(d_digest, true); // keep reading across spaces
                  )
 
-CDSRecordContent::CDSRecordContent() = default;
+  CDSRecordContent::CDSRecordContent()
+  = default;
 boilerplate_conv(CDS,
                  conv.xfr16BitInt(d_tag);
                  conv.xfr8BitInt(d_algorithm);
@@ -376,7 +359,8 @@ boilerplate_conv(CDS,
                  conv.xfrHexBlob(d_digest, true); // keep reading across spaces
                  )
 
-DLVRecordContent::DLVRecordContent() = default;
+  DLVRecordContent::DLVRecordContent()
+  = default;
 boilerplate_conv(DLV,
                  conv.xfr16BitInt(d_tag);
                  conv.xfr8BitInt(d_algorithm);
@@ -384,106 +368,105 @@ boilerplate_conv(DLV,
                  conv.xfrHexBlob(d_digest, true); // keep reading across spaces
                  )
 
-
-boilerplate_conv(SSHFP,
-                 conv.xfr8BitInt(d_algorithm);
-                 conv.xfr8BitInt(d_fptype);
-                 conv.xfrHexBlob(d_fingerprint, true);
-                 )
-
-boilerplate_conv(RRSIG,
-                 conv.xfrType(d_type);
+  boilerplate_conv(SSHFP,
                    conv.xfr8BitInt(d_algorithm);
-                   conv.xfr8BitInt(d_labels);
-                   conv.xfr32BitInt(d_originalttl);
-                   conv.xfrTime(d_sigexpire);
-                   conv.xfrTime(d_siginception);
-                 conv.xfr16BitInt(d_tag);
-                 conv.xfrName(d_signer);
-                 conv.xfrBlob(d_signature);
-                 )
+                   conv.xfr8BitInt(d_fptype);
+                   conv.xfrHexBlob(d_fingerprint, true);)
 
-RRSIGRecordContent::RRSIGRecordContent() = default;
+    boilerplate_conv(RRSIG,
+                     conv.xfrType(d_type);
+                     conv.xfr8BitInt(d_algorithm);
+                     conv.xfr8BitInt(d_labels);
+                     conv.xfr32BitInt(d_originalttl);
+                     conv.xfrTime(d_sigexpire);
+                     conv.xfrTime(d_siginception);
+                     conv.xfr16BitInt(d_tag);
+                     conv.xfrName(d_signer);
+                     conv.xfrBlob(d_signature);)
+
+      RRSIGRecordContent::RRSIGRecordContent()
+  = default;
 
 boilerplate_conv(DNSKEY,
                  conv.xfr16BitInt(d_flags);
                  conv.xfr8BitInt(d_protocol);
                  conv.xfr8BitInt(d_algorithm);
-                 conv.xfrBlob(d_key);
-                 )
-DNSKEYRecordContent::DNSKEYRecordContent() = default;
+                 conv.xfrBlob(d_key);)
+  DNSKEYRecordContent::DNSKEYRecordContent()
+  = default;
 
 boilerplate_conv(CDNSKEY,
                  conv.xfr16BitInt(d_flags);
                  conv.xfr8BitInt(d_protocol);
                  conv.xfr8BitInt(d_algorithm);
-                 conv.xfrBlob(d_key);
-                 )
-CDNSKEYRecordContent::CDNSKEYRecordContent() = default;
+                 conv.xfrBlob(d_key);)
+  CDNSKEYRecordContent::CDNSKEYRecordContent()
+  = default;
 
 boilerplate_conv(RKEY,
                  conv.xfr16BitInt(d_flags);
                  conv.xfr8BitInt(d_protocol);
                  conv.xfr8BitInt(d_algorithm);
-                 conv.xfrBlob(d_key);
-                 )
-RKEYRecordContent::RKEYRecordContent() = default;
+                 conv.xfrBlob(d_key);)
+  RKEYRecordContent::RKEYRecordContent()
+  = default;
 
 boilerplate_conv(NID,
                  conv.xfr16BitInt(d_preference);
                  conv.xfrNodeOrLocatorID(d_node_id);)
 
-boilerplate_conv(L32,
-                 conv.xfr16BitInt(d_preference);
-                 conv.xfrIP(d_locator);)
+  boilerplate_conv(L32,
+                   conv.xfr16BitInt(d_preference);
+                   conv.xfrIP(d_locator);)
 
-boilerplate_conv(L64,
-                 conv.xfr16BitInt(d_preference);
-                 conv.xfrNodeOrLocatorID(d_locator);)
+    boilerplate_conv(L64,
+                     conv.xfr16BitInt(d_preference);
+                     conv.xfrNodeOrLocatorID(d_locator);)
 
-boilerplate_conv(LP,
-                 conv.xfr16BitInt(d_preference);
-                 conv.xfrName(d_fqdn, false);)
+      boilerplate_conv(LP,
+                       conv.xfr16BitInt(d_preference);
+                       conv.xfrName(d_fqdn, false);)
 
-/* EUI48 start */
-void EUI48RecordContent::report()
+  /* EUI48 start */
+  void EUI48RecordContent::report()
 {
   regist(1, QType::EUI48, &make, &make, "EUI48");
 }
-std::shared_ptr<DNSRecordContent> EUI48RecordContent::make(const DNSRecord &dr, PacketReader& pr)
+std::shared_ptr<DNSRecordContent> EUI48RecordContent::make(const DNSRecord& dr, PacketReader& pr)
 {
-    if(dr.d_clen!=6)
-      throw MOADNSException("Wrong size for EUI48 record");
+  if (dr.d_clen != 6)
+    throw MOADNSException("Wrong size for EUI48 record");
 
-    auto ret=std::make_shared<EUI48RecordContent>();
-    pr.copyRecord((uint8_t*) &ret->d_eui48, 6);
-    return ret;
+  auto ret = std::make_shared<EUI48RecordContent>();
+  pr.copyRecord((uint8_t*)&ret->d_eui48, 6);
+  return ret;
 }
 std::shared_ptr<DNSRecordContent> EUI48RecordContent::make(const string& zone)
 {
-    // try to parse
-    auto ret=std::make_shared<EUI48RecordContent>();
-    // format is 6 hex bytes and dashes
-    if (sscanf(zone.c_str(), "%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx",
-           ret->d_eui48, ret->d_eui48+1, ret->d_eui48+2,
-           ret->d_eui48+3, ret->d_eui48+4, ret->d_eui48+5) != 6) {
-       throw MOADNSException("Asked to encode '"+zone+"' as an EUI48 address, but does not parse");
-    }
-    return ret;
+  // try to parse
+  auto ret = std::make_shared<EUI48RecordContent>();
+  // format is 6 hex bytes and dashes
+  if (sscanf(zone.c_str(), "%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx",
+             ret->d_eui48, ret->d_eui48 + 1, ret->d_eui48 + 2,
+             ret->d_eui48 + 3, ret->d_eui48 + 4, ret->d_eui48 + 5)
+      != 6) {
+    throw MOADNSException("Asked to encode '" + zone + "' as an EUI48 address, but does not parse");
+  }
+  return ret;
 }
 void EUI48RecordContent::toPacket(DNSPacketWriter& pw) const
 {
-    string blob(d_eui48, d_eui48+6);
-    pw.xfrBlob(blob);
+  string blob(d_eui48, d_eui48 + 6);
+  pw.xfrBlob(blob);
 }
 
 string EUI48RecordContent::getZoneRepresentation(bool /* noDot */) const
 {
-    char tmp[18];
-    snprintf(tmp,sizeof(tmp),"%02x-%02x-%02x-%02x-%02x-%02x",
+  char tmp[18];
+  snprintf(tmp, sizeof(tmp), "%02x-%02x-%02x-%02x-%02x-%02x",
            d_eui48[0], d_eui48[1], d_eui48[2],
            d_eui48[3], d_eui48[4], d_eui48[5]);
-    return tmp;
+  return tmp;
 }
 
 /* EUI48 end */
@@ -494,42 +477,43 @@ void EUI64RecordContent::report()
 {
   regist(1, QType::EUI64, &make, &make, "EUI64");
 }
-std::shared_ptr<DNSRecordContent> EUI64RecordContent::make(const DNSRecord &dr, PacketReader& pr)
+std::shared_ptr<DNSRecordContent> EUI64RecordContent::make(const DNSRecord& dr, PacketReader& pr)
 {
-    if(dr.d_clen!=8)
-      throw MOADNSException("Wrong size for EUI64 record");
+  if (dr.d_clen != 8)
+    throw MOADNSException("Wrong size for EUI64 record");
 
-    auto ret=std::make_shared<EUI64RecordContent>();
-    pr.copyRecord((uint8_t*) &ret->d_eui64, 8);
-    return ret;
+  auto ret = std::make_shared<EUI64RecordContent>();
+  pr.copyRecord((uint8_t*)&ret->d_eui64, 8);
+  return ret;
 }
 std::shared_ptr<DNSRecordContent> EUI64RecordContent::make(const string& zone)
 {
-    // try to parse
-    auto ret=std::make_shared<EUI64RecordContent>();
-    // format is 8 hex bytes and dashes
-    if (sscanf(zone.c_str(), "%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx",
-           ret->d_eui64, ret->d_eui64+1, ret->d_eui64+2,
-           ret->d_eui64+3, ret->d_eui64+4, ret->d_eui64+5,
-           ret->d_eui64+6, ret->d_eui64+7) != 8) {
-       throw MOADNSException("Asked to encode '"+zone+"' as an EUI64 address, but does not parse");
-    }
-    return ret;
+  // try to parse
+  auto ret = std::make_shared<EUI64RecordContent>();
+  // format is 8 hex bytes and dashes
+  if (sscanf(zone.c_str(), "%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx-%2hhx",
+             ret->d_eui64, ret->d_eui64 + 1, ret->d_eui64 + 2,
+             ret->d_eui64 + 3, ret->d_eui64 + 4, ret->d_eui64 + 5,
+             ret->d_eui64 + 6, ret->d_eui64 + 7)
+      != 8) {
+    throw MOADNSException("Asked to encode '" + zone + "' as an EUI64 address, but does not parse");
+  }
+  return ret;
 }
 void EUI64RecordContent::toPacket(DNSPacketWriter& pw) const
 {
-    string blob(d_eui64, d_eui64+8);
-    pw.xfrBlob(blob);
+  string blob(d_eui64, d_eui64 + 8);
+  pw.xfrBlob(blob);
 }
 
 string EUI64RecordContent::getZoneRepresentation(bool /* noDot */) const
 {
-    char tmp[24];
-    snprintf(tmp,sizeof(tmp),"%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x",
+  char tmp[24];
+  snprintf(tmp, sizeof(tmp), "%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x",
            d_eui64[0], d_eui64[1], d_eui64[2],
            d_eui64[3], d_eui64[4], d_eui64[5],
            d_eui64[6], d_eui64[7]);
-    return tmp;
+  return tmp;
 }
 
 /* EUI64 end */
@@ -542,14 +526,15 @@ void APLRecordContent::report()
 }
 
 // Parse incoming packets (e.g. nsupdate)
-std::shared_ptr<DNSRecordContent> APLRecordContent::make(const DNSRecord &dr, PacketReader& pr) {
+std::shared_ptr<DNSRecordContent> APLRecordContent::make(const DNSRecord& dr, PacketReader& pr)
+{
   uint8_t temp;
   APLRDataElement ard;
   size_t processed = 0;
 
-  auto ret=std::make_shared<APLRecordContent>();
+  auto ret = std::make_shared<APLRecordContent>();
 
-  while (processed<dr.d_clen) {
+  while (processed < dr.d_clen) {
     pr.xfr16BitInt(ard.d_family);
     pr.xfr8BitInt(ard.d_prefix);
     pr.xfr8BitInt(temp);
@@ -561,17 +546,19 @@ std::shared_ptr<DNSRecordContent> APLRecordContent::make(const DNSRecord &dr, Pa
         throw MOADNSException("Invalid IP length for IPv4 APL");
       }
       memset(ard.d_ip.d_ip4, 0, sizeof(ard.d_ip.d_ip4));
-      for (u_int i=0; i < ard.d_afdlength; i++)
+      for (u_int i = 0; i < ard.d_afdlength; i++)
         pr.xfr8BitInt(ard.d_ip.d_ip4[i]);
-    } else if (ard.d_family == APL_FAMILY_IPV6) {
+    }
+    else if (ard.d_family == APL_FAMILY_IPV6) {
       if (ard.d_afdlength > 16) {
         throw MOADNSException("Invalid IP length for IPv6 APL");
       }
       memset(ard.d_ip.d_ip6, 0, sizeof(ard.d_ip.d_ip6));
-      for (u_int i=0; i < ard.d_afdlength; i++)
+      for (u_int i = 0; i < ard.d_afdlength; i++)
         pr.xfr8BitInt(ard.d_ip.d_ip6[i]);
-    } else
-    throw MOADNSException("Unknown family for APL record");
+    }
+    else
+      throw MOADNSException("Unknown family for APL record");
 
     processed += 4 + ard.d_afdlength;
 
@@ -582,7 +569,8 @@ std::shared_ptr<DNSRecordContent> APLRecordContent::make(const DNSRecord &dr, Pa
 }
 
 // Parse a single APL <apitem>
-APLRDataElement APLRecordContent::parseAPLElement(const string& element) {
+APLRDataElement APLRecordContent::parseAPLElement(const string& element)
+{
   string record;
   Netmask nm;
   unsigned int bytes;
@@ -592,16 +580,16 @@ APLRDataElement APLRecordContent::parseAPLElement(const string& element) {
   // Parse the optional leading ! (negate)
   if (element.at(0) == '!') {
     ard.d_n = true;
-    record = element.substr(1, element.length()-1);
-  } else {
+    record = element.substr(1, element.length() - 1);
+  }
+  else {
     ard.d_n = false;
     record = element;
   }
 
   if (record.find('/') == string::npos) { // Required by RFC section 5
-    throw MOADNSException("Asked to decode '"+element+"' as an APL record, but missing subnet mask");
+    throw MOADNSException("Asked to decode '" + element + "' as an APL record, but missing subnet mask");
   }
-
 
   if (record.find("1:", 0) == 0) { // IPv4
     uint32_t v4ip;
@@ -615,27 +603,28 @@ APLRDataElement APLRecordContent::parseAPLElement(const string& element) {
     ard.d_prefix = nm.getBits();
 
     if (nm.getNetwork().isIPv4() == 0)
-      throw MOADNSException("Asked to decode '"+element+"' as an APL v4 record");
+      throw MOADNSException("Asked to decode '" + element + "' as an APL v4 record");
 
     // Section 4.1 of RFC 3123 (don't send trailing "0" bytes)
     // Copy data; using array of bytes since we might end up truncating them in the packet
     v4ip = ntohl(nm.getNetwork().sin4.sin_addr.s_addr);
     memset(ard.d_ip.d_ip4, 0, sizeof(ard.d_ip.d_ip4));
-    bytes  = 4; // Start by assuming we'll send 4 bytes
+    bytes = 4; // Start by assuming we'll send 4 bytes
     done_trimming = false;
-    for (int i=0; i<4; i++) {
-      ard.d_ip.d_ip4[3-i] = (v4ip & 255);
+    for (int i = 0; i < 4; i++) {
+      ard.d_ip.d_ip4[3 - i] = (v4ip & 255);
       // Remove trailing "0" bytes from packet and update length
       if ((v4ip & 255) == 0 and !done_trimming) {
         bytes--;
-      } else {
+      }
+      else {
         done_trimming = true;
       }
       v4ip = v4ip >> 8;
     }
     ard.d_afdlength = bytes;
-
-  } else if (record.find("2:", 0) == 0) { // IPv6
+  }
+  else if (record.find("2:", 0) == 0) { // IPv6
     ard.d_family = APL_FAMILY_IPV6;
 
     // Parse IPv6 string into a Netmask object
@@ -643,40 +632,41 @@ APLRDataElement APLRecordContent::parseAPLElement(const string& element) {
     ard.d_prefix = nm.getBits();
 
     if (nm.getNetwork().isIPv6() == 0)
-      throw MOADNSException("Asked to decode '"+element+"' as an APL v6 record");
+      throw MOADNSException("Asked to decode '" + element + "' as an APL v6 record");
 
     // Section 4.2 of RFC 3123 (don't send trailing "0" bytes)
     // Remove trailing "0" bytes from packet and reduce length
     memset(ard.d_ip.d_ip6, 0, sizeof(ard.d_ip.d_ip6));
     bytes = 16; // Start by assuming we'll send 16 bytes
     done_trimming = false;
-    for (int i=0; i<16; i++) {
-      ard.d_ip.d_ip6[15-i] = nm.getNetwork().sin6.sin6_addr.s6_addr[15-i];
-      if (nm.getNetwork().sin6.sin6_addr.s6_addr[15-i] == 0 and !done_trimming) {
+    for (int i = 0; i < 16; i++) {
+      ard.d_ip.d_ip6[15 - i] = nm.getNetwork().sin6.sin6_addr.s6_addr[15 - i];
+      if (nm.getNetwork().sin6.sin6_addr.s6_addr[15 - i] == 0 and !done_trimming) {
         // trailing 0 byte, update length
         bytes--;
-      } else {
+      }
+      else {
         done_trimming = true;
       }
     }
     ard.d_afdlength = bytes;
-
-  } else {
-      throw MOADNSException("Asked to encode '"+element+"' as an IPv6 APL record but got unknown Address Family");
+  }
+  else {
+    throw MOADNSException("Asked to encode '" + element + "' as an IPv6 APL record but got unknown Address Family");
   }
   return ard;
-
 }
 
 // Parse backend record (0, 1 or more <apitem>)
-std::shared_ptr<DNSRecordContent> APLRecordContent::make(const string& zone) {
+std::shared_ptr<DNSRecordContent> APLRecordContent::make(const string& zone)
+{
   APLRDataElement ard;
   vector<string> elements;
 
-  auto ret=std::make_shared<APLRecordContent>();
+  auto ret = std::make_shared<APLRecordContent>();
 
   boost::split(elements, zone, boost::is_any_of(" "));
-  for (auto & element : elements) {
+  for (auto& element : elements) {
     if (!element.empty()) {
       ard = ret->parseAPLElement(element);
       ret->aplrdata.push_back(ard);
@@ -685,19 +675,20 @@ std::shared_ptr<DNSRecordContent> APLRecordContent::make(const string& zone) {
   return ret;
 }
 
-
 // DNSRecord to Packet conversion
-void APLRecordContent::toPacket(DNSPacketWriter& pw) const {
-  for (auto & ard : aplrdata) {
+void APLRecordContent::toPacket(DNSPacketWriter& pw) const
+{
+  for (auto& ard : aplrdata) {
     pw.xfr16BitInt(ard.d_family);
     pw.xfr8BitInt(ard.d_prefix);
     pw.xfr8BitInt((ard.d_n << 7) + ard.d_afdlength);
     if (ard.d_family == APL_FAMILY_IPV4) {
-      for (int i=0; i<ard.d_afdlength; i++) {
+      for (int i = 0; i < ard.d_afdlength; i++) {
         pw.xfr8BitInt(ard.d_ip.d_ip4[i]);
       }
-    } else if (ard.d_family == APL_FAMILY_IPV6) {
-      for (int i=0; i<ard.d_afdlength; i++) {
+    }
+    else if (ard.d_family == APL_FAMILY_IPV6) {
+      for (int i = 0; i < ard.d_afdlength; i++) {
         pw.xfr8BitInt(ard.d_ip.d_ip6[i]);
       }
     }
@@ -705,19 +696,21 @@ void APLRecordContent::toPacket(DNSPacketWriter& pw) const {
 }
 
 // Decode record into string
-string APLRecordContent::getZoneRepresentation(bool /* noDot */) const {
+string APLRecordContent::getZoneRepresentation(bool /* noDot */) const
+{
   string s_n, s_family, output;
   ComboAddress ca;
   Netmask nm;
 
   output = "";
 
-  for (std::vector<APLRDataElement>::const_iterator ard = aplrdata.begin() ; ard != aplrdata.end(); ++ard) {
+  for (std::vector<APLRDataElement>::const_iterator ard = aplrdata.begin(); ard != aplrdata.end(); ++ard) {
 
     // Negation flag
     if (ard->d_n) {
       s_n = "!";
-    } else {
+    }
+    else {
       s_n = "";
     }
 
@@ -725,13 +718,15 @@ string APLRecordContent::getZoneRepresentation(bool /* noDot */) const {
       s_family = std::to_string(APL_FAMILY_IPV4);
       ca = ComboAddress();
       memcpy(&ca.sin4.sin_addr.s_addr, ard->d_ip.d_ip4, sizeof(ca.sin4.sin_addr.s_addr));
-    } else if (ard->d_family == APL_FAMILY_IPV6) { // IPv6
+    }
+    else if (ard->d_family == APL_FAMILY_IPV6) { // IPv6
       s_family = std::to_string(APL_FAMILY_IPV6);
       ca = ComboAddress();
       ca.sin4.sin_family = AF_INET6;
       memset(&ca.sin6.sin6_addr.s6_addr, 0, sizeof(ca.sin6.sin6_addr.s6_addr));
       memcpy(&ca.sin6.sin6_addr.s6_addr, ard->d_ip.d_ip6, ard->d_afdlength);
-    } else {
+    }
+    else {
       throw MOADNSException("Asked to decode APL record but got unknown Address Family");
     }
 
@@ -747,7 +742,8 @@ string APLRecordContent::getZoneRepresentation(bool /* noDot */) const {
 /* APL end */
 
 /* SVCB start */
-bool SVCBBaseRecordContent::autoHint(const SvcParam::SvcParamKey &key) const {
+bool SVCBBaseRecordContent::autoHint(const SvcParam::SvcParamKey& key) const
+{
   auto p = getParamIt(key);
   if (p == d_params.end()) {
     return false;
@@ -755,7 +751,8 @@ bool SVCBBaseRecordContent::autoHint(const SvcParam::SvcParamKey &key) const {
   return p->getAutoHint();
 }
 
-void SVCBBaseRecordContent::setHints(const SvcParam::SvcParamKey &key, const std::vector<ComboAddress> &addresses) {
+void SVCBBaseRecordContent::setHints(const SvcParam::SvcParamKey& key, const std::vector<ComboAddress>& addresses)
+{
   auto p = getParamIt(key);
   if (p == d_params.end()) {
     return;
@@ -769,13 +766,15 @@ void SVCBBaseRecordContent::setHints(const SvcParam::SvcParamKey &key, const std
     auto newParam = SvcParam(key, std::move(h));
     d_params.erase(p);
     d_params.insert(newParam);
-  } catch (...) {
+  }
+  catch (...) {
     // XXX maybe we should SERVFAIL instead?
     return;
   }
 }
 
-void SVCBBaseRecordContent::removeParam(const SvcParam::SvcParamKey &key) {
+void SVCBBaseRecordContent::removeParam(const SvcParam::SvcParamKey& key)
+{
   auto p = getParamIt(key);
   if (p == d_params.end()) {
     return;
@@ -783,15 +782,18 @@ void SVCBBaseRecordContent::removeParam(const SvcParam::SvcParamKey &key) {
   d_params.erase(p);
 }
 
-bool SVCBBaseRecordContent::hasParams() const {
+bool SVCBBaseRecordContent::hasParams() const
+{
   return !d_params.empty();
 }
 
-bool SVCBBaseRecordContent::hasParam(const SvcParam::SvcParamKey &key) const {
+bool SVCBBaseRecordContent::hasParam(const SvcParam::SvcParamKey& key) const
+{
   return getParamIt(key) != d_params.end();
 }
 
-SvcParam SVCBBaseRecordContent::getParam(const SvcParam::SvcParamKey &key) const {
+SvcParam SVCBBaseRecordContent::getParam(const SvcParam::SvcParamKey& key) const
+{
   auto p = getParamIt(key);
   if (p == d_params.end()) {
     throw std::out_of_range("No param with key " + SvcParam::keyToString(key));
@@ -799,11 +801,12 @@ SvcParam SVCBBaseRecordContent::getParam(const SvcParam::SvcParamKey &key) const
   return *p;
 }
 
-set<SvcParam>::const_iterator SVCBBaseRecordContent::getParamIt(const SvcParam::SvcParamKey &key) const {
+set<SvcParam>::const_iterator SVCBBaseRecordContent::getParamIt(const SvcParam::SvcParamKey& key) const
+{
   auto p = std::find_if(d_params.begin(), d_params.end(),
-      [&key](const SvcParam &param) {
-        return param.getKey() == key;
-      });
+                        [&key](const SvcParam& param) {
+                          return param.getKey() == key;
+                        });
   return p;
 }
 
@@ -826,33 +829,31 @@ boilerplate_conv(TKEY,
                  conv.xfr16BitInt(d_mode);
                  conv.xfr16BitInt(d_error);
                  conv.xfr16BitInt(d_keysize);
-                 if (d_keysize>0) conv.xfrBlobNoSpaces(d_key, d_keysize);
+                 if (d_keysize > 0) conv.xfrBlobNoSpaces(d_key, d_keysize);
                  conv.xfr16BitInt(d_othersize);
-                 if (d_othersize>0) conv.xfrBlobNoSpaces(d_other, d_othersize);
-                 )
-TKEYRecordContent::TKEYRecordContent() { d_othersize = 0; } // fix CID#1288932
+                 if (d_othersize > 0) conv.xfrBlobNoSpaces(d_other, d_othersize);)
+  TKEYRecordContent::TKEYRecordContent() { d_othersize = 0; } // fix CID#1288932
 
 boilerplate_conv(URI,
                  conv.xfr16BitInt(d_priority);
                  conv.xfr16BitInt(d_weight);
-                 conv.xfrText(d_target, true, false);
-                 )
+                 conv.xfrText(d_target, true, false);)
 
-boilerplate_conv(CAA,
-                 conv.xfr8BitInt(d_flags);
-                 conv.xfrUnquotedText(d_tag, true);
-                 conv.xfrText(d_value, true, false); /* no lenField */
-                )
+  boilerplate_conv(CAA,
+                   conv.xfr8BitInt(d_flags);
+                   conv.xfrUnquotedText(d_tag, true);
+                   conv.xfrText(d_value, true, false); /* no lenField */
+                   )
 
-static uint16_t makeTag(const std::string& data)
+    static uint16_t makeTag(const std::string& data)
 {
-  const unsigned char* key=(const unsigned char*)data.c_str();
-  unsigned int keysize=data.length();
+  const unsigned char* key = (const unsigned char*)data.c_str();
+  unsigned int keysize = data.length();
 
-  unsigned long ac;     /* assumed to be 32 bits or larger */
-  unsigned int i;                /* loop index */
+  unsigned long ac; /* assumed to be 32 bits or larger */
+  unsigned int i; /* loop index */
 
-  for ( ac = 0, i = 0; i < keysize; ++i )
+  for (ac = 0, i = 0; i < keysize; ++i)
     ac += (i & 1) ? key[i] : key[i] << 8;
   ac += (ac >> 16) & 0xFFFF;
   return ac & 0xFFFF;
@@ -863,28 +864,27 @@ uint16_t DNSKEYRecordContent::getTag() const
   return makeTag(this->serialize(DNSName()));
 }
 
-
 /*
  * Fills `eo` by parsing the EDNS(0) OPT RR (RFC 6891)
  */
 bool getEDNSOpts(const MOADNSParser& mdp, EDNSOpts* eo)
 {
-  eo->d_extFlags=0;
-  if(mdp.d_header.arcount && !mdp.d_answers.empty()) {
-    for(const MOADNSParser::answers_t::value_type& val :  mdp.d_answers) {
-      if(val.first.d_place == DNSResourceRecord::ADDITIONAL && val.first.d_type == QType::OPT) {
-        eo->d_packetsize=val.first.d_class;
+  eo->d_extFlags = 0;
+  if (mdp.d_header.arcount && !mdp.d_answers.empty()) {
+    for (const MOADNSParser::answers_t::value_type& val : mdp.d_answers) {
+      if (val.first.d_place == DNSResourceRecord::ADDITIONAL && val.first.d_type == QType::OPT) {
+        eo->d_packetsize = val.first.d_class;
 
         EDNS0Record stuff;
-        uint32_t ttl=ntohl(val.first.d_ttl);
+        uint32_t ttl = ntohl(val.first.d_ttl);
         static_assert(sizeof(EDNS0Record) == sizeof(uint32_t), "sizeof(EDNS0Record) must match sizeof(uint32_t)");
         memcpy(&stuff, &ttl, sizeof(stuff));
 
-        eo->d_extRCode=stuff.extRCode;
-        eo->d_version=stuff.version;
+        eo->d_extRCode = stuff.extRCode;
+        eo->d_version = stuff.version;
         eo->d_extFlags = ntohs(stuff.extFlags);
         auto orc = getRR<OPTRecordContent>(val.first);
-        if(orc == nullptr)
+        if (orc == nullptr)
           return false;
         orc->getData(eo->d_options);
         return true;
@@ -916,57 +916,57 @@ void reportBasicTypes()
 
 void reportOtherTypes()
 {
-   MBRecordContent::report();
-   MGRecordContent::report();
-   MRRecordContent::report();
-   AFSDBRecordContent::report();
-   DNAMERecordContent::report();
+  MBRecordContent::report();
+  MGRecordContent::report();
+  MRRecordContent::report();
+  AFSDBRecordContent::report();
+  DNAMERecordContent::report();
 #if !defined(RECURSOR)
-   ALIASRecordContent::report();
+  ALIASRecordContent::report();
 #endif
-   SPFRecordContent::report();
-   NAPTRRecordContent::report();
-   KXRecordContent::report();
-   LOCRecordContent::report();
-   ENTRecordContent::report();
-   HINFORecordContent::report();
-   RPRecordContent::report();
-   KEYRecordContent::report();
-   DNSKEYRecordContent::report();
-   DHCIDRecordContent::report();
-   CDNSKEYRecordContent::report();
-   RKEYRecordContent::report();
-   RRSIGRecordContent::report();
-   DSRecordContent::report();
-   CDSRecordContent::report();
-   SSHFPRecordContent::report();
-   CERTRecordContent::report();
-   NSECRecordContent::report();
-   NSEC3RecordContent::report();
-   NSEC3PARAMRecordContent::report();
-   TLSARecordContent::report();
-   SMIMEARecordContent::report();
-   OPENPGPKEYRecordContent::report();
-   SVCBRecordContent::report();
-   HTTPSRecordContent::report();
-   DLVRecordContent::report();
-   DNSRecordContent::regist(QClass::ANY, QType::TSIG, &TSIGRecordContent::make, &TSIGRecordContent::make, "TSIG");
-   DNSRecordContent::regist(QClass::ANY, QType::TKEY, &TKEYRecordContent::make, &TKEYRecordContent::make, "TKEY");
-   //TSIGRecordContent::report();
-   OPTRecordContent::report();
-   EUI48RecordContent::report();
-   EUI64RecordContent::report();
-   MINFORecordContent::report();
-   URIRecordContent::report();
-   CAARecordContent::report();
-   APLRecordContent::report();
-   IPSECKEYRecordContent::report();
-   CSYNCRecordContent::report();
-   NIDRecordContent::report();
-   L32RecordContent::report();
-   L64RecordContent::report();
-   LPRecordContent::report();
-   ZONEMDRecordContent::report();
+  SPFRecordContent::report();
+  NAPTRRecordContent::report();
+  KXRecordContent::report();
+  LOCRecordContent::report();
+  ENTRecordContent::report();
+  HINFORecordContent::report();
+  RPRecordContent::report();
+  KEYRecordContent::report();
+  DNSKEYRecordContent::report();
+  DHCIDRecordContent::report();
+  CDNSKEYRecordContent::report();
+  RKEYRecordContent::report();
+  RRSIGRecordContent::report();
+  DSRecordContent::report();
+  CDSRecordContent::report();
+  SSHFPRecordContent::report();
+  CERTRecordContent::report();
+  NSECRecordContent::report();
+  NSEC3RecordContent::report();
+  NSEC3PARAMRecordContent::report();
+  TLSARecordContent::report();
+  SMIMEARecordContent::report();
+  OPENPGPKEYRecordContent::report();
+  SVCBRecordContent::report();
+  HTTPSRecordContent::report();
+  DLVRecordContent::report();
+  DNSRecordContent::regist(QClass::ANY, QType::TSIG, &TSIGRecordContent::make, &TSIGRecordContent::make, "TSIG");
+  DNSRecordContent::regist(QClass::ANY, QType::TKEY, &TKEYRecordContent::make, &TKEYRecordContent::make, "TKEY");
+  // TSIGRecordContent::report();
+  OPTRecordContent::report();
+  EUI48RecordContent::report();
+  EUI64RecordContent::report();
+  MINFORecordContent::report();
+  URIRecordContent::report();
+  CAARecordContent::report();
+  APLRecordContent::report();
+  IPSECKEYRecordContent::report();
+  CSYNCRecordContent::report();
+  NIDRecordContent::report();
+  L32RecordContent::report();
+  L64RecordContent::report();
+  LPRecordContent::report();
+  ZONEMDRecordContent::report();
 }
 
 void reportAllTypes()
@@ -996,12 +996,16 @@ void checkHostnameCorrectness(const DNSResourceRecord& rr)
     if (rr.qtype.getCode() == QType::SRV) {
       vector<string> parts;
       stringtok(parts, rr.getZoneRepresentation());
-      if (parts.size() == 4) toCheck = DNSName(parts[3]);
-    } else if (rr.qtype.getCode() == QType::MX) {
+      if (parts.size() == 4)
+        toCheck = DNSName(parts[3]);
+    }
+    else if (rr.qtype.getCode() == QType::MX) {
       vector<string> parts;
       stringtok(parts, rr.getZoneRepresentation());
-      if (parts.size() == 2) toCheck = DNSName(parts[1]);
-    } else {
+      if (parts.size() == 2)
+        toCheck = DNSName(parts[1]);
+    }
+    else {
       toCheck = DNSName(rr.content);
     }
 
@@ -1010,7 +1014,8 @@ void checkHostnameCorrectness(const DNSResourceRecord& rr)
     }
     else if ((rr.qtype.getCode() == QType::MX || rr.qtype.getCode() == QType::SRV) && toCheck == g_rootdnsname) {
       // allow null MX/SRV
-    } else if(!toCheck.isHostname()) {
+    }
+    else if (!toCheck.isHostname()) {
       throw std::runtime_error(boost::str(boost::format("non-hostname content %s") % toCheck.toString()));
     }
   }

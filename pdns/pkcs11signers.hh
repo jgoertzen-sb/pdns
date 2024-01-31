@@ -23,39 +23,39 @@
 
 class PKCS11DNSCryptoKeyEngine : public DNSCryptoKeyEngine
 {
-  protected:
-    std::string d_module;
-    std::string d_slot_id;
-    std::string d_pin;
-    std::string d_label;
-    std::string d_pub_label;
+protected:
+  std::string d_module;
+  std::string d_slot_id;
+  std::string d_pin;
+  std::string d_label;
+  std::string d_pub_label;
 
-  public:
-    PKCS11DNSCryptoKeyEngine(unsigned int algorithm);
-    ~PKCS11DNSCryptoKeyEngine() override;
+public:
+  PKCS11DNSCryptoKeyEngine(unsigned int algorithm);
+  ~PKCS11DNSCryptoKeyEngine() override;
 
-    PKCS11DNSCryptoKeyEngine(const PKCS11DNSCryptoKeyEngine& orig);
+  PKCS11DNSCryptoKeyEngine(const PKCS11DNSCryptoKeyEngine& orig);
 
-    string getName() const override { return "P11 Kit PKCS#11"; };
+  string getName() const override { return "P11 Kit PKCS#11"; };
 
-    void create(unsigned int bits) override;
+  void create(unsigned int bits) override;
 
-    storvector_t convertToISCVector() const override;
+  storvector_t convertToISCVector() const override;
 
-    std::string sign(const std::string& msg) const override;
+  std::string sign(const std::string& msg) const override;
 
-    std::string hash(const std::string& msg) const override;
+  std::string hash(const std::string& msg) const override;
 
-    bool verify(const std::string& msg, const std::string& signature) const override;
+  bool verify(const std::string& msg, const std::string& signature) const override;
 
-    std::string getPublicKeyString() const override;
-    int getBits() const override;
+  std::string getPublicKeyString() const override;
+  int getBits() const override;
 
-    void fromISCMap(DNSKEYRecordContent& drc, stormap_t& stormap) override;
+  void fromISCMap(DNSKEYRecordContent& drc, stormap_t& stormap) override;
 
-    void fromPublicKeyString(const std::string& /* content */) override { throw "Unimplemented"; };
+  void fromPublicKeyString(const std::string& /* content */) override { throw "Unimplemented"; };
 
-    static std::unique_ptr<DNSCryptoKeyEngine> maker(unsigned int algorithm);
+  static std::unique_ptr<DNSCryptoKeyEngine> maker(unsigned int algorithm);
 };
 
 bool PKCS11ModuleSlotLogin(const std::string& module, const string& tokenId, const std::string& pin);

@@ -2,9 +2,9 @@
 
 StatNode::Stat StatNode::print(unsigned int depth, Stat newstat, bool silent) const
 {
-  if(!silent) {
-    cout<<string(depth, ' ');
-    cout<<name<<": "<<endl;
+  if (!silent) {
+    cout << string(depth, ' ');
+    cout << name << ": " << endl;
   }
   Stat childstat;
   childstat.queries += s.queries;
@@ -15,22 +15,16 @@ StatNode::Stat StatNode::print(unsigned int depth, Stat newstat, bool silent) co
   childstat.bytes += s.bytes;
   childstat.hits += s.hits;
 
-  if(children.size()>1024 && !silent) {
-    cout<<string(depth, ' ')<<name<<": too many to print"<<endl;
+  if (children.size() > 1024 && !silent) {
+    cout << string(depth, ' ') << name << ": too many to print" << endl;
   }
-  for(const children_t::value_type& child :  children) {
-    childstat=child.second.print(depth+8, childstat, silent || children.size()>1024);
+  for (const children_t::value_type& child : children) {
+    childstat = child.second.print(depth + 8, childstat, silent || children.size() > 1024);
   }
-  if(!silent || children.size()>1)
-    cout<<string(depth, ' ')<<childstat.queries<<" queries, " << 
-      childstat.noerrors<<" noerrors, "<< 
-      childstat.nxdomains<<" nxdomains, "<< 
-      childstat.servfails<<" servfails, "<< 
-      childstat.drops<<" drops, "<<
-      childstat.bytes<<" bytes, "<<
-      childstat.hits<<" hits"<<endl;
+  if (!silent || children.size() > 1)
+    cout << string(depth, ' ') << childstat.queries << " queries, " << childstat.noerrors << " noerrors, " << childstat.nxdomains << " nxdomains, " << childstat.servfails << " servfails, " << childstat.drops << " drops, " << childstat.bytes << " bytes, " << childstat.hits << " hits" << endl;
 
-  newstat+=childstat;
+  newstat += childstat;
 
   return newstat;
 }
@@ -40,7 +34,7 @@ void StatNode::visit(const visitor_t& visitor, Stat& newstat, unsigned int depth
   Stat childstat(s);
 
   for (const auto& child : children) {
-    child.second.visit(visitor, childstat, depth+8);
+    child.second.visit(visitor, childstat, depth + 8);
   }
 
   visitor(this, s, childstat);
@@ -60,22 +54,22 @@ void StatNode::submit(const DNSName& domain, int rcode, unsigned int bytes, bool
   children[*last].submit(last, tmp.begin(), "", rcode, bytes, remote, 1, hit);
 }
 
-/* www.powerdns.com. -> 
+/* www.powerdns.com. ->
    .                 <- fullnames
    com.
    powerdns.com
-   www.powerdns.com. 
+   www.powerdns.com.
 */
 
 void StatNode::submit(std::vector<string>::const_iterator end, std::vector<string>::const_iterator begin, const std::string& domain, int rcode, unsigned int bytes, const boost::optional<const ComboAddress&>& remote, unsigned int count, bool hit)
 {
   //  cerr<<"Submit called for domain='"<<domain<<"': ";
-  //  for(const std::string& n :  labels) 
+  //  for(const std::string& n :  labels)
   //    cerr<<n<<".";
   //  cerr<<endl;
   if (name.empty()) {
 
-    name=*end;
+    name = *end;
     //    cerr<<"Set short name to '"<<name<<"'"<<endl;
   }
   else {
@@ -130,6 +124,6 @@ void StatNode::submit(std::vector<string>::const_iterator end, std::vector<strin
     }
     //    cerr<<"Not yet end, set our fullname to '"<<fullname<<"', recursing"<<endl;
     --end;
-    children[*end].submit(end, begin, fullname, rcode, bytes, remote, count+1, hit);
+    children[*end].submit(end, begin, fullname, rcode, bytes, remote, count + 1, hit);
   }
 }

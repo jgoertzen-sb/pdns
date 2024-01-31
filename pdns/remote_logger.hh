@@ -46,13 +46,15 @@
 class CircularWriteBuffer
 {
 public:
-  explicit CircularWriteBuffer(size_t size) : d_buffer(size)
+  explicit CircularWriteBuffer(size_t size) :
+    d_buffer(size)
   {
   }
 
   bool hasRoomFor(const std::string& str) const;
   bool write(const std::string& str);
   bool flush(int fd);
+
 private:
   boost::circular_buffer<char> d_buffer;
 };
@@ -60,11 +62,16 @@ private:
 class RemoteLoggerInterface
 {
 public:
-  enum class Result : uint8_t { Queued, PipeFull, TooLarge, OtherError };
+  enum class Result : uint8_t
+  {
+    Queued,
+    PipeFull,
+    TooLarge,
+    OtherError
+  };
   static const std::string& toErrorString(Result r);
 
-
-  virtual ~RemoteLoggerInterface() {};
+  virtual ~RemoteLoggerInterface(){};
   virtual Result queueData(const std::string& data) = 0;
   [[nodiscard]] virtual std::string address() const = 0;
   [[nodiscard]] virtual std::string toString() = 0;
@@ -85,7 +92,7 @@ public:
     uint64_t d_tooLarge{};
     uint64_t d_otherError{};
 
-    Stats& operator += (const Stats& rhs)
+    Stats& operator+=(const Stats& rhs)
     {
       d_queued += rhs.d_queued;
       d_pipeFull += rhs.d_pipeFull;
@@ -112,10 +119,10 @@ private:
 class RemoteLogger : public RemoteLoggerInterface
 {
 public:
-  RemoteLogger(const ComboAddress& remote, uint16_t timeout=2,
-               uint64_t maxQueuedBytes=100000,
-               uint8_t reconnectWaitTime=1,
-               bool asyncConnect=false);
+  RemoteLogger(const ComboAddress& remote, uint16_t timeout = 2,
+               uint64_t maxQueuedBytes = 100000,
+               uint8_t reconnectWaitTime = 1,
+               bool asyncConnect = false);
   ~RemoteLogger();
 
   std::string address() const override
@@ -164,4 +171,3 @@ private:
   LockGuarded<RuntimeData> d_runtime;
   std::thread d_thread;
 };
-

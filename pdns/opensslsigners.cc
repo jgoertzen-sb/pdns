@@ -1927,7 +1927,7 @@ std::string OpenSSLPQCDNSCryptoKeyEngine::sign(const std::string& message) const
       < 1) {
     throw runtime_error(getName() + " signing error");
   }
-  //Resize signature to enable verifying of right length
+  // Resize signature to enable verifying of right length
   signature.resize(siglen);
   return signature;
 }

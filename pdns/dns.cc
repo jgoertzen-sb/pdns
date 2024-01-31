@@ -46,7 +46,7 @@ const std::array<std::string, 24> RCode::rcodes_s = {
   "Err#12",
   "Err#13",
   "Err#14",
-  "Err#15",  // Last non-extended RCode
+  "Err#15", // Last non-extended RCode
   "Bad OPT Version / TSIG Signature Failure",
   "Key not recognized",
   "Signature out of time window",
@@ -54,10 +54,9 @@ const std::array<std::string, 24> RCode::rcodes_s = {
   "Duplicate key name",
   "Algorithm not supported",
   "Bad Truncation",
-  "Bad/missing Server Cookie"
-};
+  "Bad/missing Server Cookie"};
 
-static const std::array<std::string, 10> rcodes_short_s =  {
+static const std::array<std::string, 10> rcodes_short_s = {
   "noerror",
   "formerr",
   "servfail",
@@ -70,29 +69,33 @@ static const std::array<std::string, 10> rcodes_short_s =  {
   "notauth",
 };
 
-std::string RCode::to_s(uint8_t rcode) {
+std::string RCode::to_s(uint8_t rcode)
+{
   if (rcode > 0xF) {
     return std::string("ErrOutOfRange");
   }
   return ERCode::to_s(rcode);
 }
 
-std::string RCode::to_short_s(uint8_t rcode) {
+std::string RCode::to_short_s(uint8_t rcode)
+{
   if (rcode >= rcodes_short_s.size()) {
     return "rcode" + std::to_string(rcode);
   }
   return rcodes_short_s.at(rcode);
 }
 
-std::string ERCode::to_s(uint16_t rcode) {
+std::string ERCode::to_s(uint16_t rcode)
+{
   if (rcode >= RCode::rcodes_s.size()) {
-    return std::string("Err#")+std::to_string(rcode);
+    return std::string("Err#") + std::to_string(rcode);
   }
   return RCode::rcodes_s.at(rcode);
 }
 
-std::string Opcode::to_s(uint8_t opcode) {
-  static const std::array<std::string, 6> s_opcodes = { "Query", "IQuery", "Status", "3", "Notify", "Update" };
+std::string Opcode::to_s(uint8_t opcode)
+{
+  static const std::array<std::string, 6> s_opcodes = {"Query", "IQuery", "Status", "3", "Notify", "Update"};
 
   if (opcode >= s_opcodes.size()) {
     return std::to_string(opcode);
@@ -125,4 +128,3 @@ uint32_t hashQuestion(const uint8_t* packet, uint16_t packet_len, uint32_t init,
   ok = false;
   return init;
 }
-

@@ -1,71 +1,85 @@
-# this file is used by ../pdns/test-bindparser_cc.cc
-# if you change it, please make check!
+#this file is used by../ pdns / test - bindparser_cc.cc
+#if you change it, please make check !
 
-options {
-	directory "./zones/";
-	recursion no;
-	listen-on port 5300 {
-		127.0.0.1;
-	};
-	version "Meow!Meow!";
-	minimal-responses yes;
+options
+{
+  directory "./zones/";
+  recursion no;
+  listen - on port 5300
+  {
+    127.0.0.1;
+  };
+  version "Meow!Meow!";
+  minimal - responses yes;
 };
-zone "example.com"{
-	type master;
-	file "example.com";
-};
-
-zone "test.com"{
-	type slave;
-	file "test.com";
-	masters { 1.2.3.4:5678; };
+zone "example.com"
+{
+  type master;
+  file "example.com";
 };
 
-zone "test.dyndns" {
-	type garblewarble;
-	file "test.dyndns";
-	allow-update {
-		127.0.0.0/8;
-	};
+zone "test.com"
+{
+  type slave;
+  file "test.com";
+  masters { 1.2.3.4 : 5678; };
 };
 
-zone "wtest.com"{
-	type primary;
-	file "wtest.com";
+zone "test.dyndns"
+{
+  type garblewarble;
+  file "test.dyndns";
+  allow - update
+  {
+    127.0.0.0 / 8;
+  };
 };
 
-zone "nztest.com"{
-	type secondary;
-	file "nztest.com";
-	primaries { 1.2.3.4:5678; };
+zone "wtest.com"
+{
+  type primary;
+  file "wtest.com";
 };
 
-zone "dnssec-parent.com"{
-	type primary;
-	file "dnssec-parent.com";
+zone "nztest.com"
+{
+  type secondary;
+  file "nztest.com";
+  primaries { 1.2.3.4 : 5678; };
 };
 
-zone "delegated.dnssec-parent.com"{
-	type primary;
-	file "delegated.dnssec-parent.com";
+zone "dnssec-parent.com"
+{
+  type primary;
+  file "dnssec-parent.com";
 };
 
-zone "secure-delegated.dnssec-parent.com"{
-	type primary;
-	file "secure-delegated.dnssec-parent.com";
+zone "delegated.dnssec-parent.com"
+{
+  type primary;
+  file "delegated.dnssec-parent.com";
 };
 
-zone "minimal.com"{
-	type primary;
-	file "minimal.com";
+zone "secure-delegated.dnssec-parent.com"
+{
+  type primary;
+  file "secure-delegated.dnssec-parent.com";
 };
 
-zone "tsig.com"{
-	type primary;
-	file "tsig.com";
+zone "minimal.com"
+{
+  type primary;
+  file "minimal.com";
 };
 
-zone "stest.com"{
-	type primary;
-	file "stest.com";
+zone "tsig.com"
+{
+  type primary;
+  file "tsig.com";
+};
+
+zone "stest.com"
+{
+  type primary;
+  file "stest.com";
 };

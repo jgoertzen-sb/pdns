@@ -1,11 +1,9 @@
-#!/bin/sh
+#!/ bin / sh
 make dnsdist
-rm -rf dist
-mkdir -p dist/usr/sbin/
-mkdir -p dist/etc/
-cp dnsdistconf.lua dist/etc/dnsdist.conf
-cp dnsdist dist/usr/sbin/
+    rm
+  - rf dist
+    mkdir
+  - p dist / usr / sbin / mkdir - p dist / etc / cp dnsdistconf.lua dist / etc / dnsdist.conf cp dnsdist dist / usr / sbin /
 
-fpm -s dir -f -t rpm -n dnsdist -v 0.1 -C dist .
-fpm -s dir -f -t deb -n dnsdist -v 0.1 -C dist .    
-rm -rf dist
+    fpm
+  - s dir - f - t rpm - n dnsdist - v 0.1 - C dist.fpm - s dir - f - t deb - n dnsdist - v 0.1 - C dist.rm - rf dist

@@ -52,26 +52,26 @@ authCompliances MODULE-COMPLIANCE
     STATUS current
     DESCRIPTION "PowerDNS authoritative compliance statement"
     MODULE
-    MANDATORY-GROUPS {
-        authGroup,
-        authTrapsGroup
-    }
-    ::= { authConformance 1 }
+    MANDATORY-GROUPS
+{
+  authGroup,
+    authTrapsGroup
+}
+:: = {authConformance 1}
 
-authGroup OBJECT-GROUP
-    OBJECTS {
+  authGroup OBJECT
+  - GROUP
+    OBJECTS
+{
+}
+STATUS current
+  DESCRIPTION "Objects conformance group for PowerDNS Authoritative" ::
+    = {authConformance 2}
 
-    }
-    STATUS current
-    DESCRIPTION "Objects conformance group for PowerDNS Authoritative"
-    ::= { authConformance 2 }
-
-authTrapsGroup NOTIFICATION-GROUP
-    NOTIFICATIONS {
-        customTrap
-    }
-    STATUS current
-    DESCRIPTION "Traps conformance group for PowerDNS Authoritative"
-    ::= { authConformance 3 }
+  authTrapsGroup NOTIFICATION
+  - GROUP
+    NOTIFICATIONS{
+      customTrap} STATUS current DESCRIPTION "Traps conformance group for PowerDNS Authoritative" ::
+      = {authConformance 3}
 
 END

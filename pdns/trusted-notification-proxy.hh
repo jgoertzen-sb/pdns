@@ -24,16 +24,17 @@
 #include <string>
 #include "iputils.hh"
 
-namespace pdns {
-  /*! Parses the provided string into the trusted-notification variable
-   *
-   * Replaces any existing masks
-   *
-   * Throws on error.
-   *
-   * @param addresses String of addresses, separated by comma's
-   */
-  void parseTrustedNotificationProxy(const std::string &addresses);
+namespace pdns
+{
+/*! Parses the provided string into the trusted-notification variable
+ *
+ * Replaces any existing masks
+ *
+ * Throws on error.
+ *
+ * @param addresses String of addresses, separated by comma's
+ */
+void parseTrustedNotificationProxy(const std::string& addresses);
 
-  bool isAddressTrustedNotificationProxy(const ComboAddress &address);
+bool isAddressTrustedNotificationProxy(const ComboAddress& address);
 } // namespace pdns

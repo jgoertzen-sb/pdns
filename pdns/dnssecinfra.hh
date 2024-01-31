@@ -34,171 +34,172 @@ class UeberBackend;
 
 class DNSCryptoKeyEngine
 {
-  public:
-    explicit DNSCryptoKeyEngine(unsigned int algorithm) : d_algorithm(algorithm) {}
-    virtual ~DNSCryptoKeyEngine() = default;
-    [[nodiscard]] virtual string getName() const = 0;
+public:
+  explicit DNSCryptoKeyEngine(unsigned int algorithm) :
+    d_algorithm(algorithm) {}
+  virtual ~DNSCryptoKeyEngine() = default;
+  [[nodiscard]] virtual string getName() const = 0;
 
-    using stormap_t = std::map<std::string, std::string>;
-    using storvector_t = std::vector<std::pair<std::string, std::string>>;
-    virtual void create(unsigned int bits)=0;
+  using stormap_t = std::map<std::string, std::string>;
+  using storvector_t = std::vector<std::pair<std::string, std::string>>;
+  virtual void create(unsigned int bits) = 0;
 
-    virtual void createFromPEMFile(DNSKEYRecordContent& /* drc */, std::FILE& /* inputFile */, const std::optional<std::reference_wrapper<const std::string>> filename = std::nullopt)
-    {
-      if (filename.has_value()) {
-        throw std::runtime_error("Can't create key from PEM file `" + filename->get() + "`");
-      }
-
-      throw std::runtime_error("Can't create key from PEM contents");
+  virtual void createFromPEMFile(DNSKEYRecordContent& /* drc */, std::FILE& /* inputFile */, const std::optional<std::reference_wrapper<const std::string>> filename = std::nullopt)
+  {
+    if (filename.has_value()) {
+      throw std::runtime_error("Can't create key from PEM file `" + filename->get() + "`");
     }
 
-    /**
-     * \brief Creates a key engine from a PEM string.
-     *
-     * Receives PEM contents and creates a key engine.
-     *
-     * \param[in] drc Key record contents to be populated.
-     *
-     * \param[in] contents The PEM string contents.
-     *
-     * \return A key engine populated with the contents of the PEM string.
-     */
-    void createFromPEMString(DNSKEYRecordContent& drc, const std::string& contents)
-    {
-      // NOLINTNEXTLINE(*-cast): POSIX APIs.
-      unique_ptr<std::FILE, decltype(&std::fclose)> inputFile{fmemopen(const_cast<char*>(contents.data()), contents.length(), "r"), &std::fclose};
-      createFromPEMFile(drc, *inputFile);
-    }
+    throw std::runtime_error("Can't create key from PEM contents");
+  }
 
-    [[nodiscard]] virtual storvector_t convertToISCVector() const =0;
-    [[nodiscard]] std::string convertToISC() const ;
+  /**
+   * \brief Creates a key engine from a PEM string.
+   *
+   * Receives PEM contents and creates a key engine.
+   *
+   * \param[in] drc Key record contents to be populated.
+   *
+   * \param[in] contents The PEM string contents.
+   *
+   * \return A key engine populated with the contents of the PEM string.
+   */
+  void createFromPEMString(DNSKEYRecordContent& drc, const std::string& contents)
+  {
+    // NOLINTNEXTLINE(*-cast): POSIX APIs.
+    unique_ptr<std::FILE, decltype(&std::fclose)> inputFile{fmemopen(const_cast<char*>(contents.data()), contents.length(), "r"), &std::fclose};
+    createFromPEMFile(drc, *inputFile);
+  }
 
-    virtual void convertToPEMFile(std::FILE& /* outputFile */) const
-    {
-      throw std::runtime_error(getName() + ": Conversion to PEM not supported");
-    };
+  [[nodiscard]] virtual storvector_t convertToISCVector() const = 0;
+  [[nodiscard]] std::string convertToISC() const;
 
-    /**
-     * \brief Converts the key into a PEM string.
-     *
-     * \return A string containing the key's PEM contents.
-     */
-    [[nodiscard]] auto convertToPEMString() const -> std::string
-    {
-      const size_t buflen = 4096;
+  virtual void convertToPEMFile(std::FILE& /* outputFile */) const
+  {
+    throw std::runtime_error(getName() + ": Conversion to PEM not supported");
+  };
 
-      std::string output{};
-      output.resize(buflen);
-      unique_ptr<std::FILE, decltype(&std::fclose)> outputFile{fmemopen(output.data(), output.length() - 1, "w"), &std::fclose};
-      convertToPEMFile(*outputFile);
-      std::fflush(outputFile.get());
-      output.resize(std::ftell(outputFile.get()));
+  /**
+   * \brief Converts the key into a PEM string.
+   *
+   * \return A string containing the key's PEM contents.
+   */
+  [[nodiscard]] auto convertToPEMString() const -> std::string
+  {
+    const size_t buflen = 4096;
 
-      return output;
-    };
+    std::string output{};
+    output.resize(buflen);
+    unique_ptr<std::FILE, decltype(&std::fclose)> outputFile{fmemopen(output.data(), output.length() - 1, "w"), &std::fclose};
+    convertToPEMFile(*outputFile);
+    std::fflush(outputFile.get());
+    output.resize(std::ftell(outputFile.get()));
 
-    [[nodiscard]] virtual std::string sign(const std::string& msg) const =0;
+    return output;
+  };
 
-    [[nodiscard]] virtual std::string hash(const std::string& msg) const
-    {
-       throw std::runtime_error("hash() function not implemented");
-       return msg;
-    }
+  [[nodiscard]] virtual std::string sign(const std::string& msg) const = 0;
 
-    [[nodiscard]] virtual bool verify(const std::string& msg, const std::string& signature) const =0;
+  [[nodiscard]] virtual std::string hash(const std::string& msg) const
+  {
+    throw std::runtime_error("hash() function not implemented");
+    return msg;
+  }
 
-    [[nodiscard]] virtual std::string getPublicKeyString()const =0;
-    [[nodiscard]] virtual int getBits() const =0;
-    [[nodiscard]] virtual unsigned int getAlgorithm() const
-    {
-      return d_algorithm;
-    }
+  [[nodiscard]] virtual bool verify(const std::string& msg, const std::string& signature) const = 0;
 
-    virtual void fromISCMap(DNSKEYRecordContent& drc, stormap_t& stormap) = 0;
-    virtual void fromPublicKeyString(const std::string& content) = 0;
+  [[nodiscard]] virtual std::string getPublicKeyString() const = 0;
+  [[nodiscard]] virtual int getBits() const = 0;
+  [[nodiscard]] virtual unsigned int getAlgorithm() const
+  {
+    return d_algorithm;
+  }
 
-    [[nodiscard]] virtual bool checkKey(std::optional<std::reference_wrapper<std::vector<std::string>>> /* errorMessages */ = std::nullopt) const
-    {
-      return true;
-    }
+  virtual void fromISCMap(DNSKEYRecordContent& drc, stormap_t& stormap) = 0;
+  virtual void fromPublicKeyString(const std::string& content) = 0;
 
-    static std::unique_ptr<DNSCryptoKeyEngine> makeFromISCFile(DNSKEYRecordContent& drc, const char* fname);
+  [[nodiscard]] virtual bool checkKey(std::optional<std::reference_wrapper<std::vector<std::string>>> /* errorMessages */ = std::nullopt) const
+  {
+    return true;
+  }
 
-    /**
-     * \brief Creates a key engine from a PEM file.
-     *
-     * Receives an open file handle with PEM contents and creates a key engine
-     * corresponding to the algorithm requested.
-     *
-     * \param[in] drc Key record contents to be populated.
-     *
-     * \param[in] algorithm Which algorithm to use. See
-     * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-     *
-     * \param[in] fp An open file handle to a file containing PEM contents.
-     *
-     * \param[in] filename Only used for providing filename information in error messages.
-     *
-     * \return A key engine corresponding to the requested algorithm and populated with
-     * the contents of the PEM file.
-     */
-    static std::unique_ptr<DNSCryptoKeyEngine> makeFromPEMFile(DNSKEYRecordContent& drc, uint8_t algorithm, std::FILE& inputFile, const std::string& filename);
+  static std::unique_ptr<DNSCryptoKeyEngine> makeFromISCFile(DNSKEYRecordContent& drc, const char* fname);
 
-    /**
-     * \brief Creates a key engine from a PEM string.
-     *
-     * Receives PEM contents and creates a key engine corresponding to the algorithm
-     * requested.
-     *
-     * \param[in] drc Key record contents to be populated.
-     *
-     * \param[in] algorithm Which algorithm to use. See
-     * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-     *
-     * \param[in] contents The PEM contents.
-     *
-     * \return A key engine corresponding to the requested algorithm and populated with
-     * the contents of the PEM string.
-     */
-    static std::unique_ptr<DNSCryptoKeyEngine> makeFromPEMString(DNSKEYRecordContent& drc, uint8_t algorithm, const std::string& contents);
+  /**
+   * \brief Creates a key engine from a PEM file.
+   *
+   * Receives an open file handle with PEM contents and creates a key engine
+   * corresponding to the algorithm requested.
+   *
+   * \param[in] drc Key record contents to be populated.
+   *
+   * \param[in] algorithm Which algorithm to use. See
+   * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+   *
+   * \param[in] fp An open file handle to a file containing PEM contents.
+   *
+   * \param[in] filename Only used for providing filename information in error messages.
+   *
+   * \return A key engine corresponding to the requested algorithm and populated with
+   * the contents of the PEM file.
+   */
+  static std::unique_ptr<DNSCryptoKeyEngine> makeFromPEMFile(DNSKEYRecordContent& drc, uint8_t algorithm, std::FILE& inputFile, const std::string& filename);
 
-    static std::unique_ptr<DNSCryptoKeyEngine> makeFromISCString(DNSKEYRecordContent& drc, const std::string& content);
-    static std::unique_ptr<DNSCryptoKeyEngine> makeFromPublicKeyString(unsigned int algorithm, const std::string& raw);
-    static std::unique_ptr<DNSCryptoKeyEngine> make(unsigned int algorithm);
-    static bool isAlgorithmSupported(unsigned int algo);
-    static bool isAlgorithmSwitchedOff(unsigned int algo);
-    static void switchOffAlgorithm(unsigned int algo);
-    static bool isDigestSupported(uint8_t digest);
+  /**
+   * \brief Creates a key engine from a PEM string.
+   *
+   * Receives PEM contents and creates a key engine corresponding to the algorithm
+   * requested.
+   *
+   * \param[in] drc Key record contents to be populated.
+   *
+   * \param[in] algorithm Which algorithm to use. See
+   * https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+   *
+   * \param[in] contents The PEM contents.
+   *
+   * \return A key engine corresponding to the requested algorithm and populated with
+   * the contents of the PEM string.
+   */
+  static std::unique_ptr<DNSCryptoKeyEngine> makeFromPEMString(DNSKEYRecordContent& drc, uint8_t algorithm, const std::string& contents);
 
-    using maker_t = std::unique_ptr<DNSCryptoKeyEngine> (unsigned int);
+  static std::unique_ptr<DNSCryptoKeyEngine> makeFromISCString(DNSKEYRecordContent& drc, const std::string& content);
+  static std::unique_ptr<DNSCryptoKeyEngine> makeFromPublicKeyString(unsigned int algorithm, const std::string& raw);
+  static std::unique_ptr<DNSCryptoKeyEngine> make(unsigned int algorithm);
+  static bool isAlgorithmSupported(unsigned int algo);
+  static bool isAlgorithmSwitchedOff(unsigned int algo);
+  static void switchOffAlgorithm(unsigned int algo);
+  static bool isDigestSupported(uint8_t digest);
 
-    static void report(unsigned int algorithm, maker_t* maker, bool fallback=false);
-    static void testMakers(unsigned int algorithm, maker_t* creator, maker_t* signer, maker_t* verifier);
-    static vector<pair<uint8_t, string>> listAllAlgosWithBackend();
-    static bool testAll();
-    static bool testOne(int algo);
-    static bool verifyOne(unsigned int algo);
-    static bool testVerify(unsigned int algo, maker_t* verifier);
-    static string listSupportedAlgoNames();
+  using maker_t = std::unique_ptr<DNSCryptoKeyEngine>(unsigned int);
 
-  private:
-    using makers_t = std::map<unsigned int, maker_t *>;
-    using allmakers_t = std::map<unsigned int, vector<maker_t *>>;
-    static makers_t& getMakers()
-    {
-      static makers_t s_makers;
-      return s_makers;
-    }
-    static allmakers_t& getAllMakers()
-    {
-      static allmakers_t s_allmakers;
-      return s_allmakers;
-    }
-    // Must be set before going multi-threaded and not changed after that
-    static std::unordered_set<unsigned int> s_switchedOff;
+  static void report(unsigned int algorithm, maker_t* maker, bool fallback = false);
+  static void testMakers(unsigned int algorithm, maker_t* creator, maker_t* signer, maker_t* verifier);
+  static vector<pair<uint8_t, string>> listAllAlgosWithBackend();
+  static bool testAll();
+  static bool testOne(int algo);
+  static bool verifyOne(unsigned int algo);
+  static bool testVerify(unsigned int algo, maker_t* verifier);
+  static string listSupportedAlgoNames();
 
-  protected:
-    const unsigned int d_algorithm;
+private:
+  using makers_t = std::map<unsigned int, maker_t*>;
+  using allmakers_t = std::map<unsigned int, vector<maker_t*>>;
+  static makers_t& getMakers()
+  {
+    static makers_t s_makers;
+    return s_makers;
+  }
+  static allmakers_t& getAllMakers()
+  {
+    static allmakers_t s_allmakers;
+    return s_allmakers;
+  }
+  // Must be set before going multi-threaded and not changed after that
+  static std::unordered_set<unsigned int> s_switchedOff;
+
+protected:
+  const unsigned int d_algorithm;
 };
 
 struct DNSSECPrivateKey
@@ -252,11 +253,10 @@ private:
   uint8_t d_algorithm{0};
 };
 
-
-
 struct CanonicalCompare
 {
-  bool operator()(const std::string& a, const std::string& b) {
+  bool operator()(const std::string& a, const std::string& b)
+  {
     std::vector<std::string> avect, bvect;
 
     stringtok(avect, a, ".");
@@ -269,10 +269,12 @@ struct CanonicalCompare
   }
 };
 
-struct sharedDNSSECRecordCompare {
-    bool operator() (const shared_ptr<const DNSRecordContent>& a, const shared_ptr<const DNSRecordContent>& b) const {
-      return a->serialize(g_rootdnsname, true, true) < b->serialize(g_rootdnsname, true, true);
-    }
+struct sharedDNSSECRecordCompare
+{
+  bool operator()(const shared_ptr<const DNSRecordContent>& a, const shared_ptr<const DNSRecordContent>& b) const
+  {
+    return a->serialize(g_rootdnsname, true, true) < b->serialize(g_rootdnsname, true, true);
+  }
 };
 
 typedef std::set<std::shared_ptr<const DNSRecordContent>, sharedDNSSECRecordCompare> sortedRecords_t;
@@ -294,6 +296,6 @@ void decrementHash(std::string& raw);
 void addRRSigs(DNSSECKeeper& dk, UeberBackend& db, const std::set<DNSName>& authMap, vector<DNSZoneRecord>& rrs);
 
 void addTSIG(DNSPacketWriter& pw, TSIGRecordContent& trc, const DNSName& tsigkeyname, const string& tsigsecret, const string& tsigprevious, bool timersonly);
-bool validateTSIG(const std::string& packet, size_t sigPos, const TSIGTriplet& tt, const TSIGRecordContent& trc, const std::string& previousMAC, const std::string& theirMAC, bool timersOnly, unsigned int dnsHeaderOffset=0);
+bool validateTSIG(const std::string& packet, size_t sigPos, const TSIGTriplet& tt, const TSIGRecordContent& trc, const std::string& previousMAC, const std::string& theirMAC, bool timersOnly, unsigned int dnsHeaderOffset = 0);
 
 uint64_t signatureCacheSize(const std::string& str);

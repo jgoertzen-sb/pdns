@@ -21,7 +21,8 @@ extern StatBag S;
 
 BOOST_AUTO_TEST_SUITE(test_packetcache_cc)
 
-BOOST_AUTO_TEST_CASE(test_AuthQueryCacheSimple) {
+BOOST_AUTO_TEST_CASE(test_AuthQueryCacheSimple)
+{
   AuthQueryCache QC;
   QC.setMaxEntries(1000000);
 
@@ -33,84 +34,82 @@ BOOST_AUTO_TEST_CASE(test_AuthQueryCacheSimple) {
   BOOST_CHECK_EQUAL(QC.purge(), 1U);
   BOOST_CHECK_EQUAL(QC.size(), 0U);
 
-  uint64_t counter=0;
+  uint64_t counter = 0;
   try {
-    for(counter = 0; counter < 100000; ++counter) {
-      DNSName a=DNSName("hello ")+DNSName(std::to_string(counter));
+    for (counter = 0; counter < 100000; ++counter) {
+      DNSName a = DNSName("hello ") + DNSName(std::to_string(counter));
       BOOST_CHECK_EQUAL(DNSName(a.toString()), a);
 
       QC.insert(a, QType(QType::A), vector<DNSZoneRecord>(records), 3600, 1);
-      if(!QC.purge(a.toString()))
-	BOOST_FAIL("Could not remove entry we just added to the query cache!");
+      if (!QC.purge(a.toString()))
+        BOOST_FAIL("Could not remove entry we just added to the query cache!");
       QC.insert(a, QType(QType::A), vector<DNSZoneRecord>(records), 3600, 1);
     }
 
     BOOST_CHECK_EQUAL(QC.size(), counter);
 
-    uint64_t delcounter=0;
-    for(delcounter=0; delcounter < counter/100; ++delcounter) {
-      DNSName a=DNSName("hello ")+DNSName(std::to_string(delcounter));
+    uint64_t delcounter = 0;
+    for (delcounter = 0; delcounter < counter / 100; ++delcounter) {
+      DNSName a = DNSName("hello ") + DNSName(std::to_string(delcounter));
       BOOST_CHECK_EQUAL(QC.purge(a.toString()), 1U);
     }
 
-    BOOST_CHECK_EQUAL(QC.size(), counter-delcounter);
+    BOOST_CHECK_EQUAL(QC.size(), counter - delcounter);
 
-    int64_t matches=0;
+    int64_t matches = 0;
     vector<DNSZoneRecord> entry;
-    int64_t expected=counter-delcounter;
-    for(; delcounter < counter; ++delcounter) {
-      if(QC.getEntry(DNSName("hello ")+DNSName(std::to_string(delcounter)), QType(QType::A), entry, 1)) {
-	matches++;
+    int64_t expected = counter - delcounter;
+    for (; delcounter < counter; ++delcounter) {
+      if (QC.getEntry(DNSName("hello ") + DNSName(std::to_string(delcounter)), QType(QType::A), entry, 1)) {
+        matches++;
       }
     }
     BOOST_CHECK_EQUAL(matches, expected);
     BOOST_CHECK_EQUAL(entry.size(), records.size());
   }
-  catch(PDNSException& e) {
-    cerr<<"Had error: "<<e.reason<<endl;
+  catch (PDNSException& e) {
+    cerr << "Had error: " << e.reason << endl;
     throw;
   }
-
 }
 
 static AuthQueryCache* g_QC;
 static AtomicCounter g_QCmissing;
 
 static void threadQCMangler(unsigned int offset)
-try
-{
+try {
   vector<DNSZoneRecord> records;
-  for(unsigned int counter=0; counter < 100000; ++counter)
-    g_QC->insert(DNSName("hello ")+DNSName(std::to_string(counter+offset)), QType(QType::A), vector<DNSZoneRecord>(records), 3600, 1);
+  for (unsigned int counter = 0; counter < 100000; ++counter)
+    g_QC->insert(DNSName("hello ") + DNSName(std::to_string(counter + offset)), QType(QType::A), vector<DNSZoneRecord>(records), 3600, 1);
 }
- catch(PDNSException& e) {
-   cerr<<"Had error: "<<e.reason<<endl;
-   throw;
- }
-
-static void threadQCReader(unsigned int offset)
-try
-{
-  vector<DNSZoneRecord> entry;
-  for(unsigned int counter=0; counter < 100000; ++counter)
-    if(!g_QC->getEntry(DNSName("hello ")+DNSName(std::to_string(counter+offset)), QType(QType::A), entry, 1)) {
-      g_QCmissing++;
-    }
-}
-catch(PDNSException& e) {
-  cerr<<"Had error in threadQCReader: "<<e.reason<<endl;
+catch (PDNSException& e) {
+  cerr << "Had error: " << e.reason << endl;
   throw;
 }
 
-BOOST_AUTO_TEST_CASE(test_QueryCacheThreaded) {
+static void threadQCReader(unsigned int offset)
+try {
+  vector<DNSZoneRecord> entry;
+  for (unsigned int counter = 0; counter < 100000; ++counter)
+    if (!g_QC->getEntry(DNSName("hello ") + DNSName(std::to_string(counter + offset)), QType(QType::A), entry, 1)) {
+      g_QCmissing++;
+    }
+}
+catch (PDNSException& e) {
+  cerr << "Had error in threadQCReader: " << e.reason << endl;
+  throw;
+}
+
+BOOST_AUTO_TEST_CASE(test_QueryCacheThreaded)
+{
   try {
     g_QCmissing = 0;
     AuthQueryCache QC;
     QC.setMaxEntries(1000000);
-    g_QC=&QC;
+    g_QC = &QC;
     std::vector<std::thread> manglers;
-    for (int i=0; i < 4; ++i) {
-      manglers.push_back(std::thread(threadQCMangler, i*1000000UL));
+    for (int i = 0; i < 4; ++i) {
+      manglers.push_back(std::thread(threadQCMangler, i * 1000000UL));
     }
 
     for (auto& t : manglers) {
@@ -119,11 +118,11 @@ BOOST_AUTO_TEST_CASE(test_QueryCacheThreaded) {
     manglers.clear();
 
     BOOST_CHECK_EQUAL(QC.size() + S.read("deferred-cache-inserts"), 400000U);
-    BOOST_CHECK_SMALL(1.0*S.read("deferred-cache-inserts"), 10000.0);
+    BOOST_CHECK_SMALL(1.0 * S.read("deferred-cache-inserts"), 10000.0);
 
     std::vector<std::thread> readers;
-    for (int i=0; i < 4; ++i) {
-      readers.push_back(std::thread(threadQCReader, i*1000000UL));
+    for (int i = 0; i < 4; ++i) {
+      readers.push_back(std::thread(threadQCReader, i * 1000000UL));
     }
 
     for (auto& t : readers) {
@@ -134,22 +133,20 @@ BOOST_AUTO_TEST_CASE(test_QueryCacheThreaded) {
     BOOST_CHECK(S.read("deferred-cache-inserts") + S.read("deferred-cache-lookup") >= g_QCmissing);
     //    BOOST_CHECK_EQUAL(S.read("deferred-cache-lookup"), 0); // cache cleaning invalidates this
   }
-  catch(PDNSException& e) {
-    cerr<<"Had error: "<<e.reason<<endl;
+  catch (PDNSException& e) {
+    cerr << "Had error: " << e.reason << endl;
     throw;
   }
-
 }
 
 static AuthPacketCache* g_PC;
 static AtomicCounter g_PCmissing;
 
 static void threadPCMangler(unsigned int offset)
-try
-{
-  for(unsigned int counter=0; counter < 100000; ++counter) {
+try {
+  for (unsigned int counter = 0; counter < 100000; ++counter) {
     vector<uint8_t> pak;
-    DNSName qname = DNSName("hello ")+DNSName(std::to_string(counter+offset));
+    DNSName qname = DNSName("hello ") + DNSName(std::to_string(counter + offset));
 
     DNSPacketWriter pw(pak, qname, QType::A);
     DNSPacket q(true);
@@ -174,45 +171,45 @@ try
     g_PC->insert(q, r, maxTTL);
   }
 }
- catch(PDNSException& e) {
-   cerr<<"Had error: "<<e.reason<<endl;
-   throw;
- }
+catch (PDNSException& e) {
+  cerr << "Had error: " << e.reason << endl;
+  throw;
+}
 
 static void threadPCReader(unsigned int offset)
-try
-{
+try {
   vector<DNSZoneRecord> entry;
-  for(unsigned int counter=0; counter < 100000; ++counter) {
+  for (unsigned int counter = 0; counter < 100000; ++counter) {
     vector<uint8_t> pak;
-    DNSName qname = DNSName("hello ")+DNSName(std::to_string(counter+offset));
+    DNSName qname = DNSName("hello ") + DNSName(std::to_string(counter + offset));
 
     DNSPacketWriter pw(pak, qname, QType::A);
     DNSPacket q(true);
     q.parse((char*)&pak[0], pak.size());
     DNSPacket r(false);
 
-    if(!g_PC->get(q, r)) {
+    if (!g_PC->get(q, r)) {
       g_PCmissing++;
     }
   }
 }
-catch(PDNSException& e) {
-  cerr<<"Had error in threadPCReader: "<<e.reason<<endl;
+catch (PDNSException& e) {
+  cerr << "Had error in threadPCReader: " << e.reason << endl;
   throw;
 }
 
-BOOST_AUTO_TEST_CASE(test_PacketCacheThreaded) {
+BOOST_AUTO_TEST_CASE(test_PacketCacheThreaded)
+{
   try {
     AuthPacketCache PC;
     PC.setMaxEntries(1000000);
     PC.setTTL(3600);
 
-    g_PC=&PC;
+    g_PC = &PC;
     g_PCmissing = 0;
     std::vector<std::thread> manglers;
-    for (int i=0; i < 4; ++i) {
-      manglers.push_back(std::thread(threadPCMangler, i*1000000UL));
+    for (int i = 0; i < 4; ++i) {
+      manglers.push_back(std::thread(threadPCMangler, i * 1000000UL));
     }
 
     for (auto& t : manglers) {
@@ -222,11 +219,11 @@ BOOST_AUTO_TEST_CASE(test_PacketCacheThreaded) {
 
     BOOST_CHECK_EQUAL(PC.size() + S.read("deferred-packetcache-inserts"), 400000UL);
     BOOST_CHECK_EQUAL(S.read("deferred-packetcache-lookup"), 0UL);
-    BOOST_CHECK_SMALL(1.0*S.read("deferred-packetcache-inserts"), 10000.0);
+    BOOST_CHECK_SMALL(1.0 * S.read("deferred-packetcache-inserts"), 10000.0);
 
     std::vector<std::thread> readers;
-    for (int i=0; i < 4; ++i) {
-      readers.push_back(std::thread(threadPCReader, i*1000000UL));
+    for (int i = 0; i < 4; ++i) {
+      readers.push_back(std::thread(threadPCReader, i * 1000000UL));
     }
 
     for (auto& t : readers) {
@@ -234,79 +231,79 @@ BOOST_AUTO_TEST_CASE(test_PacketCacheThreaded) {
     }
     readers.clear();
 
-/*
-    cerr<<"Misses: "<<S.read("packetcache-miss")<<endl;
-    cerr<<"Hits: "<<S.read("packetcache-hit")<<endl;
-    cerr<<"Deferred inserts: "<<S.read("deferred-packetcache-inserts")<<endl;
-    cerr<<"Deferred lookups: "<<S.read("deferred-packetcache-lookup")<<endl;
-    cerr<<g_PCmissing<<endl;
-    cerr<<PC.size()<<endl;
-*/
+    /*
+        cerr<<"Misses: "<<S.read("packetcache-miss")<<endl;
+        cerr<<"Hits: "<<S.read("packetcache-hit")<<endl;
+        cerr<<"Deferred inserts: "<<S.read("deferred-packetcache-inserts")<<endl;
+        cerr<<"Deferred lookups: "<<S.read("deferred-packetcache-lookup")<<endl;
+        cerr<<g_PCmissing<<endl;
+        cerr<<PC.size()<<endl;
+    */
 
     BOOST_CHECK_EQUAL(g_PCmissing + S.read("packetcache-hit"), 400000UL);
     BOOST_CHECK_EQUAL(S.read("deferred-packetcache-inserts") + S.read("deferred-packetcache-lookup"), g_PCmissing);
   }
-  catch(PDNSException& e) {
-    cerr<<"Had error: "<<e.reason<<endl;
+  catch (PDNSException& e) {
+    cerr << "Had error: " << e.reason << endl;
     throw;
   }
-
 }
 
 bool g_stopCleaning;
 static void cacheCleaner()
-try
-{
-  while(!g_stopCleaning) {
+try {
+  while (!g_stopCleaning) {
     g_QC->cleanup();
   }
 }
-catch(PDNSException& e) {
-  cerr<<"Had error in cacheCleaner: "<<e.reason<<endl;
+catch (PDNSException& e) {
+  cerr << "Had error in cacheCleaner: " << e.reason << endl;
   throw;
 }
 
-BOOST_AUTO_TEST_CASE(test_QueryCacheClean) {
+BOOST_AUTO_TEST_CASE(test_QueryCacheClean)
+{
   try {
     AuthQueryCache QC;
     QC.setMaxEntries(10000);
     vector<DNSZoneRecord> records;
 
-    for(unsigned int counter = 0; counter < 1000000; ++counter) {
-      QC.insert(DNSName("hello ")+DNSName(std::to_string(counter)), QType(QType::A), vector<DNSZoneRecord>(records), 1, 1);
+    for (unsigned int counter = 0; counter < 1000000; ++counter) {
+      QC.insert(DNSName("hello ") + DNSName(std::to_string(counter)), QType(QType::A), vector<DNSZoneRecord>(records), 1, 1);
     }
 
     sleep(1);
 
-    g_QC=&QC;
+    g_QC = &QC;
     std::vector<std::thread> readers;
-    for (int i=0; i < 4; ++i) {
+    for (int i = 0; i < 4; ++i) {
       if (i < 3) {
-        readers.push_back(std::thread(threadQCReader, i*1000000UL));
+        readers.push_back(std::thread(threadQCReader, i * 1000000UL));
       }
       else {
         readers.push_back(std::thread(cacheCleaner));
       }
     }
 
-    for (int i = 0; i < 3 ; ++i) {
+    for (int i = 0; i < 3; ++i) {
       readers.at(i).join();
     }
 
-    g_stopCleaning=true;
+    g_stopCleaning = true;
     readers.at(3).join();
 
     readers.clear();
   }
-  catch(PDNSException& e) {
-    cerr<<"Had error in test_QueryCacheClean: "<<e.reason<<endl;
+  catch (PDNSException& e) {
+    cerr << "Had error in test_QueryCacheClean: " << e.reason << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_AuthPacketCache) {
+BOOST_AUTO_TEST_CASE(test_AuthPacketCache)
+{
   try {
-    ::arg().setSwitch("no-shuffle","Set this to prevent random shuffling of answers - for regression testing")="off";
+    ::arg().setSwitch("no-shuffle", "Set this to prevent random shuffling of answers - for regression testing") = "off";
 
     AuthPacketCache PC;
     PC.setTTL(20);
@@ -476,8 +473,8 @@ BOOST_AUTO_TEST_CASE(test_AuthPacketCache) {
     BOOST_CHECK_EQUAL(PC.purge("www.powerdns.com$"), 1U);
     BOOST_CHECK_EQUAL(PC.size(), 0U);
   }
-  catch(PDNSException& e) {
-    cerr<<"Had error in AuthPacketCache: "<<e.reason<<endl;
+  catch (PDNSException& e) {
+    cerr << "Had error in AuthPacketCache: " << e.reason << endl;
     throw;
   }
 }

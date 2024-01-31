@@ -53,17 +53,17 @@ using namespace json11;
 StatBag S;
 static int g_numRecords;
 
-static Json::object emitRecord(const DNSName &DNSqname, const string &qtype, const string &ocontent, int ttl)
+static Json::object emitRecord(const DNSName& DNSqname, const string& qtype, const string& ocontent, int ttl)
 {
-  int prio=0;
+  int prio = 0;
   string retval;
   g_numRecords++;
   string content(ocontent);
-  if(qtype == "MX" || qtype == "SRV") {
+  if (qtype == "MX" || qtype == "SRV") {
     pdns::checked_stoi_into(prio, content);
 
     string::size_type pos = content.find_first_not_of("0123456789");
-    if(pos != string::npos)
+    if (pos != string::npos)
       boost::erase_head(content, pos);
     boost::trim_left(content);
   }
@@ -83,159 +83,159 @@ static Json::object emitRecord(const DNSName &DNSqname, const string &qtype, con
    1 further mode: --mysql
 */
 
-ArgvMap &arg()
+ArgvMap& arg()
 {
   static ArgvMap theArg;
   return theArg;
 }
 
-
-int main(int argc, char **argv)
-try
-{
+int main(int argc, char** argv)
+try {
   vector<string> lines;
 
-    reportAllTypes();
-    std::ios_base::sync_with_stdio(false);
+  reportAllTypes();
+  std::ios_base::sync_with_stdio(false);
 
-    ::arg().setSwitch("verbose","Verbose comments on operation")="no";
-    ::arg().setSwitch("on-error-resume-next","Continue after errors")="no";
-    ::arg().set("zone","Zonefile to parse")="";
-    ::arg().set("zone-name","Specify an $ORIGIN in case it is not present")="";
-    ::arg().set("named-conf","Bind 8/9 named.conf to parse")="";
-    ::arg().set("max-generate-steps", "Maximum number of $GENERATE steps when loading a zone from a file")="0";
-    ::arg().set("max-include-depth", "Maximum level of nested $INCLUDE depth when loading a zone from a file")="20";
+  ::arg().setSwitch("verbose", "Verbose comments on operation") = "no";
+  ::arg().setSwitch("on-error-resume-next", "Continue after errors") = "no";
+  ::arg().set("zone", "Zonefile to parse") = "";
+  ::arg().set("zone-name", "Specify an $ORIGIN in case it is not present") = "";
+  ::arg().set("named-conf", "Bind 8/9 named.conf to parse") = "";
+  ::arg().set("max-generate-steps", "Maximum number of $GENERATE steps when loading a zone from a file") = "0";
+  ::arg().set("max-include-depth", "Maximum level of nested $INCLUDE depth when loading a zone from a file") = "20";
 
-    ::arg().setCmd("help","Provide a helpful message");
-    ::arg().setCmd("version","Print the version");
+  ::arg().setCmd("help", "Provide a helpful message");
+  ::arg().setCmd("version", "Print the version");
 
-    S.declare("logmessages");
+  S.declare("logmessages");
 
-    string namedfile="";
-    string zonefile="";
+  string namedfile = "";
+  string zonefile = "";
 
-    ::arg().parse(argc, argv);
+  ::arg().parse(argc, argv);
 
-    if(::arg().mustDo("version")){
-      cerr<<"zone2json "<<VERSION<<endl;
-      exit(0);
-    }
+  if (::arg().mustDo("version")) {
+    cerr << "zone2json " << VERSION << endl;
+    exit(0);
+  }
 
-    if(::arg().mustDo("help")) {
-      cout<<"syntax:"<<endl<<endl;
-      cout<<::arg().helpstring()<<endl;
-      exit(0);
-    }
+  if (::arg().mustDo("help")) {
+    cout << "syntax:" << endl
+         << endl;
+    cout << ::arg().helpstring() << endl;
+    exit(0);
+  }
 
-    if(argc<2) {
-      cerr<<"syntax:"<<endl<<endl;
-      cerr<<::arg().helpstring()<<endl;
-      exit(1);
-    }
+  if (argc < 2) {
+    cerr << "syntax:" << endl
+         << endl;
+    cerr << ::arg().helpstring() << endl;
+    exit(1);
+  }
 
-    namedfile=::arg()["named-conf"];
-    zonefile=::arg()["zone"];
+  namedfile = ::arg()["named-conf"];
+  zonefile = ::arg()["zone"];
 
-    int count=0, num_domainsdone=0;
+  int count = 0, num_domainsdone = 0;
 
-    if(zonefile.empty()) {
-      BindParser BP;
-      BP.setVerbose(::arg().mustDo("verbose"));
-      BP.parse(namedfile.empty() ? "./named.conf" : namedfile);
+  if (zonefile.empty()) {
+    BindParser BP;
+    BP.setVerbose(::arg().mustDo("verbose"));
+    BP.parse(namedfile.empty() ? "./named.conf" : namedfile);
 
-      vector<BindDomainInfo> domains=BP.getDomains();
-      struct stat st;
-      for(auto & domain : domains) {
-        if(stat(domain.filename.c_str(), &st) == 0) {
-          domain.d_dev = st.st_dev;
-          domain.d_ino = st.st_ino;
-        }
+    vector<BindDomainInfo> domains = BP.getDomains();
+    struct stat st;
+    for (auto& domain : domains) {
+      if (stat(domain.filename.c_str(), &st) == 0) {
+        domain.d_dev = st.st_dev;
+        domain.d_ino = st.st_ino;
       }
-
-      sort(domains.begin(), domains.end()); // put stuff in inode order
-
-      int numdomains=domains.size();
-      int tick=numdomains/100;
-      cout << "[";
-
-      for(vector<BindDomainInfo>::const_iterator i=domains.begin();
-          i!=domains.end();
-          ++i)
-        {
-        if (i->type != "primary" && i->type != "secondary" && !i->type.empty() && i->type != "master" && i->type != "slave") {
-          cerr << " Warning! Skipping '" << i->type << "' zone '" << i->name << "'" << endl;
-          continue;
-        }
-          lines.clear();
-          try {
-            Json::object obj;
-            Json::array recs;
-            ZoneParserTNG zpt(i->filename, i->name, BP.getDirectory());
-            zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
-            zpt.setMaxIncludes(::arg().asNum("max-include-depth"));
-            DNSResourceRecord rr;
-            obj["name"] = i->name.toString();
-
-            while(zpt.get(rr))
-              recs.push_back(emitRecord(rr.qname, rr.qtype.toString(), rr.content, rr.ttl));
-            obj["records"] = recs;
-            Json tmp = obj;
-            cout<<tmp.dump();
-            if(i+1 < domains.end()) cout<<",";
-            num_domainsdone++;
-          }
-          catch(std::exception &ae) {
-            if(!::arg().mustDo("on-error-resume-next"))
-              throw;
-            else
-              cerr<<endl<<ae.what()<<endl;
-          }
-          catch(PDNSException &ae) {
-            if(!::arg().mustDo("on-error-resume-next"))
-              throw;
-            else
-              cerr<<ae.reason<<endl;
-          }
-          if(!tick || !((count++)%tick))
-            cerr<<"\r"<<count*100/numdomains<<"% done ("<<i->filename<<")\033\133\113";
-        }
-      cout << "]" << endl;
-      cerr<<"\r100% done\033\133\113"<<endl;
     }
-    else {
-      ZoneParserTNG zpt(zonefile, DNSName(::arg()["zone-name"]));
-      zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
-      DNSResourceRecord rr;
-      string zname;
-      Json::object obj;
-      Json::array records;
 
-      obj["name"] = ::arg()["zone-name"];
+    sort(domains.begin(), domains.end()); // put stuff in inode order
 
-      while(zpt.get(rr))
-        records.push_back(emitRecord(rr.qname, rr.qtype.toString(), rr.content, rr.ttl));
-      obj["records"] = records;
+    int numdomains = domains.size();
+    int tick = numdomains / 100;
+    cout << "[";
 
-      Json tmp = obj;
+    for (vector<BindDomainInfo>::const_iterator i = domains.begin();
+         i != domains.end();
+         ++i) {
+      if (i->type != "primary" && i->type != "secondary" && !i->type.empty() && i->type != "master" && i->type != "slave") {
+        cerr << " Warning! Skipping '" << i->type << "' zone '" << i->name << "'" << endl;
+        continue;
+      }
+      lines.clear();
+      try {
+        Json::object obj;
+        Json::array recs;
+        ZoneParserTNG zpt(i->filename, i->name, BP.getDirectory());
+        zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
+        zpt.setMaxIncludes(::arg().asNum("max-include-depth"));
+        DNSResourceRecord rr;
+        obj["name"] = i->name.toString();
 
-      cout<<tmp.dump()<<endl;
-
-      num_domainsdone=1;
+        while (zpt.get(rr))
+          recs.push_back(emitRecord(rr.qname, rr.qtype.toString(), rr.content, rr.ttl));
+        obj["records"] = recs;
+        Json tmp = obj;
+        cout << tmp.dump();
+        if (i + 1 < domains.end())
+          cout << ",";
+        num_domainsdone++;
+      }
+      catch (std::exception& ae) {
+        if (!::arg().mustDo("on-error-resume-next"))
+          throw;
+        else
+          cerr << endl
+               << ae.what() << endl;
+      }
+      catch (PDNSException& ae) {
+        if (!::arg().mustDo("on-error-resume-next"))
+          throw;
+        else
+          cerr << ae.reason << endl;
+      }
+      if (!tick || !((count++) % tick))
+        cerr << "\r" << count * 100 / numdomains << "% done (" << i->filename << ")\033\133\113";
     }
-    cerr<<num_domainsdone<<" domains were fully parsed, containing "<<g_numRecords<<" records\n";
+    cout << "]" << endl;
+    cerr << "\r100% done\033\133\113" << endl;
+  }
+  else {
+    ZoneParserTNG zpt(zonefile, DNSName(::arg()["zone-name"]));
+    zpt.setMaxGenerateSteps(::arg().asNum("max-generate-steps"));
+    DNSResourceRecord rr;
+    string zname;
+    Json::object obj;
+    Json::array records;
+
+    obj["name"] = ::arg()["zone-name"];
+
+    while (zpt.get(rr))
+      records.push_back(emitRecord(rr.qname, rr.qtype.toString(), rr.content, rr.ttl));
+    obj["records"] = records;
+
+    Json tmp = obj;
+
+    cout << tmp.dump() << endl;
+
+    num_domainsdone = 1;
+  }
+  cerr << num_domainsdone << " domains were fully parsed, containing " << g_numRecords << " records\n";
 
   return 0;
-
 }
-catch(PDNSException &ae) {
-  cerr<<"\nFatal error: "<<ae.reason<<endl;
+catch (PDNSException& ae) {
+  cerr << "\nFatal error: " << ae.reason << endl;
   return 1;
 }
-catch(std::exception &e) {
-  cerr<<"\ndied because of STL error: "<<e.what()<<endl;
+catch (std::exception& e) {
+  cerr << "\ndied because of STL error: " << e.what() << endl;
   return 1;
 }
-catch(...) {
-  cerr<<"\ndied because of unknown exception"<<endl;
+catch (...) {
+  cerr << "\ndied because of unknown exception" << endl;
   return 1;
 }

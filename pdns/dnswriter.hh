@@ -30,7 +30,6 @@
 #include "svc-records.hh"
 #include <arpa/inet.h>
 
-
 /** this class can be used to write DNS packets. It knows about DNS in the sense that it makes
     the packet header and record headers.
 
@@ -57,20 +56,21 @@
 
 */
 
-template <typename Container> class GenericDNSPacketWriter : public boost::noncopyable
+template <typename Container>
+class GenericDNSPacketWriter : public boost::noncopyable
 {
 
 public:
   //! Start a DNS Packet in the vector passed, with question qname, qtype and qclass
-  GenericDNSPacketWriter(Container& content, const DNSName& qname, uint16_t  qtype, uint16_t qclass=QClass::IN, uint8_t opcode=0);
+  GenericDNSPacketWriter(Container& content, const DNSName& qname, uint16_t qtype, uint16_t qclass = QClass::IN, uint8_t opcode = 0);
 
   /** Start a new DNS record within this packet for name, qtype, ttl, class and in the requested place. Note that packets can only be written in natural order -
       ANSWER, AUTHORITY, ADDITIONAL */
-  void startRecord(const DNSName& name, uint16_t qtype, uint32_t ttl=3600, uint16_t qclass=QClass::IN, DNSResourceRecord::Place place=DNSResourceRecord::ANSWER, bool compress=true);
+  void startRecord(const DNSName& name, uint16_t qtype, uint32_t ttl = 3600, uint16_t qclass = QClass::IN, DNSResourceRecord::Place place = DNSResourceRecord::ANSWER, bool compress = true);
 
   /** Shorthand way to add an Opt-record, for example for EDNS0 purposes */
-  using optvect_t = vector<pair<uint16_t,std::string> >;
-  void addOpt(const uint16_t udpsize, const uint16_t extRCode, const uint16_t ednsFlags, const optvect_t& options=optvect_t(), const uint8_t version=0);
+  using optvect_t = vector<pair<uint16_t, std::string>>;
+  void addOpt(const uint16_t udpsize, const uint16_t extRCode, const uint16_t ednsFlags, const optvect_t& options = optvect_t(), const uint8_t version = 0);
 
   /** needs to be called after the last record is added, but can be called again and again later on. Is called internally by startRecord too.
       The content of the vector<> passed to the constructor is inconsistent until commit is called.
@@ -99,21 +99,23 @@ public:
   }
   void xfrIP6(const std::string& val)
   {
-    xfrBlob(val,16);
+    xfrBlob(val, 16);
   }
 
-  void xfrCAWithoutPort(uint8_t version, const ComboAddress &val)
+  void xfrCAWithoutPort(uint8_t version, const ComboAddress& val)
   {
-    if (version == 4) xfrIP(val.sin4.sin_addr.s_addr);
+    if (version == 4)
+      xfrIP(val.sin4.sin_addr.s_addr);
     else if (version == 6) {
       string blob;
       blob.assign((const char*)val.sin6.sin6_addr.s6_addr, 16);
       xfrBlob(blob, 16);
     }
-    else throw runtime_error("invalid IP protocol");
+    else
+      throw runtime_error("invalid IP protocol");
   }
 
-  void xfrCAPort(const ComboAddress &val)
+  void xfrCAPort(const ComboAddress& val)
   {
     uint16_t port;
     port = val.sin4.sin_port;
@@ -127,26 +129,26 @@ public:
 
   void xfr8BitInt(uint8_t val);
 
-  void xfrName(const DNSName& label, bool compress=false, bool noDot=false);
-  void xfrText(const string& text, bool multi=false, bool lenField=true);
+  void xfrName(const DNSName& label, bool compress = false, bool noDot = false);
+  void xfrText(const string& text, bool multi = false, bool lenField = true);
   void xfrUnquotedText(const string& text, bool lenField);
-  void xfrBlob(const string& blob, int len=-1);
+  void xfrBlob(const string& blob, int len = -1);
   void xfrBlob(const vector<uint8_t>& blob);
   void xfrSvcParamKeyVals(const set<SvcParam>& kvs);
-  void xfrBlobNoSpaces(const string& blob, int len=-1);
-  void xfrHexBlob(const string& blob, bool keepReading=false);
+  void xfrBlobNoSpaces(const string& blob, int len = -1);
+  void xfrHexBlob(const string& blob, bool keepReading = false);
 
   dnsheader* getHeader();
   void getRecordPayload(string& records); // call __before commit__
 
   void setCanonic(bool val)
   {
-    d_canonic=val;
+    d_canonic = val;
   }
 
   void setLowercase(bool val)
   {
-    d_lowerCase=val;
+    d_lowerCase = val;
   }
   Container& getContent()
   {
@@ -154,7 +156,8 @@ public:
   }
   bool eof() { return true; } // we don't know how long the record should be
 
-  const string getRemaining() const {
+  const string getRemaining() const
+  {
     return "";
   }
 
@@ -177,6 +180,6 @@ private:
 
 using DNSPacketWriter = GenericDNSPacketWriter<std::vector<uint8_t>>;
 
-typedef vector<pair<string::size_type, string::size_type> > labelparts_t;
+typedef vector<pair<string::size_type, string::size_type>> labelparts_t;
 // bool labeltokUnescape(labelparts_t& parts, const DNSName& label);
 std::vector<string> segmentDNSText(const string& text); // from dnslabeltext.rl

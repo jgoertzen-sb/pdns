@@ -37,7 +37,7 @@ void DNSCryptPrivateKey::loadFromFile(const std::string& keyFile)
 {
   ifstream file(keyFile);
   sodium_memzero(key, sizeof(key));
-  file.read((char*) key, sizeof(key));
+  file.read((char*)key, sizeof(key));
 
   if (file.fail()) {
     sodium_memzero(key, sizeof(key));
@@ -123,16 +123,18 @@ DNSCryptQuery::~DNSCryptQuery()
 }
 #endif /* HAVE_CRYPTO_BOX_EASY_AFTERNM */
 
-
-DNSCryptContext::~DNSCryptContext() {
+DNSCryptContext::~DNSCryptContext()
+{
 }
 
-DNSCryptContext::DNSCryptContext(const std::string& pName, const std::vector<CertKeyPaths>& certKeys): d_certKeyPaths(certKeys), providerName(pName)
+DNSCryptContext::DNSCryptContext(const std::string& pName, const std::vector<CertKeyPaths>& certKeys) :
+  d_certKeyPaths(certKeys), providerName(pName)
 {
   reloadCertificates();
 }
 
-DNSCryptContext::DNSCryptContext(const std::string& pName, const DNSCryptCert& certificate, const DNSCryptPrivateKey& pKey): providerName(pName)
+DNSCryptContext::DNSCryptContext(const std::string& pName, const DNSCryptCert& certificate, const DNSCryptPrivateKey& pKey) :
+  providerName(pName)
 {
   addNewCertificate(certificate, pKey);
 }
@@ -151,9 +153,8 @@ std::string DNSCryptContext::getProviderFingerprint(unsigned char publicKey[DNSC
   boost::format fmt("%02X%02X");
   ostringstream ret;
 
-  for (size_t idx = 0; idx < DNSCRYPT_PROVIDER_PUBLIC_KEY_SIZE; idx += 2)
-  {
-    ret << (fmt % static_cast<int>(publicKey[idx]) % static_cast<int>(publicKey[idx+1]));
+  for (size_t idx = 0; idx < DNSCRYPT_PROVIDER_PUBLIC_KEY_SIZE; idx += 2) {
+    ret << (fmt % static_cast<int>(publicKey[idx]) % static_cast<int>(publicKey[idx + 1]));
     if (idx < (DNSCRYPT_PROVIDER_PUBLIC_KEY_SIZE - 2)) {
       ret << ":";
     }
@@ -162,15 +163,15 @@ std::string DNSCryptContext::getProviderFingerprint(unsigned char publicKey[DNSC
   return ret.str();
 }
 
-void DNSCryptContext::setExchangeVersion(const DNSCryptExchangeVersion& version,  unsigned char esVersion[sizeof(DNSCryptCert::esVersion)])
+void DNSCryptContext::setExchangeVersion(const DNSCryptExchangeVersion& version, unsigned char esVersion[sizeof(DNSCryptCert::esVersion)])
 {
   esVersion[0] = 0x00;
 
   if (version == DNSCryptExchangeVersion::VERSION1) {
-    esVersion[1] = { 0x01 };
+    esVersion[1] = {0x01};
   }
   else if (version == DNSCryptExchangeVersion::VERSION2) {
-    esVersion[1] = { 0x02 };
+    esVersion[1] = {0x02};
   }
   else {
     throw std::runtime_error("Unknown DNSCrypt exchange version");
@@ -198,7 +199,6 @@ DNSCryptExchangeVersion DNSCryptContext::getExchangeVersion(const DNSCryptCert& 
   return getExchangeVersion(cert.esVersion);
 }
 
-
 void DNSCryptContext::generateCertificate(uint32_t serial, time_t begin, time_t end, const DNSCryptExchangeVersion& version, const unsigned char providerPrivateKey[DNSCRYPT_PROVIDER_PRIVATE_KEY_SIZE], DNSCryptPrivateKey& privateKey, DNSCryptCert& cert)
 {
   unsigned char magic[DNSCRYPT_CERT_MAGIC_SIZE] = DNSCRYPT_CERT_MAGIC_VALUE;
@@ -216,15 +216,15 @@ void DNSCryptContext::generateCertificate(uint32_t serial, time_t begin, time_t 
   memcpy(cert.signedData.clientMagic, pubK, sizeof(cert.signedData.clientMagic));
   cert.signedData.serial = htonl(serial);
   // coverity[store_truncates_time_t]
-  cert.signedData.tsStart = htonl((uint32_t) begin);
+  cert.signedData.tsStart = htonl((uint32_t)begin);
   // coverity[store_truncates_time_t]
-  cert.signedData.tsEnd = htonl((uint32_t) end);
+  cert.signedData.tsEnd = htonl((uint32_t)end);
 
   unsigned long long signatureSize = 0;
 
   int res = crypto_sign_ed25519(cert.signature,
                                 &signatureSize,
-                                (unsigned char*) &cert.signedData,
+                                (unsigned char*)&cert.signedData,
                                 sizeof(cert.signedData),
                                 providerPrivateKey);
 
@@ -236,10 +236,10 @@ void DNSCryptContext::generateCertificate(uint32_t serial, time_t begin, time_t 
   }
 }
 
-void DNSCryptContext::loadCertFromFile(const std::string&filename, DNSCryptCert& dest)
+void DNSCryptContext::loadCertFromFile(const std::string& filename, DNSCryptCert& dest)
 {
   ifstream file(filename);
-  file.read((char *) &dest, sizeof(dest));
+  file.read((char*)&dest, sizeof(dest));
 
   if (file.fail())
     throw std::runtime_error("Invalid dnscrypt certificate file " + filename);
@@ -247,10 +247,10 @@ void DNSCryptContext::loadCertFromFile(const std::string&filename, DNSCryptCert&
   file.close();
 }
 
-void DNSCryptContext::saveCertFromFile(const DNSCryptCert& cert, const std::string&filename)
+void DNSCryptContext::saveCertFromFile(const DNSCryptCert& cert, const std::string& filename)
 {
   ofstream file(filename);
-  file.write(reinterpret_cast<const char *>(&cert), sizeof(cert));
+  file.write(reinterpret_cast<const char*>(&cert), sizeof(cert));
   file.close();
 }
 
@@ -343,13 +343,14 @@ void DNSCryptContext::reloadCertificates()
       newCerts.push_back(DNSCryptContext::loadCertificatePair(pair.cert, pair.key));
     }
   }
-    
+
   {
     *(d_certs.write_lock()) = std::move(newCerts);
   }
 }
 
-std::vector<std::shared_ptr<DNSCryptCertificatePair>> DNSCryptContext::getCertificates() {
+std::vector<std::shared_ptr<DNSCryptCertificatePair>> DNSCryptContext::getCertificates()
+{
   std::vector<std::shared_ptr<DNSCryptCertificatePair>> ret = *(d_certs.read_lock());
   return ret;
 };
@@ -380,11 +381,12 @@ void DNSCryptContext::removeInactiveCertificate(uint32_t serial)
 {
   auto certs = d_certs.write_lock();
 
-  for (auto it = certs->begin(); it != certs->end(); ) {
+  for (auto it = certs->begin(); it != certs->end();) {
     if ((*it)->active == false && (*it)->cert.getSerial() == serial) {
       it = certs->erase(it);
       return;
-    } else {
+    }
+    else {
       it++;
     }
   }
@@ -429,7 +431,7 @@ bool DNSCryptQuery::parsePlaintextQuery(const PacketBuffer& packet)
 void DNSCryptContext::getCertificateResponse(time_t now, const DNSName& qname, uint16_t qid, PacketBuffer& response)
 {
   GenericDNSPacketWriter<PacketBuffer> pw(response, qname, QType::TXT, QClass::IN, Opcode::Query);
-  struct dnsheader * dh = pw.getHeader();
+  struct dnsheader* dh = pw.getHeader();
   dh->id = qid;
   dh->qr = true;
   dh->rcode = RCode::NoError;
@@ -443,8 +445,8 @@ void DNSCryptContext::getCertificateResponse(time_t now, const DNSName& qname, u
     pw.startRecord(qname, QType::TXT, (DNSCRYPT_CERTIFICATE_RESPONSE_TTL), QClass::IN, DNSResourceRecord::ANSWER, true);
     std::string scert;
     uint8_t certSize = sizeof(pair->cert);
-    scert.assign((const char*) &certSize, sizeof(certSize));
-    scert.append((const char*) &pair->cert, certSize);
+    scert.assign((const char*)&certSize, sizeof(certSize));
+    scert.append((const char*)&pair->cert, certSize);
 
     pw.xfrBlob(scert);
     pw.commit();
@@ -507,7 +509,7 @@ void DNSCryptQuery::getDecrypted(bool tcp, PacketBuffer& packet)
 #endif
 
   unsigned char nonce[DNSCRYPT_NONCE_SIZE];
-  static_assert(sizeof(nonce) == (2* sizeof(d_header.clientNonce)), "Nonce should be larger than clientNonce (half)");
+  static_assert(sizeof(nonce) == (2 * sizeof(d_header.clientNonce)), "Nonce should be larger than clientNonce (half)");
   static_assert(sizeof(d_header.clientPK) == DNSCRYPT_PUBLIC_KEY_SIZE, "Client Public key size is not right");
   static_assert(sizeof(d_pair->privateKey.key) == DNSCRYPT_PRIVATE_KEY_SIZE, "Private key size is not right");
 
@@ -540,7 +542,8 @@ void DNSCryptQuery::getDecrypted(bool tcp, PacketBuffer& packet)
 #else /* HAVE_CRYPTO_BOX_CURVE25519XCHACHA20POLY1305_EASY */
     res = -1;
 #endif /* HAVE_CRYPTO_BOX_CURVE25519XCHACHA20POLY1305_EASY */
-  } else {
+  }
+  else {
     res = -1;
   }
 
@@ -563,7 +566,8 @@ void DNSCryptQuery::getDecrypted(bool tcp, PacketBuffer& packet)
   assert(pos < packet.size());
   d_paddedLen = decryptedQueryLen;
 
-  while (pos > 0 && packet.at(pos - 1) == 0) pos--;
+  while (pos > 0 && packet.at(pos - 1) == 0)
+    pos--;
 
   if (pos == 0 || packet.at(pos - 1) != 0x80) {
     vinfolog("Dropping encrypted query with invalid padding value");
@@ -608,8 +612,7 @@ void DNSCryptQuery::fillServerNonce(unsigned char* nonce) const
   uint32_t* dest = reinterpret_cast<uint32_t*>(nonce);
   static const size_t nonceSize = DNSCRYPT_NONCE_SIZE / 2;
 
-  for (size_t pos = 0; pos < (nonceSize / sizeof(*dest)); pos++)
-  {
+  for (size_t pos = 0; pos < (nonceSize / sizeof(*dest)); pos++) {
     const uint32_t value = randombytes_random();
     memcpy(dest + pos, &value, sizeof(value));
   }
@@ -630,7 +633,7 @@ uint16_t DNSCryptQuery::computePaddingSize(uint16_t unpaddedLen, size_t maxLen) 
   unsigned char nonce[DNSCRYPT_NONCE_SIZE];
   memcpy(nonce, d_header.clientNonce, (DNSCRYPT_NONCE_SIZE / 2));
   memcpy(&(nonce[DNSCRYPT_NONCE_SIZE / 2]), d_header.clientNonce, (DNSCRYPT_NONCE_SIZE / 2));
-  crypto_stream((unsigned char*) &rnd, sizeof(rnd), nonce, d_pair->privateKey.key);
+  crypto_stream((unsigned char*)&rnd, sizeof(rnd), nonce, d_pair->privateKey.key);
 
   paddedSize = unpaddedLen + rnd % (maxLen - unpaddedLen + 1);
   paddedSize += DNSCRYPT_PADDED_BLOCK_SIZE - (paddedSize % DNSCRYPT_PADDED_BLOCK_SIZE);
@@ -851,7 +854,7 @@ bool generateDNSCryptCertificate(const std::string& providerPrivateKeyFile, uint
 
   try {
     ifstream providerKStream(providerPrivateKeyFile);
-    providerKStream.read((char*) providerPrivateKey, sizeof(providerPrivateKey));
+    providerKStream.read((char*)providerPrivateKey, sizeof(providerPrivateKey));
     if (providerKStream.fail()) {
       providerKStream.close();
       throw std::runtime_error("Invalid DNSCrypt provider key file " + providerPrivateKeyFile);
@@ -860,7 +863,7 @@ bool generateDNSCryptCertificate(const std::string& providerPrivateKeyFile, uint
     DNSCryptContext::generateCertificate(serial, begin, end, version, providerPrivateKey, keyOut, certOut);
     success = true;
   }
-  catch(const std::exception& e) {
+  catch (const std::exception& e) {
     errlog(e.what());
   }
 

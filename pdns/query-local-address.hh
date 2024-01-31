@@ -23,37 +23,38 @@
 
 #include "iputils.hh"
 
-namespace pdns {
-  /*! pick a random query local address for family
-   *
-   * Will always return a ComboAddress.
-   *
-   * @param family Address Family, only AF_INET and AF_INET6 are supported
-   * @param port   Port to set in the returned ComboAddress
-   */
-  ComboAddress getQueryLocalAddress(const sa_family_t family, const in_port_t port);
+namespace pdns
+{
+/*! pick a random query local address for family
+ *
+ * Will always return a ComboAddress.
+ *
+ * @param family Address Family, only AF_INET and AF_INET6 are supported
+ * @param port   Port to set in the returned ComboAddress
+ */
+ComboAddress getQueryLocalAddress(const sa_family_t family, const in_port_t port);
 
-  /*! Returns a non-Any address QLA, or an empty QLA when the QLA is any
-   *
-   * @param family  Address Family
-   */
-  ComboAddress getNonAnyQueryLocalAddress(const sa_family_t family);
+/*! Returns a non-Any address QLA, or an empty QLA when the QLA is any
+ *
+ * @param family  Address Family
+ */
+ComboAddress getNonAnyQueryLocalAddress(const sa_family_t family);
 
-  /*! Populate the query local address vectors
-   *
-   * Will throw when an address can't be parsed
-   *
-   * @param qla  A string of one or more ip addresses, separated by
-   *             spaces, semi-colons or commas
-   */
-  void parseQueryLocalAddress(const std::string &qla);
+/*! Populate the query local address vectors
+ *
+ * Will throw when an address can't be parsed
+ *
+ * @param qla  A string of one or more ip addresses, separated by
+ *             spaces, semi-colons or commas
+ */
+void parseQueryLocalAddress(const std::string& qla);
 
-  /*! Is the address family explicitly enabled
-   *
-   * i.e. was there an address parsed by parseQueryLocalAddress belonging
-   * to this family
-   *
-   * @param family  Address Family, only AF_INET and AF_INET6 are supported
-   */
-  bool isQueryLocalAddressFamilyEnabled(const sa_family_t family);
+/*! Is the address family explicitly enabled
+ *
+ * i.e. was there an address parsed by parseQueryLocalAddress belonging
+ * to this family
+ *
+ * @param family  Address Family, only AF_INET and AF_INET6 are supported
+ */
+bool isQueryLocalAddressFamilyEnabled(const sa_family_t family);
 } // namespace pdns

@@ -48,8 +48,8 @@ bool CircularWriteBuffer::flush(int fd)
 
   struct iovec iov[2];
   int pos = 0;
-  for(const auto& arr : {arr1, arr2}) {
-    if(arr.second) {
+  for (const auto& arr : {arr1, arr2}) {
+    if (arr.second) {
       iov[pos].iov_base = arr.first;
       iov[pos].iov_len = arr.second;
       ++pos;
@@ -80,8 +80,7 @@ bool CircularWriteBuffer::flush(int fd)
       d_buffer.clear();
       throw std::runtime_error("EOF");
     }
-  }
-  while (res < 0);
+  } while (res < 0);
 
   if (static_cast<size_t>(res) == d_buffer.size()) {
     d_buffer.clear();
@@ -97,18 +96,18 @@ bool CircularWriteBuffer::flush(int fd)
 
 const std::string& RemoteLoggerInterface::toErrorString(Result r)
 {
-  static const std::array<std::string,5> str = {
+  static const std::array<std::string, 5> str = {
     "Queued",
     "Queue full, dropping",
     "Not sending too large protobuf message",
     "Submiting to queue failed",
-    "?"
-  };
+    "?"};
   auto i = static_cast<unsigned int>(r);
   return str[std::min(i, 4U)];
 }
 
-RemoteLogger::RemoteLogger(const ComboAddress& remote, uint16_t timeout, uint64_t maxQueuedBytes, uint8_t reconnectWaitTime, bool asyncConnect): d_remote(remote), d_timeout(timeout), d_reconnectWaitTime(reconnectWaitTime), d_asyncConnect(asyncConnect), d_runtime({CircularWriteBuffer(maxQueuedBytes), nullptr})
+RemoteLogger::RemoteLogger(const ComboAddress& remote, uint16_t timeout, uint64_t maxQueuedBytes, uint8_t reconnectWaitTime, bool asyncConnect) :
+  d_remote(remote), d_timeout(timeout), d_reconnectWaitTime(reconnectWaitTime), d_asyncConnect(asyncConnect), d_runtime({CircularWriteBuffer(maxQueuedBytes), nullptr})
 {
   if (!d_asyncConnect) {
     reconnect();
@@ -133,7 +132,7 @@ bool RemoteLogger::reconnect()
   }
   catch (const std::exception& e) {
 #ifdef WE_ARE_RECURSOR
-    SLOG(g_log<<Logger::Warning<<"Error connecting to remote logger "<<d_remote.toStringWithPort()<<": "<<e.what()<<std::endl,
+    SLOG(g_log << Logger::Warning << "Error connecting to remote logger " << d_remote.toStringWithPort() << ": " << e.what() << std::endl,
          g_slog->withName("protobuf")->error(Logr::Error, e.what(), "Exception while connecting to remote logger", "address", Logging::Loggable(d_remote)));
 #else
     warnlog("Error connecting to remote logger %s: %s", d_remote.toStringWithPort(), e.what());
@@ -174,7 +173,7 @@ RemoteLoggerInterface::Result RemoteLogger::queueData(const std::string& data)
         return Result::PipeFull;
       }
     }
-    catch(const std::exception& e) {
+    catch (const std::exception& e) {
       //      cout << "Got exception writing: "<<e.what()<<endl;
       runtime->d_socket.reset();
       ++runtime->d_stats.d_otherError;
@@ -187,7 +186,7 @@ RemoteLoggerInterface::Result RemoteLogger::queueData(const std::string& data)
   return Result::Queued;
 }
 
-void RemoteLogger::maintenanceThread() 
+void RemoteLogger::maintenanceThread()
 {
   try {
 #ifdef WE_ARE_RECURSOR
@@ -237,8 +236,7 @@ void RemoteLogger::maintenanceThread()
       sleep(d_reconnectWaitTime);
     }
   }
-  catch (const std::exception& e)
-  {
+  catch (const std::exception& e) {
     SLOG(cerr << "Remote Logger's maintenance thread died on: " << e.what() << endl,
          g_slog->withName("protobuf")->error(Logr::Error, e.what(), "Remote Logger's maintenance thread died"));
   }
@@ -254,4 +252,3 @@ RemoteLogger::~RemoteLogger()
 
   d_thread.join();
 }
-

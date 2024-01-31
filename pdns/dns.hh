@@ -25,14 +25,27 @@
 #include <ctime>
 #include <sys/types.h>
 
-#undef BADSIG  // signal.h SIG_ERR
+#undef BADSIG // signal.h SIG_ERR
 
 struct DNSRecord;
 
 class RCode
 {
 public:
-  enum rcodes_ : uint8_t { NoError=0, FormErr=1, ServFail=2, NXDomain=3, NotImp=4, Refused=5, YXDomain=6, YXRRSet=7, NXRRSet=8, NotAuth=9, NotZone=10};
+  enum rcodes_ : uint8_t
+  {
+    NoError = 0,
+    FormErr = 1,
+    ServFail = 2,
+    NXDomain = 3,
+    NotImp = 4,
+    Refused = 5,
+    YXDomain = 6,
+    YXRRSet = 7,
+    NXRRSet = 8,
+    NotAuth = 9,
+    NotZone = 10
+  };
   static std::string to_s(uint8_t rcode);
   static std::string to_short_s(uint8_t rcode);
   const static std::array<std::string, 24> rcodes_s;
@@ -41,14 +54,32 @@ public:
 class ERCode
 {
 public:
-  enum rcodes_ : uint16_t { BADVERS=16, BADSIG=16, BADKEY=17, BADTIME=18, BADMODE=19, BADNAME=20, BADALG=21, BADTRUNC=22, BADCOOKIE=23 };
+  enum rcodes_ : uint16_t
+  {
+    BADVERS = 16,
+    BADSIG = 16,
+    BADKEY = 17,
+    BADTIME = 18,
+    BADMODE = 19,
+    BADNAME = 20,
+    BADALG = 21,
+    BADTRUNC = 22,
+    BADCOOKIE = 23
+  };
   static std::string to_s(uint16_t rcode);
 };
 
 class Opcode
 {
 public:
-  enum opcodes_ : uint8_t { Query=0, IQuery=1, Status=2, Notify=4, Update=5 };
+  enum opcodes_ : uint8_t
+  {
+    Query = 0,
+    IQuery = 1,
+    Status = 2,
+    Notify = 4,
+    Update = 5
+  };
   static std::string to_s(uint8_t opcode);
 };
 
@@ -125,72 +156,59 @@ static_assert(sizeof(EDNS0Record) == 4, "EDNS0Record size must be 4");
 #if defined(__FreeBSD__) || defined(__APPLE__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
 #include <machine/endian.h>
 #elif __linux__ || __GNU__
-# include <endian.h>
+#include <endian.h>
 
-#else  // with thanks to <arpa/nameser.h>
+#else // with thanks to <arpa/nameser.h>
 
-# define LITTLE_ENDIAN   1234    /* least-significant byte first (vax, pc) */
-# define BIG_ENDIAN      4321    /* most-significant byte first (IBM, net) */
-# define PDP_ENDIAN      3412    /* LSB first in word, MSW first in long (pdp) */
+#define LITTLE_ENDIAN 1234 /* least-significant byte first (vax, pc) */
+#define BIG_ENDIAN 4321 /* most-significant byte first (IBM, net) */
+#define PDP_ENDIAN 3412 /* LSB first in word, MSW first in long (pdp) */
 
-#if defined(vax) || defined(ns32000) || defined(sun386) || defined(i386) || \
-        defined(__i386) || defined(__ia64) || defined(__amd64) || \
-        defined(MIPSEL) || defined(_MIPSEL) || defined(BIT_ZERO_ON_RIGHT) || \
-        defined(__alpha__) || defined(__alpha) || \
-        (defined(__Lynx__) && defined(__x86__))
-# define BYTE_ORDER      LITTLE_ENDIAN
+#if defined(vax) || defined(ns32000) || defined(sun386) || defined(i386) || defined(__i386) || defined(__ia64) || defined(__amd64) || defined(MIPSEL) || defined(_MIPSEL) || defined(BIT_ZERO_ON_RIGHT) || defined(__alpha__) || defined(__alpha) || (defined(__Lynx__) && defined(__x86__))
+#define BYTE_ORDER LITTLE_ENDIAN
 #endif
 
-#if defined(sel) || defined(pyr) || defined(mc68000) || defined(sparc) || \
-    defined(__sparc) || \
-    defined(is68k) || defined(tahoe) || defined(ibm032) || defined(ibm370) || \
-    defined(MIPSEB) || defined(_MIPSEB) || defined(_IBMR2) || defined(DGUX) ||\
-    defined(apollo) || defined(__convex__) || defined(_CRAY) || \
-    defined(__hppa) || defined(__hp9000) || \
-    defined(__hp9000s300) || defined(__hp9000s700) || \
-    defined(__hp3000s900) || defined(MPE) || \
-    defined(BIT_ZERO_ON_LEFT) || defined(m68k) || \
-        (defined(__Lynx__) && \
-        (defined(__68k__) || defined(__sparc__) || defined(__powerpc__)))
-# define BYTE_ORDER      BIG_ENDIAN
+#if defined(sel) || defined(pyr) || defined(mc68000) || defined(sparc) || defined(__sparc) || defined(is68k) || defined(tahoe) || defined(ibm032) || defined(ibm370) || defined(MIPSEB) || defined(_MIPSEB) || defined(_IBMR2) || defined(DGUX) || defined(apollo) || defined(__convex__) || defined(_CRAY) || defined(__hppa) || defined(__hp9000) || defined(__hp9000s300) || defined(__hp9000s700) || defined(__hp3000s900) || defined(MPE) || defined(BIT_ZERO_ON_LEFT) || defined(m68k) || (defined(__Lynx__) && (defined(__68k__) || defined(__sparc__) || defined(__powerpc__)))
+#define BYTE_ORDER BIG_ENDIAN
 #endif
 
 #endif
 
-struct dnsheader {
-        uint16_t        id;             /* query identification number */
+struct dnsheader
+{
+  uint16_t id; /* query identification number */
 #if BYTE_ORDER == BIG_ENDIAN
-                        /* fields in third byte */
-        unsigned        qr: 1;          /* response flag */
-        unsigned        opcode: 4;      /* purpose of message */
-        unsigned        aa: 1;          /* authoritative answer */
-        unsigned        tc: 1;          /* truncated message */
-        unsigned        rd: 1;          /* recursion desired */
-                        /* fields in fourth byte */
-        unsigned        ra: 1;          /* recursion available */
-        unsigned        unused :1;      /* unused bits (MBZ as of 4.9.3a3) */
-        unsigned        ad: 1;          /* authentic data from named */
-        unsigned        cd: 1;          /* checking disabled by resolver */
-        unsigned        rcode :4;       /* response code */
+  /* fields in third byte */
+  unsigned qr : 1; /* response flag */
+  unsigned opcode : 4; /* purpose of message */
+  unsigned aa : 1; /* authoritative answer */
+  unsigned tc : 1; /* truncated message */
+  unsigned rd : 1; /* recursion desired */
+  /* fields in fourth byte */
+  unsigned ra : 1; /* recursion available */
+  unsigned unused : 1; /* unused bits (MBZ as of 4.9.3a3) */
+  unsigned ad : 1; /* authentic data from named */
+  unsigned cd : 1; /* checking disabled by resolver */
+  unsigned rcode : 4; /* response code */
 #elif BYTE_ORDER == LITTLE_ENDIAN || BYTE_ORDER == PDP_ENDIAN
-                        /* fields in third byte */
-        unsigned        rd :1;          /* recursion desired */
-        unsigned        tc :1;          /* truncated message */
-        unsigned        aa :1;          /* authoritative answer */
-        unsigned        opcode :4;      /* purpose of message */
-        unsigned        qr :1;          /* response flag */
-                        /* fields in fourth byte */
-        unsigned        rcode :4;       /* response code */
-        unsigned        cd: 1;          /* checking disabled by resolver */
-        unsigned        ad: 1;          /* authentic data from named */
-        unsigned        unused :1;      /* unused bits (MBZ as of 4.9.3a3) */
-        unsigned        ra :1;          /* recursion available */
+  /* fields in third byte */
+  unsigned rd : 1; /* recursion desired */
+  unsigned tc : 1; /* truncated message */
+  unsigned aa : 1; /* authoritative answer */
+  unsigned opcode : 4; /* purpose of message */
+  unsigned qr : 1; /* response flag */
+  /* fields in fourth byte */
+  unsigned rcode : 4; /* response code */
+  unsigned cd : 1; /* checking disabled by resolver */
+  unsigned ad : 1; /* authentic data from named */
+  unsigned unused : 1; /* unused bits (MBZ as of 4.9.3a3) */
+  unsigned ra : 1; /* recursion available */
 #endif
-                        /* remaining bytes */
-        uint16_t        qdcount;        /* number of question entries */
-        uint16_t        ancount;        /* number of answer entries */
-        uint16_t        nscount;        /* number of authority entries */
-        uint16_t        arcount;        /* number of resource entries */
+  /* remaining bytes */
+  uint16_t qdcount; /* number of question entries */
+  uint16_t ancount; /* number of answer entries */
+  uint16_t nscount; /* number of authority entries */
+  uint16_t arcount; /* number of resource entries */
 };
 
 static_assert(sizeof(dnsheader) == 12, "dnsheader size must be 12");
@@ -206,7 +224,7 @@ public:
   dnsheader_aligned(const void* mem)
   {
     if (isMemoryAligned(mem)) {
-      d_p = reinterpret_cast<const dnsheader*>(mem);  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+      d_p = reinterpret_cast<const dnsheader*>(mem); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
     }
     else {
       memcpy(&d_h, mem, sizeof(dnsheader));
@@ -240,7 +258,7 @@ inline uint16_t* getFlagsFromDNSHeader(dnsheader* dh)
   return reinterpret_cast<uint16_t*>(reinterpret_cast<char*>(dh) + sizeof(uint16_t));
 }
 
-inline const uint16_t * getFlagsFromDNSHeader(const dnsheader* dh)
+inline const uint16_t* getFlagsFromDNSHeader(const dnsheader* dh)
 {
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
   return reinterpret_cast<const uint16_t*>(reinterpret_cast<const char*>(dh) + sizeof(uint16_t));

@@ -13,15 +13,23 @@
 #include "circular_buffer.hh"
 #include "lock.hh"
 
-enum class LibsslTLSVersion : uint8_t { Unknown, TLS10, TLS11, TLS12, TLS13 };
+enum class LibsslTLSVersion : uint8_t
+{
+  Unknown,
+  TLS10,
+  TLS11,
+  TLS12,
+  TLS13
+};
 
 struct TLSCertKeyPair
 {
   std::string d_cert;
   std::optional<std::string> d_key;
   std::optional<std::string> d_password;
-  explicit TLSCertKeyPair(const std::string& cert, std::optional<std::string> key = std::nullopt, std::optional<std::string> password = std::nullopt):
-    d_cert(cert), d_key(std::move(key)), d_password(std::move(password)) {
+  explicit TLSCertKeyPair(const std::string& cert, std::optional<std::string> key = std::nullopt, std::optional<std::string> password = std::nullopt) :
+    d_cert(cert), d_key(std::move(key)), d_password(std::move(password))
+  {
   }
 };
 
@@ -124,7 +132,7 @@ public:
 private:
   void addKey(std::shared_ptr<OpenSSLTLSTicketKey>&& newKey);
 
-  SharedLockGuarded<boost::circular_buffer<std::shared_ptr<OpenSSLTLSTicketKey> > > d_ticketKeys;
+  SharedLockGuarded<boost::circular_buffer<std::shared_ptr<OpenSSLTLSTicketKey>>> d_ticketKeys;
 };
 
 void* libssl_get_ticket_key_callback_data(SSL* s);
@@ -152,9 +160,9 @@ bool libssl_set_min_tls_version(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)
 /* return the created context, and a list of warning messages for issues not severe enough
    to trigger raising an exception, like failing to load an OCSP response file */
 std::pair<std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>, std::vector<std::string>> libssl_init_server_context(const TLSConfig& config,
-                                                                                                            std::map<int, std::string>& ocspResponses);
+                                                                                                                  std::map<int, std::string>& ocspResponses);
 
-std::unique_ptr<FILE, int(*)(FILE*)> libssl_set_key_log_file(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>& ctx, const std::string& logFile);
+std::unique_ptr<FILE, int (*)(FILE*)> libssl_set_key_log_file(std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>& ctx, const std::string& logFile);
 
 /* called in a client context, if the client advertised more than one ALPN values and the server returned more than one as well, to select the one to use. */
 #ifndef DISABLE_NPN

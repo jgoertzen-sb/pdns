@@ -57,23 +57,23 @@
 class MOADNSException : public runtime_error
 {
 public:
-  MOADNSException(const string& str) : runtime_error(str)
+  MOADNSException(const string& str) :
+    runtime_error(str)
   {}
 };
-
 
 class MOADNSParser;
 
 class PacketReader
 {
 public:
-  PacketReader(const std::string_view& content, uint16_t initialPos=sizeof(dnsheader))
-    : d_pos(initialPos), d_startrecordpos(initialPos), d_content(content)
+  PacketReader(const std::string_view& content, uint16_t initialPos = sizeof(dnsheader)) :
+    d_pos(initialPos), d_startrecordpos(initialPos), d_content(content)
   {
-    if(content.size() > std::numeric_limits<uint16_t>::max())
+    if (content.size() > std::numeric_limits<uint16_t>::max())
       throw std::out_of_range("packet too large");
 
-    d_recordlen = (uint16_t) content.size();
+    d_recordlen = (uint16_t)content.size();
     not_used = 0;
   }
 
@@ -86,28 +86,34 @@ public:
 
   void xfr32BitInt(uint32_t& val)
   {
-    val=get32BitInt();
+    val = get32BitInt();
   }
 
   void xfrIP(uint32_t& val)
   {
     xfr32BitInt(val);
-    val=htonl(val);
+    val = htonl(val);
   }
 
-  void xfrIP6(std::string &val) {
+  void xfrIP6(std::string& val)
+  {
     xfrBlob(val, 16);
   }
 
-  void xfrCAWithoutPort(uint8_t version, ComboAddress &val) {
+  void xfrCAWithoutPort(uint8_t version, ComboAddress& val)
+  {
     string blob;
-    if (version == 4) xfrBlob(blob, 4);
-    else if (version == 6) xfrBlob(blob, 16);
-    else throw runtime_error("invalid IP protocol");
+    if (version == 4)
+      xfrBlob(blob, 4);
+    else if (version == 6)
+      xfrBlob(blob, 16);
+    else
+      throw runtime_error("invalid IP protocol");
     val = makeComboAddressFromRaw(version, blob);
   }
 
-  void xfrCAPort(ComboAddress &val) {
+  void xfrCAPort(ComboAddress& val)
+  {
     uint16_t port;
     xfr16BitInt(port);
     val.sin4.sin_port = port;
@@ -118,10 +124,9 @@ public:
     xfr32BitInt(val);
   }
 
-
   void xfr16BitInt(uint16_t& val)
   {
-    val=get16BitInt();
+    val = get16BitInt();
   }
 
   void xfrType(uint16_t& val)
@@ -129,10 +134,9 @@ public:
     xfr16BitInt(val);
   }
 
-
   void xfr8BitInt(uint8_t& val)
   {
-    val=get8BitInt();
+    val = get8BitInt();
   }
 
   void xfrName(DNSName& name, bool /* compress */ = false, bool /* noDot */ = false)
@@ -140,22 +144,23 @@ public:
     name = getName();
   }
 
-  void xfrText(string &text, bool multi=false, bool lenField=true)
+  void xfrText(string& text, bool multi = false, bool lenField = true)
   {
-    text=getText(multi, lenField);
+    text = getText(multi, lenField);
   }
 
-  void xfrUnquotedText(string &text, bool lenField){
-    text=getUnquotedText(lenField);
+  void xfrUnquotedText(string& text, bool lenField)
+  {
+    text = getUnquotedText(lenField);
   }
 
   void xfrBlob(string& blob);
   void xfrBlobNoSpaces(string& blob, int len);
   void xfrBlob(string& blob, int length);
-  void xfrHexBlob(string& blob, bool keepReading=false);
-  void xfrSvcParamKeyVals(set<SvcParam> &kvs);
+  void xfrHexBlob(string& blob, bool keepReading = false);
+  void xfrSvcParamKeyVals(set<SvcParam>& kvs);
 
-  void getDnsrecordheader(struct dnsrecordheader &ah);
+  void getDnsrecordheader(struct dnsrecordheader& ah);
   void copyRecord(vector<unsigned char>& dest, uint16_t len);
   void copyRecord(unsigned char* dest, uint16_t len);
 
@@ -163,9 +168,9 @@ public:
   string getText(bool multi, bool lenField);
   string getUnquotedText(bool lenField);
 
-
   bool eof() { return true; };
-  const string getRemaining() const {
+  const string getRemaining() const
+  {
     return "";
   };
 
@@ -182,7 +187,7 @@ public:
 private:
   uint16_t d_pos;
   uint16_t d_startrecordpos; // needed for getBlob later on
-  uint16_t d_recordlen;      // ditto
+  uint16_t d_recordlen; // ditto
   uint16_t not_used; // Aligns the whole class on 8-byte boundaries
   const std::string_view d_content;
 };
@@ -197,18 +202,18 @@ public:
   static std::shared_ptr<DNSRecordContent> make(uint16_t qtype, uint16_t qclass, const string& zone);
   static string upgradeContent(const DNSName& qname, const QType& qtype, const string& content);
 
-  virtual std::string getZoneRepresentation(bool noDot=false) const = 0;
+  virtual std::string getZoneRepresentation(bool noDot = false) const = 0;
   virtual ~DNSRecordContent() = default;
   virtual void toPacket(DNSPacketWriter& pw) const = 0;
   // returns the wire format of the content, possibly including compressed pointers pointing to the owner name (unless canonic or lowerCase are set)
-  string serialize(const DNSName& qname, bool canonic=false, bool lowerCase=false) const
+  string serialize(const DNSName& qname, bool canonic = false, bool lowerCase = false) const
   {
     vector<uint8_t> packet;
     DNSPacketWriter pw(packet, g_rootdnsname, 1);
-    if(canonic)
+    if (canonic)
       pw.setCanonic(true);
 
-    if(lowerCase)
+    if (lowerCase)
       pw.setLowercase(true);
 
     pw.startRecord(qname, this->getType());
@@ -221,23 +226,23 @@ public:
 
   virtual bool operator==(const DNSRecordContent& rhs) const
   {
-    return typeid(*this)==typeid(rhs) && this->getZoneRepresentation() == rhs.getZoneRepresentation();
+    return typeid(*this) == typeid(rhs) && this->getZoneRepresentation() == rhs.getZoneRepresentation();
   }
 
   // parse the content in wire format, possibly including compressed pointers pointing to the owner name
   static shared_ptr<DNSRecordContent> deserialize(const DNSName& qname, uint16_t qtype, const string& serialized);
 
-  void doRecordCheck(const struct DNSRecord&){}
+  void doRecordCheck(const struct DNSRecord&) {}
 
   typedef std::shared_ptr<DNSRecordContent> makerfunc_t(const struct DNSRecord& dr, PacketReader& pr);
   typedef std::shared_ptr<DNSRecordContent> zmakerfunc_t(const string& str);
 
   static void regist(uint16_t cl, uint16_t ty, makerfunc_t* f, zmakerfunc_t* z, const char* name)
   {
-    if(f)
-      getTypemap()[pair(cl,ty)]=f;
-    if(z)
-      getZmakermap()[pair(cl,ty)]=z;
+    if (f)
+      getTypemap()[pair(cl, ty)] = f;
+    if (z)
+      getZmakermap()[pair(cl, ty)] = z;
 
     getT2Namemap().emplace(pair(cl, ty), name);
     getN2Typemap().emplace(name, pair(cl, ty));
@@ -258,22 +263,22 @@ public:
   static uint16_t TypeToNumber(const string& name)
   {
     n2typemap_t::const_iterator iter = getN2Typemap().find(toUpper(name));
-    if(iter != getN2Typemap().end())
+    if (iter != getN2Typemap().end())
       return iter->second.second;
 
     if (isUnknownType(name)) {
       return pdns::checked_stoi<uint16_t>(name.substr(4));
     }
 
-    throw runtime_error("Unknown DNS type '"+name+"'");
+    throw runtime_error("Unknown DNS type '" + name + "'");
   }
 
   static const string NumberToType(uint16_t num, uint16_t classnum = QClass::IN)
   {
     auto iter = getT2Namemap().find(pair(classnum, num));
-    if(iter == getT2Namemap().end())
+    if (iter == getT2Namemap().end())
       return "TYPE" + std::to_string(num);
-      //      throw runtime_error("Unknown DNS type with numerical id "+std::to_string(num));
+    //      throw runtime_error("Unknown DNS type with numerical id "+std::to_string(num));
     return iter->second;
   }
 
@@ -285,10 +290,10 @@ public:
   virtual uint16_t getType() const = 0;
 
 protected:
-  typedef std::map<std::pair<uint16_t, uint16_t>, makerfunc_t* > typemap_t;
-  typedef std::map<std::pair<uint16_t, uint16_t>, zmakerfunc_t* > zmakermap_t;
-  typedef std::map<std::pair<uint16_t, uint16_t>, string > t2namemap_t;
-  typedef std::map<string, std::pair<uint16_t, uint16_t> > n2typemap_t;
+  typedef std::map<std::pair<uint16_t, uint16_t>, makerfunc_t*> typemap_t;
+  typedef std::map<std::pair<uint16_t, uint16_t>, zmakerfunc_t*> zmakermap_t;
+  typedef std::map<std::pair<uint16_t, uint16_t>, string> t2namemap_t;
+  typedef std::map<string, std::pair<uint16_t, uint16_t>> n2typemap_t;
   static typemap_t& getTypemap();
   static t2namemap_t& getT2Namemap();
   static n2typemap_t& getN2Typemap();
@@ -317,8 +322,10 @@ struct DNSRecord
     d_place(place) {}
 
   DNSName d_name;
+
 private:
   std::shared_ptr<const DNSRecordContent> d_content;
+
 public:
   uint16_t d_type{};
   uint16_t d_class{};
@@ -355,17 +362,17 @@ public:
 
   bool operator<(const DNSRecord& rhs) const
   {
-    if(std::tie(d_name, d_type, d_class, d_ttl) < std::tie(rhs.d_name, rhs.d_type, rhs.d_class, rhs.d_ttl))
+    if (std::tie(d_name, d_type, d_class, d_ttl) < std::tie(rhs.d_name, rhs.d_type, rhs.d_class, rhs.d_ttl))
       return true;
 
-    if(std::tie(d_name, d_type, d_class, d_ttl) != std::tie(rhs.d_name, rhs.d_type, rhs.d_class, rhs.d_ttl))
+    if (std::tie(d_name, d_type, d_class, d_ttl) != std::tie(rhs.d_name, rhs.d_type, rhs.d_class, rhs.d_ttl))
       return false;
 
     string lzrp, rzrp;
-    if(d_content)
-      lzrp=toLower(d_content->getZoneRepresentation());
-    if(rhs.d_content)
-      rzrp=toLower(rhs.d_content->getZoneRepresentation());
+    if (d_content)
+      lzrp = toLower(d_content->getZoneRepresentation());
+    if (rhs.d_content)
+      rzrp = toLower(rhs.d_content->getZoneRepresentation());
 
     return lzrp < rzrp;
   }
@@ -376,21 +383,21 @@ public:
     auto aType = (a.d_type == QType::SOA) ? 0 : a.d_type;
     auto bType = (b.d_type == QType::SOA) ? 0 : b.d_type;
 
-    if(a.d_name.canonCompare(b.d_name))
+    if (a.d_name.canonCompare(b.d_name))
       return true;
-    if(b.d_name.canonCompare(a.d_name))
+    if (b.d_name.canonCompare(a.d_name))
       return false;
 
-    if(std::tie(aType, a.d_class, a.d_ttl) < std::tie(bType, b.d_class, b.d_ttl))
+    if (std::tie(aType, a.d_class, a.d_ttl) < std::tie(bType, b.d_class, b.d_ttl))
       return true;
 
-    if(std::tie(aType, a.d_class, a.d_ttl) != std::tie(bType, b.d_class, b.d_ttl))
+    if (std::tie(aType, a.d_class, a.d_ttl) != std::tie(bType, b.d_class, b.d_ttl))
       return false;
 
     string lzrp, rzrp;
-    if(a.d_content)
+    if (a.d_content)
       lzrp = a.d_content->getZoneRepresentation();
-    if(b.d_content)
+    if (b.d_content)
       rzrp = b.d_content->getZoneRepresentation();
 
     switch (a.d_type) {
@@ -429,8 +436,8 @@ struct DNSZoneRecord
 class UnknownRecordContent : public DNSRecordContent
 {
 public:
-  UnknownRecordContent(const DNSRecord& dr, PacketReader& pr)
-    : d_dr(dr)
+  UnknownRecordContent(const DNSRecord& dr, PacketReader& pr) :
+    d_dr(dr)
   {
     pr.copyRecord(d_record, dr.d_clen);
   }
@@ -459,23 +466,25 @@ class MOADNSParser : public boost::noncopyable
 {
 public:
   //! Parse from a string
-  MOADNSParser(bool query, const string& buffer): d_tsigPos(0)
+  MOADNSParser(bool query, const string& buffer) :
+    d_tsigPos(0)
   {
     init(query, buffer);
   }
 
   //! Parse from a pointer and length
-  MOADNSParser(bool query, const char *packet, unsigned int len) : d_tsigPos(0)
+  MOADNSParser(bool query, const char* packet, unsigned int len) :
+    d_tsigPos(0)
   {
     init(query, std::string_view(packet, len));
   }
 
   DNSName d_qname;
   uint16_t d_qclass, d_qtype;
-  //uint8_t d_rcode;
+  // uint8_t d_rcode;
   dnsheader d_header;
 
-  typedef vector<pair<DNSRecord, uint16_t > > answers_t;
+  typedef vector<pair<DNSRecord, uint16_t>> answers_t;
 
   //! All answers contained in this packet (everything *but* the question section)
   answers_t d_answers;
@@ -492,14 +501,14 @@ private:
   uint16_t d_tsigPos;
 };
 
-string simpleCompress(const string& label, const string& root="");
+string simpleCompress(const string& label, const string& root = "");
 void ageDNSPacket(char* packet, size_t length, uint32_t seconds, const dnsheader_aligned&);
 void ageDNSPacket(std::string& packet, uint32_t seconds, const dnsheader_aligned&);
 void editDNSPacketTTL(char* packet, size_t length, const std::function<uint32_t(uint8_t, uint16_t, uint16_t, uint32_t)>& visitor);
 void clearDNSPacketRecordTypes(vector<uint8_t>& packet, const std::unordered_set<QType>& qtypes);
 void clearDNSPacketRecordTypes(PacketBuffer& packet, const std::unordered_set<QType>& qtypes);
 void clearDNSPacketRecordTypes(char* packet, size_t& length, const std::unordered_set<QType>& qtypes);
-uint32_t getDNSPacketMinTTL(const char* packet, size_t length, bool* seenAuthSOA=nullptr);
+uint32_t getDNSPacketMinTTL(const char* packet, size_t length, bool* seenAuthSOA = nullptr);
 uint32_t getDNSPacketLength(const char* packet, size_t length);
 uint16_t getRecordsOfTypeCount(const char* packet, size_t length, uint8_t section, uint16_t type);
 bool getEDNSUDPPayloadSizeAndZ(const char* packet, size_t length, uint16_t* payloadSize, uint16_t* z);
@@ -507,7 +516,7 @@ bool getEDNSUDPPayloadSizeAndZ(const char* packet, size_t length, uint16_t* payl
    to the visitor. Stops whenever the visitor returns false or at the end of the packet */
 bool visitDNSPacket(const std::string_view& packet, const std::function<bool(uint8_t, uint16_t, uint16_t, uint32_t, uint16_t, const char*)>& visitor);
 
-template<typename T>
+template <typename T>
 std::shared_ptr<const T> getRR(const DNSRecord& dr)
 {
   return std::dynamic_pointer_cast<const T>(dr.getContent());
@@ -518,11 +527,11 @@ std::shared_ptr<const T> getRR(const DNSRecord& dr)
 class DNSPacketMangler
 {
 public:
-  explicit DNSPacketMangler(std::string& packet)
-    : d_packet(packet.data()), d_length(packet.length()), d_notyouroffset(12), d_offset(d_notyouroffset)
+  explicit DNSPacketMangler(std::string& packet) :
+    d_packet(packet.data()), d_length(packet.length()), d_notyouroffset(12), d_offset(d_notyouroffset)
   {}
-  DNSPacketMangler(char* packet, size_t length)
-    : d_packet(packet), d_length(length), d_notyouroffset(12), d_offset(d_notyouroffset)
+  DNSPacketMangler(char* packet, size_t length) :
+    d_packet(packet), d_length(length), d_notyouroffset(12), d_offset(d_notyouroffset)
   {}
 
   /*! Advances past a wire-format domain name
@@ -532,8 +541,8 @@ public:
   void skipDomainName()
   {
     uint8_t len;
-    while((len=get8BitInt())) {
-      if(len >= 0xc0) { // extended label
+    while ((len = get8BitInt())) {
+      if (len >= 0xc0) { // extended label
         get8BitInt();
         return;
       }
@@ -581,7 +590,7 @@ public:
 
   void decreaseAndSkip32BitInt(uint32_t decrease)
   {
-    const char *p = d_packet + d_offset;
+    const char* p = d_packet + d_offset;
     moveOffset(4);
 
     uint32_t tmp;
@@ -589,11 +598,12 @@ public:
     tmp = ntohl(tmp);
     if (tmp > decrease) {
       tmp -= decrease;
-    } else {
+    }
+    else {
       tmp = 0;
     }
     tmp = htonl(tmp);
-    memcpy(d_packet + d_offset-4, (const char*)&tmp, sizeof(tmp));
+    memcpy(d_packet + d_offset - 4, (const char*)&tmp, sizeof(tmp));
   }
 
   void setAndSkip32BitInt(uint32_t value)
@@ -601,7 +611,7 @@ public:
     moveOffset(4);
 
     value = htonl(value);
-    memcpy(d_packet + d_offset-4, (const char*)&value, sizeof(value));
+    memcpy(d_packet + d_offset - 4, (const char*)&value, sizeof(value));
   }
 
   uint32_t getOffset() const
@@ -613,25 +623,25 @@ private:
   void moveOffset(uint16_t by)
   {
     d_notyouroffset += by;
-    if(d_notyouroffset > d_length)
-      throw std::out_of_range("dns packet out of range: "+std::to_string(d_notyouroffset) +" > "
-      + std::to_string(d_length) );
+    if (d_notyouroffset > d_length)
+      throw std::out_of_range("dns packet out of range: " + std::to_string(d_notyouroffset) + " > "
+                              + std::to_string(d_length));
   }
 
   void rewindOffset(uint16_t by)
   {
-    if(d_notyouroffset < by)
-      throw std::out_of_range("Rewinding dns packet out of range: "+std::to_string(d_notyouroffset) +" < "
+    if (d_notyouroffset < by)
+      throw std::out_of_range("Rewinding dns packet out of range: " + std::to_string(d_notyouroffset) + " < "
                               + std::to_string(by));
     d_notyouroffset -= by;
-    if(d_notyouroffset < 12)
-      throw std::out_of_range("Rewinding dns packet out of range: "+std::to_string(d_notyouroffset) +" < "
+    if (d_notyouroffset < 12)
+      throw std::out_of_range("Rewinding dns packet out of range: " + std::to_string(d_notyouroffset) + " < "
                               + std::to_string(12));
   }
 
   char* d_packet;
   size_t d_length;
 
-  uint32_t d_notyouroffset;  // only 'moveOffset' can touch this
-  const uint32_t&  d_offset; // look.. but don't touch
+  uint32_t d_notyouroffset; // only 'moveOffset' can touch this
+  const uint32_t& d_offset; // look.. but don't touch
 };

@@ -22,18 +22,19 @@
 -- https://dnsdist.org/guides/carbon.html
 -- carbonServer("37.252.122.50", 'unique-name')
 
--- accept plain DNS (Do53) queries on UDP/5200 and TCP/5200
--- addLocal("127.0.0.1:5200")
+-- accept plain DNS (Do53)
+queries on UDP / 5200 and TCP / 5200 --addLocal("127.0.0.1:5200")
 
--- accept DNSCrypt queries on UDP/8443 and TCP/8443
--- https://dnsdist.org/guides/dnscrypt.html
--- addDNSCryptBind("127.0.0.1:8443", "2.provider.name", "DNSCryptResolver.cert", "DNSCryptResolver.key")
+                            -- accept DNSCrypt queries on UDP
+    / 8443
+  and TCP / 8443 --https : // dnsdist.org/guides/dnscrypt.html
+                           --addDNSCryptBind("127.0.0.1:8443", "2.provider.name", "DNSCryptResolver.cert", "DNSCryptResolver.key")
 
--- accept DNS over TLS (DoT) queries on TCP/9443
--- https://dnsdist.org/guides/dns-over-tls.html
--- addTLSLocal("127.0.0.1:9443", {"server.crt"}, {"server.key"}, { provider="openssl" })
+                             -- accept DNS over TLS(DoT)
+queries on TCP / 9443 --https : // dnsdist.org/guides/dns-over-tls.html
+                                --addTLSLocal("127.0.0.1:9443", {"server.crt"}, {"server.key"}, {provider = "openssl"})
 
--- accept DNS over HTTPS (DoH) queries on TCP/443
+                                  -- accept DNS over HTTPS(DoH) queries on TCP/443
 -- https://dnsdist.org/guides/dns-over-https.html
 -- addDOHLocal("127.0.0.1:443", {"server.crt"}, {"server.key"})
 
@@ -70,44 +71,40 @@
 -- addAction(NetmaskGroupRule("192.0.2.0/24"), PoolAction("abuse"))
 
 -- Refuse incoming AXFR, IXFR, NOTIFY and UPDATE
--- Add trusted sources (slaves, masters) explicitely in front of this rule
--- addAction(OrRule({OpcodeRule(DNSOpcode.Notify), OpcodeRule(DNSOpcode.Update), QTypeRule(DNSQType.AXFR), QTypeRule(DNSQType.IXFR)}), RCodeAction(DNSRCode.REFUSED))
+-- Add trusted sources (slaves, masters)
+explicitely in front of this rule-- addAction(OrRule({OpcodeRule(DNSOpcode.Notify), OpcodeRule(DNSOpcode.Update), QTypeRule(DNSQType.AXFR), QTypeRule(DNSQType.IXFR)}), RCodeAction(DNSRCode.REFUSED))
 
--- == Dynamic Blocks ==
+    --
+  == Dynamic Blocks ==
 
--- define a dynamic block rules group object, set a few limits and apply it
--- see https://dnsdist.org/guides/dynblocks.html for more details
+  --define a dynamic block rules group object,
+  set a few limits and apply it
+  -- see https : // dnsdist.org/guides/dynblocks.html for more details
 
--- local dbr = dynBlockRulesGroup()
--- dbr:setQueryRate(30, 10, "Exceeded query rate", 60)
--- dbr:setRCodeRate(dnsdist.NXDOMAIN, 20, 10, "Exceeded NXD rate", 60)
--- dbr:setRCodeRate(dnsdist.SERVFAIL, 20, 10, "Exceeded ServFail rate", 60)
--- dbr:setQTypeRate(dnsdist.ANY, 5, 10, "Exceeded ANY rate", 60)
--- dbr:setResponseByteRate(10000, 10, "Exceeded resp BW rate", 60)
--- function maintenance()
---  dbr:apply()
--- end
+                 --local dbr
+                 = dynBlockRulesGroup()-- dbr : setQueryRate(30, 10, "Exceeded query rate", 60)-- dbr : setRCodeRate(dnsdist.NXDOMAIN, 20, 10, "Exceeded NXD rate", 60)-- dbr : setRCodeRate(dnsdist.SERVFAIL, 20, 10, "Exceeded ServFail rate", 60)-- dbr : setQTypeRate(dnsdist.ANY, 5, 10, "Exceeded ANY rate", 60)-- dbr : setResponseByteRate(10000, 10, "Exceeded resp BW rate", 60)-- function maintenance()-- dbr : apply()-- end
 
--- == Logging ==
+                                                                                                                                                                                                                                                                                                                                                                                                                            --
+                                                                                                                                                                                                                                                                                                                                                                                                                            == Logging
+                                                                                                                                                                                                                                                                                                                                                                                                                            ==
 
--- connect to a remote protobuf logger and export queries and responses
--- https://dnsdist.org/reference/protobuf.html
--- rl = newRemoteLogger('127.0.0.1:4242')
--- addAction(AllRule(), RemoteLogAction(rl))
--- addResponseAction(AllRule(), RemoteLogResponseAction(rl))
+                                                                                                                                                                                                                                                                                                                                                                                                                            --connect to a remote protobuf logger and export queries and responses
+                                                                                                                                                                                                                                                                                                                                                                                                                            -- https : // dnsdist.org/reference/protobuf.html
+                                                                                                                                                                                                                                                                                                                                                                                                                                       --rl
+                 = newRemoteLogger('127.0.0.1:4242')-- addAction(AllRule(), RemoteLogAction(rl))-- addResponseAction(AllRule(), RemoteLogResponseAction(rl))
 
--- DNSTAP is also supported
--- https://dnsdist.org/reference/dnstap.html
--- fstr = newFrameStreamUnixLogger(/path/to/unix/socket)
--- or
--- fstr = newFrameStreamTcpLogger('192.0.2.1:4242')
--- addAction(AllRule(), DnstapLogAction(fstr))
--- addResponseAction(AllRule(), DnstapLogResponseAction(fstr))
+                   -- DNSTAP is also supported
+                 -- https : // dnsdist.org/reference/dnstap.html
+                            --fstr
+                            = newFrameStreamUnixLogger(/ path / to / unix / socket)-- or --fstr
+                            = newFrameStreamTcpLogger('192.0.2.1:4242')-- addAction(AllRule(), DnstapLogAction(fstr))-- addResponseAction(AllRule(), DnstapLogResponseAction(fstr))
 
--- == Caching ==
+                                --
+                              == Caching ==
 
--- https://dnsdist.org/guides/cache.html
--- create a packet cache of at most 100k entries,
--- and apply it to the default pool
--- pc = newPacketCache(100000)
--- getPool(""):setCache(pc)
+                              --https : // dnsdist.org/guides/cache.html
+                                        --create a packet cache of at most 100k entries,
+  --and apply it to the default pool
+  -- pc
+  = newPacketCache(100000)-- getPool("") :
+  setCache(pc)

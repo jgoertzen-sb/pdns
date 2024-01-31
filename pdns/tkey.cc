@@ -5,10 +5,11 @@
 #include "gss_context.hh"
 #include "auth-main.hh"
 
-void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& r) {
+void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& r)
+{
 #ifdef ENABLE_GSS_TSIG
   if (g_doGssTSIG) {
-    auto [i,a,s] = GssContext::getCounts();
+    auto [i, a, s] = GssContext::getCounts();
     g_log << Logger::Debug << "GSS #init_creds: " << i << " #accept_creds: " << a << " #secctxs: " << s << endl;
   }
 #endif
@@ -21,7 +22,7 @@ void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& 
 #endif
 
   if (!p.getTKEYRecord(&tkey_in, &name)) {
-    g_log<<Logger::Error<<"TKEY request but no TKEY RR found"<<endl;
+    g_log << Logger::Error << "TKEY request but no TKEY RR found" << endl;
     r->setRcode(RCode::FormErr);
     return;
   }
@@ -33,7 +34,7 @@ void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& 
   tkey_out->d_algo = tkey_in.d_algo;
   // coverity[store_truncates_time_t]
   tkey_out->d_inception = inception;
-  tkey_out->d_expiration = tkey_out->d_inception+15;
+  tkey_out->d_expiration = tkey_out->d_inception + 15;
 
   if (tkey_in.d_mode == 3) { // establish context
 #ifdef ENABLE_GSS_TSIG
@@ -42,14 +43,15 @@ void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& 
         std::vector<std::string> meta;
         DNSName tmpName(name);
         do {
-          if (B.getDomainMetadata(tmpName, "GSS-ACCEPTOR-PRINCIPAL", meta) && meta.size()>0) {
+          if (B.getDomainMetadata(tmpName, "GSS-ACCEPTOR-PRINCIPAL", meta) && meta.size() > 0) {
             break;
           }
-        } while(tmpName.chopOff());
+        } while (tmpName.chopOff());
 
         if (meta.size() == 0) {
           tkey_out->d_error = 20;
-        } else {
+        }
+        else {
           GssContext ctx(name);
           ctx.setLocalPrincipal(meta[0]);
           // try to get a context
@@ -61,20 +63,23 @@ void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& 
             sign = true;
           }
         }
-      } else {
+      }
+      else {
         tkey_out->d_error = 21; // BADALGO
       }
-    } else
+    }
+    else
 #endif
-      {
+    {
       tkey_out->d_error = 21; // BADALGO
 #ifdef ENABLE_GSS_TSIG
-      g_log<<Logger::Error<<"GSS-TSIG request but feature not enabled by enable-gss-tsigs setting"<<endl;
+      g_log << Logger::Error << "GSS-TSIG request but feature not enabled by enable-gss-tsigs setting" << endl;
 #else
-      g_log<<Logger::Error<<"GSS-TSIG request but feature not compiled in"<<endl;
+      g_log << Logger::Error << "GSS-TSIG request but feature not compiled in" << endl;
 #endif
     }
-  } else if (tkey_in.d_mode == 5) { // destroy context
+  }
+  else if (tkey_in.d_mode == 5) { // destroy context
     if (p.d_havetsig == false) { // unauthenticated
       if (p.d.opcode == Opcode::Update)
         r->setRcode(RCode::Refused);
@@ -89,7 +94,8 @@ void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& 
     else {
       tkey_out->d_error = 20; // BADNAME (because we have no support for anything here)
     }
-  } else {
+  }
+  else {
     if (p.d_havetsig == false && tkey_in.d_mode != 2) { // unauthenticated
       if (p.d.opcode == Opcode::Update)
         r->setRcode(RCode::Refused);
@@ -114,8 +120,7 @@ void PacketHandler::tkeyHandler(const DNSPacket& p, std::unique_ptr<DNSPacket>& 
   r->addRecord(std::move(zrr));
 
 #ifdef ENABLE_GSS_TSIG
-  if (sign)
-  {
+  if (sign) {
     TSIGRecordContent trc;
     trc.d_algoName = DNSName("gss-tsig");
     trc.d_time = inception;

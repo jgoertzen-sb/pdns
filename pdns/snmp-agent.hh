@@ -29,8 +29,8 @@ public:
   void run()
   {
 #ifdef HAVE_NET_SNMP
-  d_thread = std::thread(&SNMPAgent::worker, this);
-  d_thread.detach();
+    d_thread = std::thread(&SNMPAgent::worker, this);
+    d_thread.detach();
 #endif /* HAVE_NET_SNMP */
   }
 
@@ -43,11 +43,11 @@ protected:
   /* OID for snmpTrapOID.0 */
   static const std::array<oid, 11> snmpTrapOID;
 
-  static bool sendTrap(pdns::channel::Sender<netsnmp_variable_list, void(*)(netsnmp_variable_list*)>& sender,
+  static bool sendTrap(pdns::channel::Sender<netsnmp_variable_list, void (*)(netsnmp_variable_list*)>& sender,
                        netsnmp_variable_list* varList);
 
-  pdns::channel::Sender<netsnmp_variable_list, void(*)(netsnmp_variable_list*)> d_sender;
-  pdns::channel::Receiver<netsnmp_variable_list, void(*)(netsnmp_variable_list*)> d_receiver;
+  pdns::channel::Sender<netsnmp_variable_list, void (*)(netsnmp_variable_list*)> d_sender;
+  pdns::channel::Receiver<netsnmp_variable_list, void (*)(netsnmp_variable_list*)> d_receiver;
 #endif /* HAVE_NET_SNMP */
 private:
   void worker();

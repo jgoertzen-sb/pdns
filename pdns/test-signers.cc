@@ -480,7 +480,7 @@ BOOST_FIXTURE_TEST_CASE(test_generic_signers, Fixture)
 #if defined(HAVE_LIBCRYPTO_PQC)
 BOOST_AUTO_TEST_CASE(test_pqc_signer)
 {
-  //TODO implement proper testing ith default value precomputed
+  // TODO implement proper testing ith default value precomputed
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::FALCON512));
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::DILITHIUM2));
   BOOST_CHECK_EQUAL(true, DNSCryptoKeyEngine::testOne(DNSSECKeeper::SPHINCSSHA256128S));

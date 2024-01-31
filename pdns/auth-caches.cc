@@ -36,7 +36,7 @@ uint64_t purgeAuthCaches()
   return ret;
 }
 
- /* remove specific entries from all caches, can be $ terminated */
+/* remove specific entries from all caches, can be $ terminated */
 uint64_t purgeAuthCaches(const std::string& match)
 {
   uint64_t ret = 0;
@@ -53,6 +53,3 @@ uint64_t purgeAuthCachesExact(const DNSName& qname)
   ret += QC.purgeExact(qname);
   return ret;
 }
-
-
-

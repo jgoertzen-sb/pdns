@@ -100,7 +100,8 @@ const map<const string, uint16_t> QType::names = {
 #endif
 };
 
-static map<uint16_t, const string> swapElements(const map<const string, uint16_t>& names) {
+static map<uint16_t, const string> swapElements(const map<const string, uint16_t>& names)
+{
   map<uint16_t, const string> ret;
 
   for (const auto& n : names) {
@@ -110,7 +111,6 @@ static map<uint16_t, const string> swapElements(const map<const string, uint16_t
 }
 
 const map<uint16_t, const string> QType::numbers = swapElements(names);
-
 
 bool QType::isSupportedType() const
 {
@@ -135,7 +135,7 @@ const string QType::toString() const
   return "TYPE" + std::to_string(code);
 }
 
-uint16_t QType::chartocode(const char *p)
+uint16_t QType::chartocode(const char* p)
 {
   string P = toUpper(p);
 
@@ -154,13 +154,13 @@ uint16_t QType::chartocode(const char *p)
   return 0;
 }
 
-QType &QType::operator=(const char *p)
+QType& QType::operator=(const char* p)
 {
   code = chartocode(p);
   return *this;
 }
 
-QType &QType::operator=(const string &s)
+QType& QType::operator=(const string& s)
 {
   code = chartocode(s.c_str());
   return *this;
@@ -177,7 +177,7 @@ const std::string QClass::toString() const
     return "NONE";
   case ANY:
     return "ANY";
-  default :
+  default:
     return "CLASS" + std::to_string(qclass);
   }
 }

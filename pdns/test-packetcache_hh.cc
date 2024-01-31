@@ -17,15 +17,16 @@
 
 BOOST_AUTO_TEST_SUITE(packetcache_hh)
 
-BOOST_AUTO_TEST_CASE(test_PacketCacheAuthCollision) {
+BOOST_AUTO_TEST_CASE(test_PacketCacheAuthCollision)
+{
 
   /* auth version (ECS is not processed, we just hash the whole query except for the ID, while lowercasing the qname) */
   const DNSName qname("www.powerdns.com.");
   uint16_t qtype = QType::AAAA;
   EDNSSubnetOpts opt;
   DNSPacketWriter::optvect_t ednsOptions;
-  static const std::unordered_set<uint16_t> optionsToSkip{ EDNSOptionCode::COOKIE };
-  static const std::unordered_set<uint16_t> noOptionsToSkip{ };
+  static const std::unordered_set<uint16_t> optionsToSkip{EDNSOptionCode::COOKIE};
+  static const std::unordered_set<uint16_t> noOptionsToSkip{};
 
   {
     /* same query, different IDs */
@@ -249,13 +250,14 @@ BOOST_AUTO_TEST_CASE(test_PacketCacheAuthCollision) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_PacketCacheRecSimple) {
+BOOST_AUTO_TEST_CASE(test_PacketCacheRecSimple)
+{
 
   const DNSName qname("www.powerdns.com.");
   uint16_t qtype = QType::AAAA;
   EDNSSubnetOpts opt;
   DNSPacketWriter::optvect_t ednsOptions;
-  static const std::unordered_set<uint16_t> optionsToSkip{ EDNSOptionCode::COOKIE, EDNSOptionCode::ECS };
+  static const std::unordered_set<uint16_t> optionsToSkip{EDNSOptionCode::COOKIE, EDNSOptionCode::ECS};
 
   {
     vector<uint8_t> packet;
@@ -277,14 +279,15 @@ BOOST_AUTO_TEST_CASE(test_PacketCacheRecSimple) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_PacketCacheRecCollision) {
+BOOST_AUTO_TEST_CASE(test_PacketCacheRecCollision)
+{
 
   /* rec version (ECS is processed, we hash the whole query except for the ID and the ECS value, while lowercasing the qname) */
   const DNSName qname("www.powerdns.com.");
   uint16_t qtype = QType::AAAA;
   EDNSSubnetOpts opt;
   DNSPacketWriter::optvect_t ednsOptions;
-  static const std::unordered_set<uint16_t> optionsToSkip{ EDNSOptionCode::COOKIE, EDNSOptionCode::ECS };
+  static const std::unordered_set<uint16_t> optionsToSkip{EDNSOptionCode::COOKIE, EDNSOptionCode::ECS};
 
   {
     /* same query, different IDs */
@@ -379,7 +382,7 @@ BOOST_AUTO_TEST_CASE(test_PacketCacheRecCollision) {
 
     BOOST_CHECK_EQUAL(hash1, hash2);
     /* the hash is the same but we should _not_ match, even though we skip the ECS part, because the cookies are different */
-    static const std::unordered_set<uint16_t> skipECSOnly{ EDNSOptionCode::ECS };
+    static const std::unordered_set<uint16_t> skipECSOnly{EDNSOptionCode::ECS};
     BOOST_CHECK(!PacketCache::queryMatches(spacket1, spacket2, qname, skipECSOnly));
 
     /* we do match if we skip the cookie as well */
