@@ -53,10 +53,7 @@
 #include "dnsdist-cache.hh"
 #include "dnsdist-carbon.hh"
 #include "dnsdist-console.hh"
-<<<<<<< HEAD
-=======
 #include "dnsdist-crypto.hh"
->>>>>>> upstream/master
 #include "dnsdist-discovery.hh"
 #include "dnsdist-dnsparser.hh"
 #include "dnsdist-dynblocks.hh"
@@ -338,11 +335,7 @@ static void doLatencyStats(dnsdist::Protocol protocol, double udiff)
   }
 }
 
-<<<<<<< HEAD
-bool responseContentMatches(const PacketBuffer& response, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const std::shared_ptr<DownstreamState>& remote, unsigned int& qnameWireLength)
-=======
 bool responseContentMatches(const PacketBuffer& response, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const std::shared_ptr<DownstreamState>& remote)
->>>>>>> upstream/master
 {
   if (response.size() < sizeof(dnsheader)) {
     return false;
@@ -378,11 +371,7 @@ bool responseContentMatches(const PacketBuffer& response, const DNSName& qname, 
   }
   catch (const std::exception& e) {
     if (remote && response.size() > 0 && static_cast<size_t>(response.size()) > sizeof(dnsheader)) {
-<<<<<<< HEAD
-      vinfolog("Backend %s sent us a response with id %d that did not parse: %s", remote->d_config.remote.toStringWithPort(), ntohs(dh->id), e.what());
-=======
       infolog("Backend %s sent us a response with id %d that did not parse: %s", remote->d_config.remote.toStringWithPort(), ntohs(dh->id), e.what());
->>>>>>> upstream/master
     }
     ++dnsdist::metrics::g_stats.nonCompliantResponses;
     if (remote) {
@@ -758,13 +747,7 @@ static void handleResponseForUDPClient(InternalQueryState& ids, PacketBuffer& re
   }
 
   bool muted = true;
-<<<<<<< HEAD
-  if (ids.cs && !ids.cs->muted) {
-    ComboAddress empty;
-    empty.sin4.sin_family = 0;
-=======
   if (ids.cs != nullptr && !ids.cs->muted && !ids.isXSK()) {
->>>>>>> upstream/master
     sendUDPResponse(ids.cs->udpFD, response, dr.ids.delayMsec, ids.hopLocal, ids.hopRemote);
     muted = false;
   }
@@ -775,16 +758,12 @@ static void handleResponseForUDPClient(InternalQueryState& ids, PacketBuffer& re
       vinfolog("Got answer from %s, relayed to %s (UDP), took %f us", ds->d_config.remote.toStringWithPort(), ids.origRemote.toStringWithPort(), udiff);
     }
     else {
-<<<<<<< HEAD
-      vinfolog("Got answer from %s, NOT relayed to %s (UDP) since that frontend is muted, took %f us", ds->d_config.remote.toStringWithPort(), ids.origRemote.toStringWithPort(), udiff);
-=======
       if (!ids.isXSK()) {
         vinfolog("Got answer from %s, NOT relayed to %s (UDP) since that frontend is muted, took %f us", ds->d_config.remote.toStringWithPort(), ids.origRemote.toStringWithPort(), udiff);
       }
       else {
         vinfolog("Got answer from %s, relayed to %s (UDP via XSK), took %f us", ds->d_config.remote.toStringWithPort(), ids.origRemote.toStringWithPort(), udiff);
       }
->>>>>>> upstream/master
     }
 
     handleResponseSent(ids, udiff, dr.ids.origRemote, ds->d_config.remote, response.size(), cleartextDH, ds->getProtocol(), true);
@@ -792,8 +771,6 @@ static void handleResponseForUDPClient(InternalQueryState& ids, PacketBuffer& re
   else {
     handleResponseSent(ids, 0., dr.ids.origRemote, ComboAddress(), response.size(), cleartextDH, dnsdist::Protocol::DoUDP, false);
   }
-<<<<<<< HEAD
-=======
 }
 
 bool processResponderPacket(std::shared_ptr<DownstreamState>& dss, PacketBuffer& response, const std::vector<DNSDistResponseRuleAction>& localRespRuleActions, const std::vector<DNSDistResponseRuleAction>& cacheInsertedRespRuleActions, InternalQueryState&& ids)
@@ -830,7 +807,6 @@ bool processResponderPacket(std::shared_ptr<DownstreamState>& dss, PacketBuffer&
 
   handleResponseForUDPClient(ids, response, localRespRuleActions, cacheInsertedRespRuleActions, dss, false, false);
   return true;
->>>>>>> upstream/master
 }
 
 // listens on a dedicated socket, lobs answers from downstream servers to original requestors
@@ -872,11 +848,7 @@ void responderThread(std::shared_ptr<DownstreamState> dss)
 
       for (const auto& fd : sockets) {
         /* allocate one more byte so we can detect truncation */
-<<<<<<< HEAD
-        // NOLINTNEXTLINE(bugprone-use-after-move): resizing a vector has no preconditions so it is valid to do so after moving it 
-=======
         // NOLINTNEXTLINE(bugprone-use-after-move): resizing a vector has no preconditions so it is valid to do so after moving it
->>>>>>> upstream/master
         response.resize(initialBufferSize + 1);
         ssize_t got = recv(fd, response.data(), response.size(), 0);
 
@@ -889,50 +861,14 @@ void responderThread(std::shared_ptr<DownstreamState> dss)
         }
 
         response.resize(static_cast<size_t>(got));
-<<<<<<< HEAD
-        const dnsheader_aligned dh(response.data());
-        queryId = dh->id;
-=======
         const dnsheader_aligned dnsHeader(response.data());
         queryId = dnsHeader->id;
->>>>>>> upstream/master
 
         auto ids = dss->getState(queryId);
         if (!ids) {
           continue;
         }
 
-<<<<<<< HEAD
-        unsigned int qnameWireLength = 0;
-        if (fd != ids->backendFD || !responseContentMatches(response, ids->qname, ids->qtype, ids->qclass, dss, qnameWireLength)) {
-          dss->restoreState(queryId, std::move(*ids));
-          continue;
-        }
-
-        auto du = std::move(ids->du);
-
-        dnsdist::PacketMangling::editDNSHeaderFromPacket(response, [&ids](dnsheader& header) {
-          header.id = ids->origID;
-          return true;
-        });
-        ++dss->responses;
-
-        double udiff = ids->queryRealTime.udiff();
-        // do that _before_ the processing, otherwise it's not fair to the backend
-        dss->latencyUsec = (127.0 * dss->latencyUsec / 128.0) + udiff / 128.0;
-        dss->reportResponse(dh->rcode);
-
-        /* don't call processResponse for DOH */
-        if (du) {
-#ifdef HAVE_DNS_OVER_HTTPS
-          // DoH query, we cannot touch du after that
-          DOHUnitInterface::handleUDPResponse(std::move(du), std::move(response), std::move(*ids), dss);
-#endif
-          continue;
-        }
-
-        handleResponseForUDPClient(*ids, response, *localRespRuleActions, *localCacheInsertedRespRuleActions, dss, false, false);
-=======
         if (!ids->isXSK() && fd != ids->backendFD) {
           dss->restoreState(queryId, std::move(*ids));
           continue;
@@ -956,7 +892,6 @@ void responderThread(std::shared_ptr<DownstreamState> dss)
           xskInfo->notifyXskSocket();
 #endif /* HAVE_XSK */
         }
->>>>>>> upstream/master
       }
     }
     catch (const std::exception& e) {
@@ -1403,17 +1338,6 @@ bool checkDNSCryptQuery(const ClientState& cs, PacketBuffer& query, std::unique_
   return false;
 }
 
-<<<<<<< HEAD
-bool checkQueryHeaders(const struct dnsheader* dh, ClientState& cs)
-{
-  if (dh->qr) {   // don't respond to responses
-    ++dnsdist::metrics::g_stats.nonCompliantQueries;
-    ++cs.nonCompliantQueries;
-    return false;
-  }
-
-  if (dh->qdcount == 0) {
-=======
 bool checkQueryHeaders(const struct dnsheader& dnsHeader, ClientState& clientState)
 {
   if (dnsHeader.qr) {   // don't respond to responses
@@ -1423,18 +1347,13 @@ bool checkQueryHeaders(const struct dnsheader& dnsHeader, ClientState& clientSta
   }
 
   if (dnsHeader.qdcount == 0) {
->>>>>>> upstream/master
     ++dnsdist::metrics::g_stats.emptyQueries;
     if (g_dropEmptyQueries) {
       return false;
     }
   }
 
-<<<<<<< HEAD
-  if (dh->rd) {
-=======
   if (dnsHeader.rd) {
->>>>>>> upstream/master
     ++dnsdist::metrics::g_stats.rdQueries;
   }
 
@@ -1526,10 +1445,6 @@ ProcessQueryResult processQueryAfterRules(DNSQuestion& dq, LocalHolders& holders
       ++dq.ids.cs->responses;
       return ProcessQueryResult::SendAnswer;
     }
-<<<<<<< HEAD
-
-=======
->>>>>>> upstream/master
     std::shared_ptr<ServerPool> serverPool = getPool(*holders.pools, dq.ids.poolName);
     std::shared_ptr<ServerPolicy> poolPolicy = serverPool->policy;
     dq.ids.packetCache = serverPool->packetCache;
@@ -1770,19 +1685,6 @@ ProcessQueryResult processQuery(DNSQuestion& dq, LocalHolders& holders, std::sha
   return ProcessQueryResult::Drop;
 }
 
-<<<<<<< HEAD
-bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& ds, uint16_t queryID, DNSQuestion& dq, PacketBuffer& query)
-{
-  bool doh = dq.ids.du != nullptr;
-
-  bool failed = false;
-  if (ds->d_config.useProxyProtocol) {
-    try {
-      addProxyProtocol(dq, &dq.ids.d_proxyProtocolPayloadSize);
-    }
-    catch (const std::exception& e) {
-      vinfolog("Adding proxy protocol payload to %s query from %s failed: %s", (dq.ids.du ? "DoH" : ""), dq.ids.origDest.toStringWithPort(), e.what());
-=======
 bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& downstream, uint16_t queryID, DNSQuestion& dnsQuestion, PacketBuffer& query, bool actuallySend)
 {
   bool doh = dnsQuestion.ids.du != nullptr;
@@ -1794,50 +1696,10 @@ bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& downstrea
     }
     catch (const std::exception& e) {
       vinfolog("Adding proxy protocol payload to %s query from %s failed: %s", (dnsQuestion.ids.du ? "DoH" : ""), dnsQuestion.ids.origDest.toStringWithPort(), e.what());
->>>>>>> upstream/master
       return false;
     }
   }
 
-<<<<<<< HEAD
-  if (doh && !dq.ids.d_packet) {
-    dq.ids.d_packet = std::make_unique<PacketBuffer>(query);
-  }
-
-  try {
-    int fd = ds->pickSocketForSending();
-    dq.ids.backendFD = fd;
-    dq.ids.origID = queryID;
-    dq.ids.forwardedOverUDP = true;
-
-    vinfolog("Got query for %s|%s from %s%s, relayed to %s", dq.ids.qname.toLogString(), QType(dq.ids.qtype).toString(), dq.ids.origRemote.toStringWithPort(), (doh ? " (https)" : ""), ds->getNameWithAddr());
-
-    /* make a copy since we cannot touch dq.ids after the move */
-    auto proxyProtocolPayloadSize = dq.ids.d_proxyProtocolPayloadSize;
-    auto idOffset = ds->saveState(std::move(dq.ids));
-    /* set the correct ID */
-    memcpy(&query.at(proxyProtocolPayloadSize), &idOffset, sizeof(idOffset));
-
-    /* you can't touch ids or du after this line, unless the call returned a non-negative value,
-       because it might already have been freed */
-    ssize_t ret = udpClientSendRequestToBackend(ds, fd, query);
-
-    if (ret < 0) {
-      failed = true;
-    }
-
-    if (failed) {
-      /* clear up the state. In the very unlikely event it was reused
-         in the meantime, so be it. */
-      auto cleared = ds->getState(idOffset);
-      if (cleared) {
-        dq.ids.du = std::move(cleared->du);
-      }
-      ++dnsdist::metrics::g_stats.downstreamSendErrors;
-      ++ds->sendErrors;
-      return false;
-    }
-=======
   if (doh && !dnsQuestion.ids.d_packet) {
     dnsQuestion.ids.d_packet = std::make_unique<PacketBuffer>(query);
   }
@@ -1881,7 +1743,6 @@ bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& downstrea
       ++downstream->sendErrors;
       return false;
     }
->>>>>>> upstream/master
   }
   catch (const std::exception& e) {
     throw;
@@ -1935,16 +1796,6 @@ static void processUDPQuery(ClientState& cs, LocalHolders& holders, const struct
 
     {
       /* this pointer will be invalidated the second the buffer is resized, don't hold onto it! */
-<<<<<<< HEAD
-      const dnsheader_aligned dh(query.data());
-      queryId = ntohs(dh->id);
-
-      if (!checkQueryHeaders(dh.get(), cs)) {
-        return;
-      }
-
-      if (dh->qdcount == 0) {
-=======
       const dnsheader_aligned dnsHeader(query.data());
       queryId = ntohs(dnsHeader->id);
 
@@ -1953,7 +1804,6 @@ static void processUDPQuery(ClientState& cs, LocalHolders& holders, const struct
       }
 
       if (dnsHeader->qdcount == 0) {
->>>>>>> upstream/master
         dnsdist::PacketMangling::editDNSHeaderFromPacket(query, [](dnsheader& header) {
           header.rcode = RCode::NotImp;
           header.qr = true;
@@ -2495,27 +2345,6 @@ static void healthChecksThread()
     else {
       lastRound = now;
     }
-<<<<<<< HEAD
-
-    std::unique_ptr<FDMultiplexer> mplexer{nullptr};
-    for (auto& dss : *states) {
-      auto delta = dss->sw.udiffAndSet()/1000000.0;
-      dss->queryLoad.store(1.0*(dss->queries.load() - dss->prev.queries.load())/delta);
-      dss->dropRate.store(1.0*(dss->reuseds.load() - dss->prev.reuseds.load())/delta);
-      dss->prev.queries.store(dss->queries.load());
-      dss->prev.reuseds.store(dss->reuseds.load());
-
-      dss->handleUDPTimeouts();
-
-      if (!dss->healthCheckRequired()) {
-        continue;
-      }
-
-      if (!mplexer) {
-        mplexer = std::unique_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent(states->size()));
-      }
-
-=======
 
     std::unique_ptr<FDMultiplexer> mplexer{nullptr};
     for (auto& dss : *states) {
@@ -2531,7 +2360,6 @@ static void healthChecksThread()
         mplexer = std::unique_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent(states->size()));
       }
 
->>>>>>> upstream/master
       if (!queueHealthCheck(mplexer, dss)) {
         dss->submitHealthCheckResult(false, false);
       }
@@ -2699,16 +2527,6 @@ static void setupLocalSocket(ClientState& clientState, const ComboAddress& addr,
     }
   }
 
-<<<<<<< HEAD
-  /* Only set this on IPv4 UDP sockets.
-     Don't set it for DNSCrypt binds. DNSCrypt pads queries for privacy
-     purposes, so we do receive large, sometimes fragmented datagrams. */
-  if (!tcp && !clientState.dnscryptCtx) {
-    try {
-      setSocketIgnorePMTU(socket, addr.sin4.sin_family);
-    }
-    catch (const std::exception& e) {
-=======
   const bool isQUIC = clientState.doqFrontend != nullptr || clientState.doh3Frontend != nullptr;
   if (isQUIC) {
     /* disable fragmentation and force PMTU discovery for QUIC-enabled sockets */
@@ -2727,7 +2545,6 @@ static void setupLocalSocket(ClientState& clientState, const ComboAddress& addr,
       setSocketIgnorePMTU(socket, addr.sin4.sin_family);
     }
     catch (const std::exception& e) {
->>>>>>> upstream/master
       warnlog("Failed to set IP_MTU_DISCOVER on UDP server socket for local address '%s': %s", addr.toStringWithPort(), e.what());
     }
   }
@@ -2814,14 +2631,11 @@ static void setupLocalSocket(ClientState& clientState, const ComboAddress& addr,
     } else if (clientState.doh3Frontend != nullptr) {
       infolog("Listening on %s for DoH3", addr.toStringWithPort());
     }
-<<<<<<< HEAD
-=======
 #ifdef HAVE_XSK
     else if (clientState.xskInfo != nullptr) {
       infolog("Listening on %s (XSK-enabled)", addr.toStringWithPort());
     }
 #endif
->>>>>>> upstream/master
   }
 }
 
@@ -2967,12 +2781,9 @@ static void reportFeatures()
   cout<<"dnsdist "<<VERSION<<" ("<<LUA_RELEASE<<")"<<endl;
 #endif
   cout<<"Enabled features: ";
-<<<<<<< HEAD
-=======
 #ifdef HAVE_XSK
   cout<<"AF_XDP ";
 #endif
->>>>>>> upstream/master
 #ifdef HAVE_CDB
   cout<<"cdb ";
 #endif
@@ -3114,22 +2925,14 @@ static void parseParameters(int argc, char** argv, ComboAddress& clientAddress)
       g_ACL.modify([optstring](NetmaskGroup& nmg) { nmg.addMask(optstring); });
       break;
     case 'k':
-<<<<<<< HEAD
-#ifdef HAVE_LIBSODIUM
-=======
 #if defined HAVE_LIBSODIUM || defined(HAVE_LIBCRYPTO)
->>>>>>> upstream/master
       if (B64Decode(string(optarg), g_consoleKey) < 0) {
         cerr<<"Unable to decode key '"<<optarg<<"'."<<endl;
         // NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
         exit(EXIT_FAILURE);
       }
 #else
-<<<<<<< HEAD
-      cerr<<"dnsdist has been built without libsodium, -k/--setkey is unsupported."<<endl;
-=======
       cerr<<"dnsdist has been built without libsodium or libcrypto, -k/--setkey is unsupported."<<endl;
->>>>>>> upstream/master
       // NOLINTNEXTLINE(concurrency-mt-unsafe): only one thread at this point
       exit(EXIT_FAILURE);
 #endif
@@ -3285,11 +3088,6 @@ namespace dnsdist
 {
 static void startFrontends()
 {
-<<<<<<< HEAD
-  std::vector<ClientState*> tcpStates;
-  std::vector<ClientState*> udpStates;
-  for (auto& clientState : g_frontends) {
-=======
 #ifdef HAVE_XSK
   for (auto& xskContext : dnsdist::xsk::g_xsk) {
     std::thread xskThread(dnsdist::xsk::XskRouter, std::move(xskContext));
@@ -3312,7 +3110,6 @@ static void startFrontends()
     }
 #endif /* HAVE_XSK */
 
->>>>>>> upstream/master
     if (clientState->dohFrontend != nullptr && clientState->dohFrontend->d_library == "h2o") {
 #ifdef HAVE_DNS_OVER_HTTPS
 #ifdef HAVE_LIBH2OEVLOOP
@@ -3410,8 +3207,6 @@ int main(int argc, char** argv)
     dnsdist::initRandom();
     g_hashperturb = dnsdist::getRandomValue(0xffffffff);
 
-<<<<<<< HEAD
-=======
 #ifdef HAVE_XSK
     try {
       dnsdist::xsk::clearDestinationAddresses();
@@ -3422,7 +3217,6 @@ int main(int argc, char** argv)
     }
 #endif /* HAVE_XSK */
 
->>>>>>> upstream/master
     ComboAddress clientAddress = ComboAddress();
     g_cmdLine.config=SYSCONFDIR "/dnsdist.conf";
 
@@ -3585,20 +3379,12 @@ int main(int argc, char** argv)
       auto states = g_dstates.getCopy(); // it is a copy, but the internal shared_ptrs are the real deal
       auto mplexer = std::unique_ptr<FDMultiplexer>(FDMultiplexer::getMultiplexerSilent(states.size()));
       for (auto& dss : states) {
-<<<<<<< HEAD
-        if (dss->d_config.availability == DownstreamState::Availability::Auto || dss->d_config.availability == DownstreamState::Availability::Lazy) {
-          if (dss->d_config.availability == DownstreamState::Availability::Auto) {
-            dss->d_nextCheck = dss->d_config.checkInterval;
-          }
-
-=======
 
         if (dss->d_config.availability == DownstreamState::Availability::Auto || dss->d_config.availability == DownstreamState::Availability::Lazy) {
           if (dss->d_config.availability == DownstreamState::Availability::Auto) {
             dss->d_nextCheck = dss->d_config.checkInterval;
           }
 
->>>>>>> upstream/master
           if (!queueHealthCheck(mplexer, dss, true)) {
             dss->setUpStatus(false);
             warnlog("Marking downstream %s as 'down'", dss->getNameWithAddr());
