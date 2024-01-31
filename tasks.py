@@ -211,7 +211,7 @@ def install_libdecaf(c, product):
     c.sudo(f'cp /usr/local/lib/libdecaf.so* /opt/{product}/libdecaf/.')
 
 def install_valgrind(c):
-    c.sudo('apt-get install -y' + ' '.join(valgrind_build_deps))
+    c.sudo('apt-get install -y ' + ' '.join(valgrind_build_deps))
     c.run('mkdir /tmp/valgrind')
     c.run('curl https://sourceware.org/pub/valgrind/valgrind-3.22.0.tar.bz2 > /tmp/valgrind/valgrind.tar.bz2')
     with c.cd('/tmp/valgrind'):
