@@ -210,7 +210,7 @@ def install_libdecaf(c, product):
 
 @task
 def install_liboqs(c):
-    c.sudo('apt-get install -y ' + ' '.join(oqs_build_deps)
+    c.sudo('apt-get install -y ' + ' '.join(oqs_build_deps))
     c.run('git clone https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs')
     c.run('mkdir /tmp/liboqs/build')
     with c.cd('/tmp/liboqs/build'):
@@ -222,7 +222,7 @@ def install_liboqs(c):
         c.run('sudo ninja install')
 @task
 def install_openssl32(c):
-    c.sudo('apt-get install -y ' + ' '.join(ossl32_build_deps)
+    c.sudo('apt-get install -y ' + ' '.join(ossl32_build_deps))
     c.run('git clone https://github.com/openssl/openssl.git /tmp/openssl')
     with c.cd('/tmp/openssl'):
         # checkout openssl3.2
