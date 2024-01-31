@@ -87,7 +87,7 @@ jobs:
       - run: inv install-liboqs
       - run: inv install-openssl32
       - run: inv install-oqs-provider
-      - run: inv install-dnsdist-build-deps
+      - run: inv install-dnsdist-build-deps --skipXDP
       - run: inv install-coverity-tools dnsdist
       - run: inv coverity-clang-configure
       - run: inv ci-autoconf

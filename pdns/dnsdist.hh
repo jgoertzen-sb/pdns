@@ -149,6 +149,16 @@ struct DNSQuestion
     ids.qTag->insert_or_assign(key, value);
   }
 
+<<<<<<< HEAD
+=======
+  void setTag(const std::string& key, std::string&& value) {
+    if (!ids.qTag) {
+      ids.qTag = std::make_unique<QTag>();
+    }
+    ids.qTag->insert_or_assign(key, std::move(value));
+  }
+
+>>>>>>> upstream/master
   const struct timespec& getQueryRealTime() const
   {
     return ids.queryRealTime.d_start;
@@ -464,6 +474,10 @@ struct QueryCount {
 
 extern QueryCount g_qcount;
 
+class XskPacket;
+class XskSocket;
+class XskWorker;
+
 struct ClientState
 {
   ClientState(const ComboAddress& local_, bool isTCP_, bool doReusePort, int fastOpenQueue, const std::string& itfName, const std::set<int>& cpus_, bool enableProxyProtocol): cpus(cpus_), interface(itfName), local(local_), fastOpenQueueSize(fastOpenQueue), tcp(isTCP_), reuseport(doReusePort), d_enableProxyProtocol(enableProxyProtocol)
@@ -504,6 +518,7 @@ struct ClientState
   std::shared_ptr<DOQFrontend> doqFrontend{nullptr};
   std::shared_ptr<DOH3Frontend> doh3Frontend{nullptr};
   std::shared_ptr<BPFFilter> d_filter{nullptr};
+  std::shared_ptr<XskWorker> xskInfo{nullptr};
   size_t d_maxInFlightQueriesPerConn{1};
   size_t d_tcpConcurrentConnectionsLimit{0};
   int udpFD{-1};
@@ -566,6 +581,15 @@ struct ClientState
     else if (hasTLS()) {
       return dnsdist::Protocol::DoT;
     }
+<<<<<<< HEAD
+=======
+    else if (doqFrontend != nullptr) {
+      return dnsdist::Protocol::DoQ;
+    }
+    else if (doh3Frontend != nullptr) {
+      return dnsdist::Protocol::DoH3;
+    }
+>>>>>>> upstream/master
     else if (udpFD != -1) {
       return dnsdist::Protocol::DoUDP;
     }
@@ -689,6 +713,13 @@ struct DownstreamState: public std::enable_shared_from_this<DownstreamState>
     std::string d_dohPath;
     std::string name;
     std::string nameWithAddr;
+<<<<<<< HEAD
+=======
+#ifdef HAVE_XSK
+    std::array<uint8_t, 6> sourceMACAddr;
+    std::array<uint8_t, 6> destMACAddr;
+#endif /* HAVE_XSK */
+>>>>>>> upstream/master
     size_t d_numberOfSockets{1};
     size_t d_maxInFlightQueriesPerConn{1};
     size_t d_tcpConcurrentConnectionsLimit{0};
@@ -802,6 +833,10 @@ public:
   std::vector<int> sockets;
   StopWatch sw;
   QPSLimiter qps;
+#ifdef HAVE_XSK
+  std::vector<std::shared_ptr<XskWorker>> d_xskInfos;
+  std::vector<std::shared_ptr<XskSocket>> d_xskSockets;
+#endif
   std::atomic<uint64_t> idOffset{0};
   size_t socketsOffset{0};
   double latencyUsec{0.0};
@@ -816,15 +851,39 @@ private:
   void handleUDPTimeout(IDState& ids);
   void updateNextLazyHealthCheck(LazyHealthCheckStats& stats, bool checkScheduled, std::optional<time_t> currentTime = std::nullopt);
   void connectUDPSockets();
+<<<<<<< HEAD
 
   std::thread tid;
   std::mutex connectLock;
   std::condition_variable d_connectedWait;
+=======
+#ifdef HAVE_XSK
+  void addXSKDestination(int fd);
+  void removeXSKDestination(int fd);
+#endif /* HAVE_XSK */
+
+  std::mutex connectLock;
+  std::condition_variable d_connectedWait;
+#ifdef HAVE_XSK
+  SharedLockGuarded<std::vector<ComboAddress>> d_socketSourceAddresses;
+#endif
+>>>>>>> upstream/master
   std::atomic_flag threadStarted;
   uint8_t consecutiveSuccessfulChecks{0};
   bool d_stopped{false};
 public:
+<<<<<<< HEAD
 
+=======
+  void updateStatisticsInfo()
+  {
+    auto delta = sw.udiffAndSet() / 1000000.0;
+    queryLoad.store(1.0 * (queries.load() - prev.queries.load()) / delta);
+    dropRate.store(1.0 * (reuseds.load() - prev.reuseds.load()) / delta);
+    prev.queries.store(queries.load());
+    prev.reuseds.store(reuseds.load());
+  }
+>>>>>>> upstream/master
   void start();
 
   bool isUp() const
@@ -947,12 +1006,24 @@ public:
   void handleUDPTimeouts();
   void reportTimeoutOrError();
   void reportResponse(uint8_t rcode);
+<<<<<<< HEAD
   void submitHealthCheckResult(bool initial, bool newState);
+=======
+  void submitHealthCheckResult(bool initial, bool newResult);
+>>>>>>> upstream/master
   time_t getNextLazyHealthCheck();
   uint16_t saveState(InternalQueryState&&);
   void restoreState(uint16_t id, InternalQueryState&&);
   std::optional<InternalQueryState> getState(uint16_t id);
 
+<<<<<<< HEAD
+=======
+#ifdef HAVE_XSK
+  void registerXsk(std::vector<std::shared_ptr<XskSocket>>& xsks);
+  [[nodiscard]] ComboAddress pickSourceAddressForSending();
+#endif /* HAVE_XSK */
+
+>>>>>>> upstream/master
   dnsdist::Protocol getProtocol() const
   {
     if (isDoH()) {
@@ -1125,9 +1196,15 @@ void setLuaSideEffect();   // set to report a side effect, cancelling all _no_ s
 bool getLuaNoSideEffect(); // set if there were only explicit declarations of _no_ side effect
 void resetLuaSideEffect(); // reset to indeterminate state
 
+<<<<<<< HEAD
 bool responseContentMatches(const PacketBuffer& response, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const std::shared_ptr<DownstreamState>& remote, unsigned int& qnameWireLength);
 
 bool checkQueryHeaders(const struct dnsheader* dh, ClientState& cs);
+=======
+bool responseContentMatches(const PacketBuffer& response, const DNSName& qname, const uint16_t qtype, const uint16_t qclass, const std::shared_ptr<DownstreamState>& remote);
+
+bool checkQueryHeaders(const struct dnsheader& dnsHeader, ClientState& clientState);
+>>>>>>> upstream/master
 
 extern std::vector<std::shared_ptr<DNSCryptContext>> g_dnsCryptLocals;
 int handleDNSCryptQuery(PacketBuffer& packet, DNSCryptQuery& query, bool tcp, time_t now, PacketBuffer& response);
@@ -1149,8 +1226,14 @@ ProcessQueryResult processQueryAfterRules(DNSQuestion& dq, LocalHolders& holders
 bool processResponse(PacketBuffer& response, const std::vector<DNSDistResponseRuleAction>& respRuleActions, const std::vector<DNSDistResponseRuleAction>& insertedRespRuleActions, DNSResponse& dr, bool muted);
 bool processRulesResult(const DNSAction::Action& action, DNSQuestion& dq, std::string& ruleresult, bool& drop);
 bool processResponseAfterRules(PacketBuffer& response, const std::vector<DNSDistResponseRuleAction>& cacheInsertedRespRuleActions, DNSResponse& dr, bool muted);
+<<<<<<< HEAD
 
 bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& ds, uint16_t queryID, DNSQuestion& dq, PacketBuffer& query);
+=======
+bool processResponderPacket(std::shared_ptr<DownstreamState>& dss, PacketBuffer& response, const std::vector<DNSDistResponseRuleAction>& localRespRuleActions, const std::vector<DNSDistResponseRuleAction>& cacheInsertedRespRuleActions, InternalQueryState&& ids);
+
+bool assignOutgoingUDPQueryToBackend(std::shared_ptr<DownstreamState>& downstream, uint16_t queryID, DNSQuestion& dnsQuestion, PacketBuffer& query, bool actuallySend = true);
+>>>>>>> upstream/master
 
 ssize_t udpClientSendRequestToBackend(const std::shared_ptr<DownstreamState>& ss, const int sd, const PacketBuffer& request, bool healthCheck = false);
 bool sendUDPResponse(int origFD, const PacketBuffer& response, const int delayMsec, const ComboAddress& origDest, const ComboAddress& origRemote);

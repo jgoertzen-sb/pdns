@@ -59,6 +59,9 @@ COPY .git /source/.git
 COPY builder-support/helpers/install_rust.sh /source/install_rust.sh
 RUN /source/install_rust.sh
 
+COPY builder-support/helpers/install_rust.sh /source/install_rust.sh
+RUN /source/install_rust.sh
+
 # build and install (TODO: before we hit this line, rearrange /source structure if we are coming from a tarball)
 WORKDIR /source/pdns/recursordist
 

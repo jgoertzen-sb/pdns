@@ -26,17 +26,12 @@
 ./pdns/cdb.hh
 ./pdns/comfun.cc
 ./pdns/comment.hh
-./pdns/communicator.cc
-./pdns/communicator.hh
 ./pdns/dbdnsseckeeper.cc
 ./pdns/delaypipe.cc
 ./pdns/delaypipe.hh
-./pdns/digests.hh
 ./pdns/distributor.hh
 ./pdns/dns.cc
 ./pdns/dns.hh
-./pdns/dnsbackend.cc
-./pdns/dnsbackend.hh
 ./pdns/dnsbulktest.cc
 ./pdns/dnscrypt.cc
 ./pdns/dnscrypt.hh
@@ -50,15 +45,12 @@
 ./pdns/dnsdist-ecs.cc
 ./pdns/dnsdist-ecs.hh
 ./pdns/dnsdist-lbpolicies.hh
-./pdns/dnsdist-lua-actions.cc
 ./pdns/dnsdist-lua-bindings-dnsquestion.cc
 ./pdns/dnsdist-lua-bindings.cc
 ./pdns/dnsdist-lua-inspection.cc
 ./pdns/dnsdist-lua-rules.cc
 ./pdns/dnsdist-lua-vars.cc
 ./pdns/dnsdist-lua.hh
-./pdns/dnsdist-protobuf.cc
-./pdns/dnsdist-protobuf.hh
 ./pdns/dnsdist-rings.cc
 ./pdns/dnsdist-rings.hh
 ./pdns/dnsdist-snmp.cc
@@ -111,8 +103,6 @@
 ./pdns/dnspcap.hh
 ./pdns/dnspcap2calidns.cc
 ./pdns/dnspcap2protobuf.cc
-./pdns/dnsproxy.cc
-./pdns/dnsproxy.hh
 ./pdns/dnsrecords.cc
 ./pdns/dnsrecords.hh
 ./pdns/dnsreplay.cc
@@ -122,8 +112,6 @@
 ./pdns/dnssecinfra.hh
 ./pdns/dnsseckeeper.hh
 ./pdns/dnssecsigner.cc
-./pdns/dnstap.cc
-./pdns/dnstap.hh
 ./pdns/dnstcpbench.cc
 ./pdns/dnswasher.cc
 ./pdns/dnswriter.cc
@@ -140,8 +128,11 @@
 ./pdns/ednsoptions.cc
 ./pdns/ednsoptions.hh
 ./pdns/ednspadding.cc
+<<<<<<< HEAD
 ./pdns/ednssubnet.cc
 ./pdns/ednssubnet.hh
+=======
+>>>>>>> upstream/master
 ./pdns/fstrm_logger.cc
 ./pdns/fstrm_logger.hh
 ./pdns/gettime.cc
@@ -223,8 +214,11 @@
 ./pdns/sillyrecords.cc
 ./pdns/snmp-agent.cc
 ./pdns/snmp-agent.hh
+<<<<<<< HEAD
 ./pdns/sodcrypto.cc
 ./pdns/sodcrypto.hh
+=======
+>>>>>>> upstream/master
 ./pdns/sortlist.cc
 ./pdns/sortlist.hh
 ./pdns/speedtest.cc
@@ -236,7 +230,6 @@
 ./pdns/statnode.cc
 ./pdns/statnode.hh
 ./pdns/stubquery.cc
-./pdns/stubresolver.cc
 ./pdns/svc-records.cc
 ./pdns/svc-records.hh
 ./pdns/tcpiohandler.cc
@@ -247,7 +240,6 @@
 ./pdns/test-base32_cc.cc
 ./pdns/test-base64_cc.cc
 ./pdns/test-common.hh
-./pdns/test-digests_hh.cc
 ./pdns/test-distributor_hh.cc
 ./pdns/test-dnscrypt_cc.cc
 ./pdns/test-dnsdist_cc.cc
@@ -268,7 +260,6 @@
 ./pdns/test-packetcache_hh.cc
 ./pdns/test-proxy_protocol_cc.cc
 ./pdns/test-rcpgenerator_cc.cc
-./pdns/test-sha_hh.cc
 ./pdns/test-sholder_hh.cc
 ./pdns/test-statbag_cc.cc
 ./pdns/test-svc_records_cc.cc

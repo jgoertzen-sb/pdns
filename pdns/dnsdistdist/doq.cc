@@ -28,7 +28,6 @@
 #include "dolog.hh"
 #include "iputils.hh"
 #include "misc.hh"
-#include "sodcrypto.hh"
 #include "sstuff.hh"
 #include "threadname.hh"
 
@@ -156,7 +155,7 @@ public:
 
     if (!unit->ids.selfGenerated) {
       double udiff = unit->ids.queryRealTime.udiff();
-      vinfolog("Got answer from %s, relayed to %s (quic), took %f us", unit->downstream->d_config.remote.toStringWithPort(), unit->ids.origRemote.toStringWithPort(), udiff);
+      vinfolog("Got answer from %s, relayed to %s (quic, %d bytes), took %f us", unit->downstream->d_config.remote.toStringWithPort(), unit->ids.origRemote.toStringWithPort(), unit->response.size(), udiff);
 
       auto backendProtocol = unit->downstream->getProtocol();
       if (backendProtocol == dnsdist::Protocol::DoUDP && unit->tcp) {
@@ -300,7 +299,7 @@ void DOQFrontend::setup()
 {
   auto config = QuicheConfig(quiche_config_new(QUICHE_PROTOCOL_VERSION), quiche_config_free);
   d_quicheParams.d_alpn = std::string(DOQ_ALPN.begin(), DOQ_ALPN.end());
-  configureQuiche(config, d_quicheParams);
+  configureQuiche(config, d_quicheParams, false);
   d_server_config = std::make_unique<DOQServerConfig>(std::move(config), d_internalPipeBufferSize);
 }
 
@@ -426,7 +425,7 @@ static void processDOQQuery(DOQUnitUniquePtr&& doqUnit)
       /* don't keep that pointer around, it will be invalidated if the buffer is ever resized */
       dnsheader_aligned dnsHeader(unit->query.data());
 
-      if (!checkQueryHeaders(dnsHeader.get(), clientState)) {
+      if (!checkQueryHeaders(*dnsHeader, clientState)) {
         dnsdist::PacketMangling::editDNSHeaderFromPacket(unit->query, [](dnsheader& header) {
           header.rcode = RCode::ServFail;
           header.qr = true;

@@ -36,12 +36,12 @@
 namespace dnsdist::doq
 {
 
-static const std::string s_quicRetryTokenKey = newKey(false);
+static const std::string s_quicRetryTokenKey = dnsdist::crypto::authenticated::newKey(false);
 
 PacketBuffer mintToken(const PacketBuffer& dcid, const ComboAddress& peer)
 {
   try {
-    SodiumNonce nonce;
+    dnsdist::crypto::authenticated::Nonce nonce;
     nonce.init();
 
     const auto addrBytes = peer.toByteString();
@@ -54,7 +54,7 @@ PacketBuffer mintToken(const PacketBuffer& dcid, const ComboAddress& peer)
     plainTextToken.insert(plainTextToken.end(), addrBytes.begin(), addrBytes.end());
     plainTextToken.insert(plainTextToken.end(), dcid.begin(), dcid.end());
     //	NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    const auto encryptedToken = sodEncryptSym(std::string_view(reinterpret_cast<const char*>(plainTextToken.data()), plainTextToken.size()), s_quicRetryTokenKey, nonce, false);
+    const auto encryptedToken = dnsdist::crypto::authenticated::encryptSym(std::string_view(reinterpret_cast<const char*>(plainTextToken.data()), plainTextToken.size()), s_quicRetryTokenKey, nonce, false);
     // a bit sad, let's see if we can do better later
     PacketBuffer encryptedTokenPacket;
     encryptedTokenPacket.reserve(encryptedToken.size() + nonce.value.size());
@@ -90,7 +90,7 @@ std::optional<PacketBuffer> getCID()
 std::optional<PacketBuffer> validateToken(const PacketBuffer& token, const ComboAddress& peer)
 {
   try {
-    SodiumNonce nonce;
+    dnsdist::crypto::authenticated::Nonce nonce;
     auto addrBytes = peer.toByteString();
     const uint64_t now = time(nullptr);
     const auto minimumSize = nonce.value.size() + sizeof(now) + addrBytes.size();
@@ -102,7 +102,7 @@ std::optional<PacketBuffer> validateToken(const PacketBuffer& token, const Combo
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     auto cipher = std::string_view(reinterpret_cast<const char*>(&token.at(nonce.value.size())), token.size() - nonce.value.size());
-    auto plainText = sodDecryptSym(cipher, s_quicRetryTokenKey, nonce, false);
+    auto plainText = dnsdist::crypto::authenticated::decryptSym(cipher, s_quicRetryTokenKey, nonce, false);
 
     if (plainText.size() <= sizeof(now) + addrBytes.size()) {
       return std::nullopt;
@@ -188,7 +188,7 @@ void flushEgress(Socket& sock, QuicheConnection& conn, const ComboAddress& peer,
   }
 }
 
-void configureQuiche(QuicheConfig& config, const QuicheParams& params)
+void configureQuiche(QuicheConfig& config, const QuicheParams& params, bool isHTTP)
 {
   for (const auto& pair : params.d_tlsConfig.d_certKeyPairs) {
     auto res = quiche_config_load_cert_chain_from_pem_file(config.get(), pair.d_cert.c_str());
@@ -226,6 +226,18 @@ void configureQuiche(QuicheConfig& config, const QuicheParams& params)
   // The number of bytes of incoming stream data to be buffered for each localy or remotely-initiated bidirectional stream
   quiche_config_set_initial_max_stream_data_bidi_local(config.get(), 8192);
   quiche_config_set_initial_max_stream_data_bidi_remote(config.get(), 8192);
+
+  if (isHTTP) {
+    /* see rfc9114 section 6.2. Unidirectional Streams:
+       Each endpoint needs to create at least one unidirectional stream for the HTTP control stream.
+       QPACK requires two additional unidirectional streams, and other extensions might require further streams.
+       Therefore, the transport parameters sent by both clients and servers MUST allow the peer to create at least three
+       unidirectional streams.
+       These transport parameters SHOULD also provide at least 1,024 bytes of flow-control credit to each unidirectional stream.
+    */
+    quiche_config_set_initial_max_streams_uni(config.get(), 3U);
+    quiche_config_set_initial_max_stream_data_uni(config.get(), 1024U);
+  }
 
   // The number of total bytes of incoming stream data to be buffered for the whole connection
   // https://docs.rs/quiche/latest/quiche/struct.Config.html#method.set_initial_max_data

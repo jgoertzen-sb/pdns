@@ -47,8 +47,15 @@ Various custom queries have been renamed.
 * ``update-master-query`` is now ``update-primary-query``
 * ``info-all-master-query`` is now ``info-all-primary-query``
 
+Also, ``get-all-domains-query`` got an extra column for a zone's catalog assignment.
+
 any version to 4.8.x
 --------------------
+
+Use of (RSA-)SHA1 on Red Hat Enterprise Linux 9 and derivatives
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you are using PowerDNS Authoritative Server on EL9, please read `this ticket about Red Hat's SHA1 deprecation and how it affects PowerDNS software <https://github.com/PowerDNS/pdns/issues/12890>`__.
 
 LMDB backend
 ^^^^^^^^^^^^

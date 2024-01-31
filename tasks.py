@@ -8,9 +8,8 @@ import time
 auth_backend_ip_addr = os.getenv('AUTH_BACKEND_IP_ADDR', '127.0.0.1')
 
 clang_version = os.getenv('CLANG_VERSION', '13')
-quiche_version = '0.18.0'
-quiche_hash = 'eb242a14c4d801a90b57b6021dd29f7a62099f3a4d7a7ba889e105f8328e6c1f'
-
+quiche_version = '0.20.0'
+quiche_hash = '7125bc82ddcf38fbfbc69882ccb2723bfb4d5bfeb42718b8291d26ec06042e38'
 
 valgrind_build_deps = [
     'build-essential',
@@ -106,6 +105,10 @@ dnsdist_build_deps = [
     'libnghttp2-dev',
     'libre2-dev',
     'libsnmp-dev',
+]
+dnsdist_xdp_build_deps = [
+    'libbpf-dev',
+    'libxdp-dev',
 ]
 auth_test_deps = [   # FIXME: we should be generating some of these from shlibdeps in build
     'authbind',
@@ -364,8 +367,8 @@ def install_rec_test_deps(c): # FIXME: rename this, we do way more than apt-get
     time.sleep(5)
     c.sudo('chmod 755 /var/agentx')
 
-@task
-def install_dnsdist_test_deps(c): # FIXME: rename this, we do way more than apt-get
+@task(optional=['skipXDP'])
+def install_dnsdist_test_deps(c, skipXDP=False): # FIXME: rename this, we do way more than apt-get
     c.sudo('apt-get install -y \
               libluajit-5.1-2 \
               libboost-all-dev \
@@ -397,12 +400,13 @@ def install_rec_build_deps(c):
     install_openssl32(c)
     install_oqs_provider(c)
 
-@task
-def install_dnsdist_build_deps(c):
+@task(optional=['skipXDP'])
+def install_dnsdist_build_deps(c, skipXDP=False):
     c.sudo('apt-get install -y --no-install-recommends ' +  ' '.join(all_build_deps + git_build_deps + dnsdist_build_deps))
     install_liboqs(c)
     install_openssl32(c)
     install_oqs_provider(c)
+
 
 @task
 def ci_autoconf(c):
@@ -543,6 +547,7 @@ def ci_auth_configure(c):
         "--enable-experimental-pkcs11",
         "--enable-experimental-gss-tsig",
         "--enable-remotebackend-zeromq",
+        "--enable-verbose-logging",
         "--with-lmdb=/usr",
         "--with-libdecaf" if os.getenv('DECAF_SUPPORT', 'no') == 'yes' else '',
         "--prefix=/opt/pdns-auth",
@@ -568,6 +573,7 @@ def ci_rec_configure(c):
         "--with-libcap",
         "--with-net-snmp",
         "--enable-dns-over-tls",
+        "--enable-verbose-logging",
         unittests,
     ])
     res = c.run(configure_cmd, warn=True)

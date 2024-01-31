@@ -60,7 +60,7 @@ jobs:
       - run: mkdir -p ~/.ccache
         working-directory: .
       - name: let GitHub cache our ccache data
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.ccache
           key: auth-ccache-${{ steps.get-stamp.outputs.stamp }}
@@ -96,7 +96,7 @@ jobs:
       - run: ccache -s
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Store the binaries
-        uses: actions/upload-artifact@v3 # this takes 30 seconds, maybe we want to tar
+        uses: actions/upload-artifact@v4 # this takes 30 seconds, maybe we want to tar
         with:
           name: pdns-auth-${{ env.normalized-branch-name }}
           path: /opt/pdns-auth
@@ -135,7 +135,7 @@ jobs:
       - run: mkdir -p ~/.ccache
         working-directory: .
       - name: let GitHub cache our ccache data
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.ccache
           key: recursor-${{ matrix.sanitizers }}-ccache-${{ steps.get-stamp.outputs.stamp }}
@@ -171,7 +171,7 @@ jobs:
       - run: ccache -s
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Store the binaries
-        uses: actions/upload-artifact@v3 # this takes 30 seconds, maybe we want to tar
+        uses: actions/upload-artifact@v4 # this takes 30 seconds, maybe we want to tar
         with:
           name: pdns-recursor-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/pdns-recursor
@@ -215,7 +215,7 @@ jobs:
       - run: mkdir -p ~/.ccache
         working-directory: .
       - name: let GitHub cache our ccache data
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.ccache
           key: dnsdist-${{ matrix.features }}-${{ matrix.sanitizers }}-ccache-${{ steps.get-stamp.outputs.stamp }}
@@ -253,7 +253,7 @@ jobs:
       - run: ccache -s
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Store the binaries
-        uses: actions/upload-artifact@v3 # this takes 30 seconds, maybe we want to tar
+        uses: actions/upload-artifact@v4 # this takes 30 seconds, maybe we want to tar
         with:
           name: dnsdist-${{ matrix.features }}-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/dnsdist
@@ -303,7 +303,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pdns-auth-${{ env.normalized-branch-name }}
           path: /opt/pdns-auth
@@ -427,7 +427,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pdns-auth-${{ env.normalized-branch-name }}
           path: /opt/pdns-auth
@@ -466,7 +466,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pdns-auth-${{ env.normalized-branch-name }}
           path: /opt/pdns-auth
@@ -508,7 +508,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pdns-recursor-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/pdns-recursor
@@ -553,7 +553,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pdns-recursor-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/pdns-recursor
@@ -598,7 +598,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pdns-recursor-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/pdns-recursor
@@ -642,7 +642,7 @@ jobs:
           ref: ${{ inputs.branch-name }}
       - run: echo "normalized-branch-name=${{ inputs.branch-name || github.ref_name }}" | tr "/" "-" >> "$GITHUB_ENV"
       - name: Fetch the binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dnsdist-full-${{ matrix.sanitizers }}-${{ env.normalized-branch-name }}
           path: /opt/dnsdist

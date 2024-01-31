@@ -151,6 +151,7 @@ dnsdist_SOURCES = \
 	dnsdist-carbon.cc dnsdist-carbon.hh \
 	dnsdist-concurrent-connections.hh \
 	dnsdist-console.cc dnsdist-console.hh \
+	dnsdist-crypto.cc dnsdist-crypto.hh \
 	dnsdist-discovery.cc dnsdist-discovery.hh \
 	dnsdist-dnscrypt.cc \
 	dnsdist-dnsparser.cc dnsdist-dnsparser.hh \
@@ -206,6 +207,7 @@ dnsdist_SOURCES = \
 	dnsdist-tcp.cc dnsdist-tcp.hh \
 	dnsdist-web.cc dnsdist-web.hh \
 	dnsdist-xpf.cc dnsdist-xpf.hh \
+	dnsdist-xsk.cc dnsdist-xsk.hh \
 	dnsdist.cc dnsdist.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -245,7 +247,6 @@ dnsdist_SOURCES = \
 	remote_logger.cc remote_logger.hh \
 	sholder.hh \
 	snmp-agent.cc snmp-agent.hh \
-	sodcrypto.cc sodcrypto.hh \
 	sstuff.hh \
 	stat_t.hh \
 	statnode.cc statnode.hh \
@@ -254,7 +255,8 @@ dnsdist_SOURCES = \
 	tcpiohandler.cc tcpiohandler.hh \
 	threadname.hh threadname.cc \
 	uuid-utils.hh uuid-utils.cc \
-	xpf.cc xpf.hh
+	xpf.cc xpf.hh \
+	xsk.cc xsk.hh
 
 testrunner_SOURCES = \
 	base64.hh \
@@ -271,6 +273,7 @@ testrunner_SOURCES = \
 	dnsdist-backoff.hh \
 	dnsdist-cache.cc dnsdist-cache.hh \
 	dnsdist-concurrent-connections.hh \
+	dnsdist-crypto.cc dnsdist-crypto.hh \
 	dnsdist-dnsparser.cc dnsdist-dnsparser.hh \
 	dnsdist-doh-common.cc dnsdist-doh-common.hh \
 	dnsdist-downstream-connection.hh \
@@ -303,6 +306,7 @@ testrunner_SOURCES = \
 	dnsdist-tcp-downstream.cc \
 	dnsdist-tcp.cc dnsdist-tcp.hh \
 	dnsdist-xpf.cc dnsdist-xpf.hh \
+	dnsdist-xsk.cc dnsdist-xsk.hh \
 	dnsdist.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -324,7 +328,6 @@ testrunner_SOURCES = \
 	proxy-protocol.cc proxy-protocol.hh \
 	qtype.cc qtype.hh \
 	sholder.hh \
-	sodcrypto.cc \
 	sstuff.hh \
 	stat_t.hh \
 	statnode.cc statnode.hh \
@@ -361,7 +364,8 @@ testrunner_SOURCES = \
 	testrunner.cc \
 	threadname.hh threadname.cc \
 	uuid-utils.hh uuid-utils.cc \
-	xpf.cc xpf.hh
+	xpf.cc xpf.hh \
+	xsk.cc xsk.hh
 
 dnsdist_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -409,6 +413,13 @@ endif
 
 if HAVE_LIBSSL
 dnsdist_LDADD += $(LIBSSL_LIBS)
+endif
+
+if HAVE_XSK
+dnsdist_LDADD += -lbpf
+dnsdist_LDADD += -lxdp
+testrunner_LDADD += -lbpf
+testrunner_LDADD += -lxdp
 endif
 
 if HAVE_LIBCRYPTO
@@ -508,6 +519,11 @@ standalone_fuzz_target_runner.o: standalone_fuzz_target_runner.cc
 fuzz_targets_programs =  \
 	fuzz_target_dnsdistcache
 
+if HAVE_XSK
+fuzz_targets_programs += \
+	fuzz_target_xsk
+endif
+
 fuzz_targets: $(ARC4RANDOM_LIBS) $(fuzz_targets_programs)
 
 bin_PROGRAMS += \
@@ -553,7 +569,21 @@ fuzz_target_dnsdistcache_DEPENDENCIES = $(fuzz_targets_deps)
 fuzz_target_dnsdistcache_LDFLAGS = $(fuzz_targets_ldflags)
 fuzz_target_dnsdistcache_LDADD = $(fuzz_targets_libs)
 
-endif
+if HAVE_XSK
+fuzz_target_xsk_SOURCES = \
+	dnslabeltext.cc \
+	dnsname.cc dnsname.hh \
+	fuzz_xsk.cc \
+	gettime.cc gettime.hh \
+	iputils.cc iputils.hh \
+	misc.cc misc.hh \
+	xsk.cc xsk.hh
+fuzz_target_xsk_DEPENDENCIES = $(fuzz_targets_deps)
+fuzz_target_xsk_LDFLAGS = $(fuzz_targets_ldflags)
+fuzz_target_xsk_LDADD = $(fuzz_targets_libs) -lbpf -lxdp
+endif # HAVE_XSK
+
+endif # FUZZ_TARGETS
 
 MANPAGES=dnsdist.1
 

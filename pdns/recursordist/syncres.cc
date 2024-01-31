@@ -489,10 +489,10 @@ OptLog SyncRes::LogObject(const string& prefix)
 {
   OptLog ret;
   if (d_lm == Log) {
-    ret = {prefix, d_fixednow, &g_log};
+    ret = {prefix, d_fixednow, g_log};
   }
   else if (d_lm == Store) {
-    ret = {prefix, d_fixednow, &d_trace};
+    ret = {prefix, d_fixednow, d_trace};
   }
   return ret;
 }
@@ -1545,9 +1545,7 @@ LWResult::Result SyncRes::asyncresolveWrapper(const ComboAddress& address, bool 
 
   int EDNSLevel = 0;
   auto luaconfsLocal = g_luaconfs.getLocal();
-  ResolveContext ctx;
-  ctx.d_initialRequestId = d_initialRequestId;
-  ctx.d_nsName = nsName;
+  ResolveContext ctx(d_initialRequestId, nsName);
 #ifdef HAVE_FSTRM
   ctx.d_auth = auth;
 #endif
@@ -1878,7 +1876,7 @@ int SyncRes::doResolveNoQNameMinimization(const DNSName& qname, const QType qtyp
     if (depth > bound || (d_outqueries > 10 && d_throttledqueries > 5 && depth > bound * 2 / 3)) {
       string msg = "More than " + std::to_string(bound) + " (adjusted max-recursion-depth) levels of recursion needed while resolving " + qname.toLogString();
       LOG(prefix << qname << ": " << msg << endl);
-      throw ImmediateServFailException(msg);
+      throw ImmediateServFailException(std::move(msg));
     }
   }
 
@@ -2270,7 +2268,7 @@ void SyncRes::getBestNSFromCache(const DNSName& qname, const QType qtype, vector
         vector<DNSRecord> selected;
         selected.reserve(s_maxnsperresolve);
         std::sample(nsVector.cbegin(), nsVector.cend(), std::back_inserter(selected), s_maxnsperresolve, pdns::dns_random_engine());
-        nsVector = selected;
+        nsVector = std::move(selected);
       }
       bestns.reserve(nsVector.size());
 
@@ -2651,7 +2649,7 @@ bool SyncRes::doCNAMECacheCheck(const DNSName& qname, const QType qtype, vector<
       if (qname == newTarget) {
         string msg = "Got a CNAME referral (from cache) to self";
         LOG(prefix << qname << ": " << msg << endl);
-        throw ImmediateServFailException(msg);
+        throw ImmediateServFailException(std::move(msg));
       }
 
       if (newTarget.isPartOf(qname)) {
@@ -2671,12 +2669,12 @@ bool SyncRes::doCNAMECacheCheck(const DNSName& qname, const QType qtype, vector<
       if (CNAMELoop) {
         string msg = "got a CNAME referral (from cache) that causes a loop";
         LOG(prefix << qname << ": Status=" << msg << endl);
-        throw ImmediateServFailException(msg);
+        throw ImmediateServFailException(std::move(msg));
       }
       if (numCNAMEs > s_max_CNAMES_followed) {
         string msg = "max number of CNAMEs exceeded";
         LOG(prefix << qname << ": Status=" << msg << endl);
-        throw ImmediateServFailException(msg);
+        throw ImmediateServFailException(std::move(msg));
       }
 
       set<GetBestNSAnswer> beenthere;
@@ -5574,7 +5572,7 @@ bool SyncRes::processAnswer(unsigned int depth, const string& prefix, LWResult& 
     }
     LOG("looping to them" << endl);
     *gotNewServers = true;
-    auth = newauth;
+    auth = std::move(newauth);
 
     return false;
   }

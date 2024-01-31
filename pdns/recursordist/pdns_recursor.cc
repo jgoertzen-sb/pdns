@@ -1507,8 +1507,8 @@ void startDoResolve(void* arg) // NOLINT(readability-function-cognitive-complexi
           else {
             TIMEVAL_TO_TIMESPEC(&comboWriter->d_now, &timeSpec); // NOLINT
           }
-          DnstapMessage message(str, DnstapMessage::MessageType::resolver_response, SyncRes::s_serverID, &comboWriter->d_source, &comboWriter->d_destination, comboWriter->d_tcp ? DnstapMessage::ProtocolType::DoTCP : DnstapMessage::ProtocolType::DoUDP, reinterpret_cast<const char*>(&*packet.begin()), packet.size(), &timeSpec, nullptr, comboWriter->d_mdp.d_qname); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-
+          DnstapMessage message(std::move(str), DnstapMessage::MessageType::resolver_response, SyncRes::s_serverID, &comboWriter->d_source, &comboWriter->d_destination, comboWriter->d_tcp ? DnstapMessage::ProtocolType::DoTCP : DnstapMessage::ProtocolType::DoUDP, reinterpret_cast<const char*>(&*packet.begin()), packet.size(), &timeSpec, nullptr, comboWriter->d_mdp.d_qname); // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+          str = message.getBuffer();
           for (auto& logger : *(t_nodFrameStreamServersInfo.servers)) {
             if (logger->logUDRs()) {
               remoteLoggerQueueData(*logger, str);
@@ -1666,7 +1666,8 @@ void startDoResolve(void* arg) // NOLINT(readability-function-cognitive-complexi
           else {
             TIMEVAL_TO_TIMESPEC(&comboWriter->d_now, &timeSpec); // NOLINT
           }
-          DnstapMessage message(str, DnstapMessage::MessageType::client_query, SyncRes::s_serverID, &comboWriter->d_source, &comboWriter->d_destination, comboWriter->d_tcp ? DnstapMessage::ProtocolType::DoTCP : DnstapMessage::ProtocolType::DoUDP, nullptr, 0, &timeSpec, nullptr, comboWriter->d_mdp.d_qname);
+          DnstapMessage message(std::move(str), DnstapMessage::MessageType::client_query, SyncRes::s_serverID, &comboWriter->d_source, &comboWriter->d_destination, comboWriter->d_tcp ? DnstapMessage::ProtocolType::DoTCP : DnstapMessage::ProtocolType::DoUDP, nullptr, 0, &timeSpec, nullptr, comboWriter->d_mdp.d_qname);
+          str = message.getBuffer();
 
           for (auto& logger : *(t_nodFrameStreamServersInfo.servers)) {
             if (logger->logNODs()) {
@@ -2318,8 +2319,10 @@ static string* doProcessUDPQuestion(const std::string& question, const ComboAddr
       SLOG(g_log << Logger::Notice << RecThreadInfo::id() << " got NOTIFY for " << qname.toLogString() << " from " << source.toStringWithPort() << (source != fromaddr ? " (via " + fromaddr.toStringWithPort() + ")" : "") << endl,
            g_slogudpin->info(Logr::Notice, "Got NOTIFY", "source", Logging::Loggable(source), "remote", Logging::Loggable(fromaddr), "qname", Logging::Loggable(qname)));
     }
-
-    requestWipeCaches(qname);
+    if (!notifyRPZTracker(qname)) {
+      // It wasn't an RPZ
+      requestWipeCaches(qname);
+    }
 
     // the operation will now be treated as a Query, generating
     // a normal response, as the rest of the code does not
