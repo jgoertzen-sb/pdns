@@ -65,6 +65,9 @@ jobs:
           path: ~/.ccache
           key: auth-ccache-${{ steps.get-stamp.outputs.stamp }}
           restore-keys: auth-ccache-
+      - run: inv install-oqs
+      - run: inv install-openssl32
+      - run: inv install-oqs-provider
       - run: inv ci-autoconf
         working-directory: .
       - run: inv ci-auth-configure
@@ -135,6 +138,12 @@ jobs:
           key: recursor-${{ matrix.sanitizers }}-ccache-${{ steps.get-stamp.outputs.stamp }}
           restore-keys: recursor-${{ matrix.sanitizers }}-ccache-
       - run: inv ci-install-rust ${{ env.REPO_HOME }}
+        working-directory: ./pdns/recursordist/
+      - run: inv install-oqs
+        working-directory: ./pdns/recursordist/
+      - run: inv install-openssl32
+        working-directory: ./pdns/recursordist/
+      - run: inv install-oqs-provider
         working-directory: ./pdns/recursordist/
       - run: inv ci-autoconf
         working-directory: ./pdns/recursordist/
@@ -212,6 +221,10 @@ jobs:
         working-directory: ./pdns/dnsdistdist/
       - run: inv ci-build-and-install-quiche
         working-directory: ./pdns/dnsdistdist/
+      - run: inv install-oqs
+      - run: inv install-openssl32
+      - run: inv install-oqs-provider
+      - run: inv ci-autoconf
       - run: inv ci-autoconf
         working-directory: ./pdns/dnsdistdist/
       - run: inv ci-dnsdist-configure ${{ matrix.features }}
