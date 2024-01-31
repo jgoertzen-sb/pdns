@@ -12,35 +12,33 @@
 using namespace boost;
 using std::string;
 
-
 BOOST_AUTO_TEST_SUITE(test_proxy_protocol_cc)
 
 #define BINARY(s) (std::string(s, sizeof(s) - 1))
 
 #define PROXYMAGIC "\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A"
-#define PROXYMAGICLEN sizeof(PROXYMAGIC)-1
+#define PROXYMAGICLEN sizeof(PROXYMAGIC) - 1
 
 static string proxymagic(PROXYMAGIC, PROXYMAGICLEN);
 
-BOOST_AUTO_TEST_CASE(test_roundtrip) {
+BOOST_AUTO_TEST_CASE(test_roundtrip)
+{
   std::vector<ProxyProtocolValue> values;
   string proxyheader;
 
   bool ptcp = true;
-  ComboAddress src("65.66.67.68:18762");  // 18762 = 0x494a = "IJ"
+  ComboAddress src("65.66.67.68:18762"); // 18762 = 0x494a = "IJ"
   ComboAddress dest("69.70.71.72:19276"); // 19276 = 0x4b4c = "KL"
   proxyheader = makeProxyHeader(ptcp, src, dest, values);
 
-  BOOST_CHECK_EQUAL(proxyheader, BINARY(
-    PROXYMAGIC
-    "\x21"          // version | command
-    "\x11"          // ipv4=0x10 | TCP=0x1
-    "\x00\x0c"      // 4 bytes IPv4 * 2 + 2 port numbers = 8 + 2 * 2 =12 = 0xc
-    "ABCD"          // 65.66.67.68
-    "EFGH"          // 69.70.71.72
-    "IJ"            // src port
-    "KL"            // dst port
-    ));
+  BOOST_CHECK_EQUAL(proxyheader, BINARY(PROXYMAGIC "\x21" // version | command
+                                                   "\x11" // ipv4=0x10 | TCP=0x1
+                                                   "\x00\x0c" // 4 bytes IPv4 * 2 + 2 port numbers = 8 + 2 * 2 =12 = 0xc
+                                                   "ABCD" // 65.66.67.68
+                                                   "EFGH" // 69.70.71.72
+                                                   "IJ" // src port
+                                                   "KL" // dst port
+                                        ));
 
   bool proxy;
   bool ptcp2;
@@ -54,15 +52,14 @@ BOOST_AUTO_TEST_CASE(test_roundtrip) {
   BOOST_CHECK(dest2 == dest);
 }
 
-BOOST_AUTO_TEST_CASE(test_local_proxy_header) {
+BOOST_AUTO_TEST_CASE(test_local_proxy_header)
+{
   auto payload = makeLocalProxyHeader();
 
-  BOOST_CHECK_EQUAL(payload, BINARY(
-    PROXYMAGIC
-    "\x20"          // version | command
-    "\x00"          // protocol family and address are set to 0
-    "\x00\x00"      // no content
-    ));
+  BOOST_CHECK_EQUAL(payload, BINARY(PROXYMAGIC "\x20" // version | command
+                                               "\x00" // protocol family and address are set to 0
+                                               "\x00\x00" // no content
+                                    ));
 
   bool proxy;
   bool tcp = false;
@@ -76,11 +73,12 @@ BOOST_AUTO_TEST_CASE(test_local_proxy_header) {
   BOOST_CHECK_EQUAL(values.size(), 0U);
 }
 
-BOOST_AUTO_TEST_CASE(test_tlv_values_content_len_signedness) {
+BOOST_AUTO_TEST_CASE(test_tlv_values_content_len_signedness)
+{
   std::string largeValue;
   /* this value will make the content length parsing fail in case of signedness mistake */
   largeValue.resize(65128, 'A');
-  const std::vector<ProxyProtocolValue> values = { { "foo", 0 }, { largeValue, 255 }};
+  const std::vector<ProxyProtocolValue> values = {{"foo", 0}, {largeValue, 255}};
 
   const bool tcp = false;
   const ComboAddress src("[2001:db8::1]:0");
@@ -105,23 +103,25 @@ BOOST_AUTO_TEST_CASE(test_tlv_values_content_len_signedness) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_payload_too_large) {
+BOOST_AUTO_TEST_CASE(test_payload_too_large)
+{
   const bool tcp = false;
   const ComboAddress src("[2001:db8::1]:0");
   const ComboAddress dest("[::1]:65535");
   std::string largeValue;
   /* this value is larger than the maximum size for a TLV */
   largeValue.resize(65536, 'A');
-  const std::vector<ProxyProtocolValue> values = {{ largeValue, 255 }};
+  const std::vector<ProxyProtocolValue> values = {{largeValue, 255}};
 
   BOOST_CHECK_THROW(makeProxyHeader(tcp, src, dest, values), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_tlv_values_length_signedness) {
+BOOST_AUTO_TEST_CASE(test_tlv_values_length_signedness)
+{
   std::string largeValue;
   /* this value will make the TLV length parsing fail in case of signedness mistake */
   largeValue.resize(65000, 'A');
-  const std::vector<ProxyProtocolValue> values = { { "foo", 0 }, { largeValue, 255 }};
+  const std::vector<ProxyProtocolValue> values = {{"foo", 0}, {largeValue, 255}};
 
   const bool tcp = false;
   const ComboAddress src("[2001:db8::1]:0");
@@ -146,7 +146,8 @@ BOOST_AUTO_TEST_CASE(test_tlv_values_length_signedness) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_parsing_invalid_headers) {
+BOOST_AUTO_TEST_CASE(test_parsing_invalid_headers)
+{
   const std::vector<ProxyProtocolValue> noValues;
 
   const bool tcp = false;
@@ -186,7 +187,7 @@ BOOST_AUTO_TEST_CASE(test_parsing_invalid_headers) {
 
   {
     /* too short (missing TLV) */
-    values = { { "foo", 0 }, { "bar", 255 }} ;
+    values = {{"foo", 0}, {"bar", 255}};
     const auto payloadWithValues = makeProxyHeader(tcp, src, dest, values);
 
     std::string truncated = payloadWithValues;
@@ -231,7 +232,7 @@ BOOST_AUTO_TEST_CASE(test_parsing_invalid_headers) {
 
   {
     /* TLV advertised len gets out of bounds */
-    values = { { "foo", 0 }, { "bar", 255 }} ;
+    values = {{"foo", 0}, {"bar", 255}};
     const auto payloadWithValues = makeProxyHeader(tcp, src, dest, values);
     std::string invalid = payloadWithValues;
     /* full header (16) + two IPv6s + port (36) + TLV (6) TLV 2 (6) */

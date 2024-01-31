@@ -21,7 +21,7 @@ static std::vector<ReadWriteLock> g_locks(1000);
 static void lthread()
 {
   std::vector<ReadLock> rlocks;
-  for(auto& pp : g_locks) {
+  for (auto& pp : g_locks) {
     rlocks.emplace_back(pp);
   }
 }
@@ -29,7 +29,7 @@ static void lthread()
 BOOST_AUTO_TEST_CASE(test_pdns_lock)
 {
   std::vector<ReadLock> rlocks;
-  for(auto& pp : g_locks)
+  for (auto& pp : g_locks)
     rlocks.emplace_back(pp);
 
   std::thread thr(lthread);
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(test_pdns_lock)
   rlocks.clear();
 
   std::vector<WriteLock> wlocks;
-  for(auto& pp : g_locks)
+  for (auto& pp : g_locks)
     wlocks.emplace_back(pp);
 
   // on macOS, this TryReadLock throws (EDEADLK) instead of simply failing
@@ -47,7 +47,7 @@ BOOST_AUTO_TEST_CASE(test_pdns_lock)
     TryReadLock trl(g_locks.at(0));
     gotit = trl.gotIt();
   }
-  catch(const PDNSException &e) {
+  catch (const PDNSException& e) {
     gotit = false;
   }
   BOOST_CHECK(!gotit);

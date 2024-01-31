@@ -318,8 +318,8 @@ BOOST_AUTO_TEST_CASE(test_glueless_referral_with_non_resolving)
   res = sr->beginResolve(target, QType(QType::A), QClass::IN, ret);
   BOOST_CHECK_EQUAL(res, RCode::ServFail);
   BOOST_REQUIRE_EQUAL(ret.size(), 0U);
-  //BOOST_CHECK(ret[0].d_type == QType::A);
-  //BOOST_CHECK_EQUAL(ret[0].d_name, target);
+  // BOOST_CHECK(ret[0].d_type == QType::A);
+  // BOOST_CHECK_EQUAL(ret[0].d_name, target);
 
   BOOST_CHECK_EQUAL(SyncRes::getNonResolvingNSSize(), 2U);
 

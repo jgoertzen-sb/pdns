@@ -34,7 +34,11 @@ struct ProxyProtocolValue
     return type == rhs.type && content == rhs.content;
   }
 
-  enum class Types : uint8_t { PP_TLV_ALPN = 0x01, PP_TLV_SSL = 0x20 };
+  enum class Types : uint8_t
+  {
+    PP_TLV_ALPN = 0x01,
+    PP_TLV_SSL = 0x20
+  };
 };
 
 static const size_t s_proxyProtocolMinimumHeaderSize = 16;
@@ -45,9 +49,11 @@ std::string makeProxyHeader(bool tcp, const ComboAddress& source, const ComboAdd
 /* returns: number of bytes consumed (positive) after successful parse
          or number of bytes missing (negative)
          or unfixable parse error (0)*/
-template<typename Container> ssize_t isProxyHeaderComplete(const Container& header, bool* proxy=nullptr, bool* tcp=nullptr, size_t* addrSizeOut=nullptr, uint8_t* protocolOut=nullptr);
+template <typename Container>
+ssize_t isProxyHeaderComplete(const Container& header, bool* proxy = nullptr, bool* tcp = nullptr, size_t* addrSizeOut = nullptr, uint8_t* protocolOut = nullptr);
 
 /* returns: number of bytes consumed (positive) after successful parse
          or number of bytes missing (negative)
          or unfixable parse error (0)*/
-template<typename Container> ssize_t parseProxyHeader(const Container& header, bool& proxy, ComboAddress& source, ComboAddress& destination, bool& tcp, std::vector<ProxyProtocolValue>& values);
+template <typename Container>
+ssize_t parseProxyHeader(const Container& header, bool& proxy, ComboAddress& source, ComboAddress& destination, bool& tcp, std::vector<ProxyProtocolValue>& values);

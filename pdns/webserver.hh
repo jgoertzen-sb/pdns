@@ -190,13 +190,6 @@ public:
   }
 #endif
 
-#ifdef RECURSOR
-  void setSLog(Logr::log_t log)
-  {
-    d_slog = log;
-  }
-#endif
-
   void setApiKey(const string &apikey, bool hashPlaintext) {
     if (!apikey.empty()) {
       d_apikey = make_unique<CredentialsHolder>(std::string(apikey), hashPlaintext);

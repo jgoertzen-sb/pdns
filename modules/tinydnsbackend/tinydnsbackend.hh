@@ -79,7 +79,7 @@ public:
 private:
   vector<string> getLocations();
 
-  //TypeDefs
+  // TypeDefs
   struct tag_zone
   {
   };
@@ -96,7 +96,7 @@ private:
   typedef TDI_t::index<tag_zone>::type TDIByZone_t;
   typedef TDI_t::index<tag_domainid>::type TDIById_t;
 
-  //data member variables
+  // data member variables
   uint64_t d_taiepoch;
   QType d_qtype;
   std::unique_ptr<CDB> d_cdbReader;

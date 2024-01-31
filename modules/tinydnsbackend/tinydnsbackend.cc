@@ -39,7 +39,7 @@ vector<string> TinyDNSBackend::getLocations()
     return ret;
   }
 
-  //TODO: We do not have IPv6 support.
+  // TODO: We do not have IPv6 support.
   Netmask remote = d_dnspacket->getRealRemote();
   if (remote.getBits() != 32) {
     return ret;
@@ -50,7 +50,7 @@ vector<string> TinyDNSBackend::getLocations()
   char key[6];
   key[0] = '\000';
   key[1] = '\045';
-  key[2] = (addr)&0xff;
+  key[2] = (addr) & 0xff;
   key[3] = (addr >> 8) & 0xff;
   key[4] = (addr >> 16) & 0xff;
   key[5] = (addr >> 24) & 0xff;
@@ -66,7 +66,7 @@ vector<string> TinyDNSBackend::getLocations()
       throw PDNSException(e.what());
     }
 
-    //Biggest item wins, so when we find something, we can jump out.
+    // Biggest item wins, so when we find something, we can jump out.
     if (ret.size() > 0) {
       break;
     }
@@ -90,7 +90,7 @@ TinyDNSBackend::TinyDNSBackend(const string& suffix)
 
 void TinyDNSBackend::getUpdatedPrimaries(vector<DomainInfo>& retDomains, std::unordered_set<DNSName>& /* catalogs */, CatalogHashMap& /* catalogHashes */)
 {
-  auto domainInfo = s_domainInfo.lock(); //TODO: We could actually lock less if we do it per suffix.
+  auto domainInfo = s_domainInfo.lock(); // TODO: We could actually lock less if we do it per suffix.
   if (!domainInfo->count(d_suffix)) {
     TDI_t tmp;
     domainInfo->emplace(d_suffix, tmp);
@@ -172,7 +172,7 @@ void TinyDNSBackend::getAllDomains(vector<DomainInfo>* domains, bool getSerial, 
   while (get(rr)) {
     if (rr.qtype.getCode() == QType::SOA && dupcheck.insert(rr.qname).second) {
       DomainInfo di;
-      di.id = -1; //TODO: Check if this is ok.
+      di.id = -1; // TODO: Check if this is ok.
       di.backend = this;
       di.zone = rr.qname;
       di.kind = DomainInfo::Primary;
@@ -250,8 +250,8 @@ bool TinyDNSBackend::get(DNSResourceRecord& rr)
     string val = record.second;
     string key = record.first;
 
-    //DLOG(g_log<<Logger::Debug<<"[GET] Key: "<<makeHexDump(key)<<endl);
-    //DLOG(g_log<<Logger::Debug<<"[GET] Val: "<<makeHexDump(val)<<endl);
+    // DLOG(g_log<<Logger::Debug<<"[GET] Key: "<<makeHexDump(key)<<endl);
+    // DLOG(g_log<<Logger::Debug<<"[GET] Val: "<<makeHexDump(val)<<endl);
     if (key[0] == '\000' && key[1] == '\045') { // skip locations
       continue;
     }

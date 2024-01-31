@@ -46,17 +46,17 @@ public:
   ~TCPNameserver();
   void go();
   unsigned int numTCPConnections();
-private:
 
-  static void sendPacket(std::unique_ptr<DNSPacket>& p, int outsock, bool last=true);
-  static void getQuestion(int fd, char *mesg, int pktlen, const ComboAddress& remote, unsigned int totalTime);
-  static int doAXFR(const DNSName &target, std::unique_ptr<DNSPacket>& q, int outsock);
+private:
+  static void sendPacket(std::unique_ptr<DNSPacket>& p, int outsock, bool last = true);
+  static void getQuestion(int fd, char* mesg, int pktlen, const ComboAddress& remote, unsigned int totalTime);
+  static int doAXFR(const DNSName& target, std::unique_ptr<DNSPacket>& q, int outsock);
   static int doIXFR(std::unique_ptr<DNSPacket>& q, int outsock);
   static bool canDoAXFR(std::unique_ptr<DNSPacket>& q, bool isAXFR, std::unique_ptr<PacketHandler>& packetHandler);
   static void doConnection(int fd);
   static void decrementClientCount(const ComboAddress& remote);
   void thread();
-  static LockGuarded<std::map<ComboAddress,size_t,ComboAddress::addressOnlyLessThan>> s_clientsCount;
+  static LockGuarded<std::map<ComboAddress, size_t, ComboAddress::addressOnlyLessThan>> s_clientsCount;
   static LockGuarded<std::unique_ptr<PacketHandler>> s_P;
   static std::unique_ptr<Semaphore> d_connectionroom_sem;
   static unsigned int d_maxTCPConnections;
@@ -66,6 +66,6 @@ private:
   static unsigned int d_idleTimeout;
   static unsigned int d_maxConnectionDuration;
 
-  vector<int>d_sockets;
+  vector<int> d_sockets;
   vector<struct pollfd> d_prfds;
 };

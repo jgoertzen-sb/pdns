@@ -2131,8 +2131,8 @@ BOOST_AUTO_TEST_CASE(test_dnssec_secure_servfail_ds)
         setLWResult(res, 0, false, false, true);
         addRecordToLW(res, auth, QType::NS, "ns1.powerdns.com.", DNSResourceRecord::AUTHORITY, 3600);
         /* do NOT include the DS here */
-        //addDS(auth, 300, res->d_records, keys);
-        //addRRSIG(keys, res->d_records, DNSName("com."), 300, false, boost::none, boost::none, fixedNow);
+        // addDS(auth, 300, res->d_records, keys);
+        // addRRSIG(keys, res->d_records, DNSName("com."), 300, false, boost::none, boost::none, fixedNow);
         addRecordToLW(res, "ns1.powerdns.com.", QType::A, "192.0.2.2", DNSResourceRecord::ADDITIONAL, 3600);
       }
       return LWResult::Result::Success;

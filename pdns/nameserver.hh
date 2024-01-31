@@ -35,17 +35,17 @@
 #include "dnspacket.hh"
 #include "responsestats.hh"
 
-/** This is the main class. It opens a socket on udp port 53 and waits for packets. Those packets can 
+/** This is the main class. It opens a socket on udp port 53 and waits for packets. Those packets can
     be retrieved with the receive() member function, which returns a DNSPacket.
 
     Some sample code in main():
     \code
     typedef Distributor<DNSPacket,DNSPacket,PacketHandler> DNSDistributor;
     DNSDistributor D(6); // the big dispatcher!
-    
+
     pthread_t qtid, atid;
     N=new UDPNameserver;
-    
+
     pthread_create(&qtid,0,qthread,static_cast<void *>(&D)); // receives packets
     pthread_create(&atid,0,athread,static_cast<void *>(&D)); // sends packets
     \endcode
@@ -55,9 +55,9 @@
     void *qthread(void *p)
     {
       DNSDistributor *D=static_cast<DNSDistributor *>(p);
-    
+
       DNSPacket *P;
-    
+
       while((P=N->receive())) // receive a packet
       {
          D->question(P); // and give to the distributor, they will delete it
@@ -78,13 +78,14 @@
 class UDPNameserver
 {
 public:
-  UDPNameserver( bool additional_socket = false );  //!< Opens the socket
+  UDPNameserver(bool additional_socket = false); //!< Opens the socket
   bool receive(DNSPacket& packet, std::string& buffer); //!< call this in a while or for(;;) loop to get packets
   void send(DNSPacket&); //!< send a DNSPacket. Will call DNSPacket::truncate() if over 512 bytes
-  inline bool canReusePort() {
+  inline bool canReusePort()
+  {
     return d_can_reuseport;
   };
-  
+
 private:
   bool d_additional_socket;
   bool d_can_reuseport{false};

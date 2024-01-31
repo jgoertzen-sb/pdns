@@ -35,26 +35,24 @@ using namespace boost::multi_index;
 
 struct CIContentCompareStruct
 {
-  bool operator()(const shared_ptr<const DNSRecordContent>&a, const shared_ptr<const DNSRecordContent>& b) const
+  bool operator()(const shared_ptr<const DNSRecordContent>& a, const shared_ptr<const DNSRecordContent>& b) const
   {
     return toLower(a->getZoneRepresentation()) < toLower(b->getZoneRepresentation());
   }
 };
 
-
-typedef multi_index_container <
+typedef multi_index_container<
   DNSRecord,
-    indexed_by<
-      ordered_non_unique<
-        composite_key<DNSRecord,
-                      member<DNSRecord, DNSName, &DNSRecord::d_name>,
-                      member<DNSRecord, uint16_t, &DNSRecord::d_type>,
-                      member<DNSRecord, uint16_t, &DNSRecord::d_class>,
-                      BOOST_MULTI_INDEX_CONST_MEM_FUN(DNSRecord, const shared_ptr<const DNSRecordContent>&, getContent) >,
-        composite_key_compare<CanonDNSNameCompare, std::less<uint16_t>, std::less<uint16_t>, CIContentCompareStruct >
-      > /* ordered_non_uniquw */
+  indexed_by<
+    ordered_non_unique<
+      composite_key<DNSRecord,
+                    member<DNSRecord, DNSName, &DNSRecord::d_name>,
+                    member<DNSRecord, uint16_t, &DNSRecord::d_type>,
+                    member<DNSRecord, uint16_t, &DNSRecord::d_class>,
+                    BOOST_MULTI_INDEX_CONST_MEM_FUN(DNSRecord, const shared_ptr<const DNSRecordContent>&, getContent)>,
+      composite_key_compare<CanonDNSNameCompare, std::less<uint16_t>, std::less<uint16_t>, CIContentCompareStruct>> /* ordered_non_uniquw */
     > /* indexed_by */
-> /* multi_index_container */ records_t;
+  > /* multi_index_container */ records_t;
 
 uint32_t getSerialFromPrimary(const ComboAddress& primary, const DNSName& zone, shared_ptr<const SOARecordContent>& sr, const TSIGTriplet& tt = TSIGTriplet(), const uint16_t timeout = 2);
 uint32_t getSerialFromDir(const std::string& dir);

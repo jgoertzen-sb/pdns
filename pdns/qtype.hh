@@ -43,11 +43,13 @@
 class QType
 {
 public:
-  QType(uint16_t qtype = 0) : code(qtype) {}
-  QType &operator=(const char *);
-  QType &operator=(const string &);
+  QType(uint16_t qtype = 0) :
+    code(qtype) {}
+  QType& operator=(const char*);
+  QType& operator=(const string&);
 
-  operator uint16_t() const {
+  operator uint16_t() const
+  {
     return code;
   }
 
@@ -73,7 +75,8 @@ public:
 
   static uint16_t chartocode(const char* p);
 
-  enum typeenum : uint16_t {
+  enum typeenum : uint16_t
+  {
     ENT = 0,
     A = 1,
     NS = 2,
@@ -152,17 +155,20 @@ public:
   const static map<uint16_t, const string> numbers;
 
 private:
-
   uint16_t code;
 };
 
 // Define hash function on QType. See https://en.cppreference.com/w/cpp/utility/hash
-namespace std {
-  template<> struct hash<QType> {
-    std::size_t operator()(QType qtype) const noexcept {
-      return std::hash<uint16_t>{}(qtype.getCode());
-    }
-  };
+namespace std
+{
+template <>
+struct hash<QType>
+{
+  std::size_t operator()(QType qtype) const noexcept
+  {
+    return std::hash<uint16_t>{}(qtype.getCode());
+  }
+};
 }
 
 inline std::ostream& operator<<(std::ostream& stream, const QType& qtype)
@@ -171,15 +177,18 @@ inline std::ostream& operator<<(std::ostream& stream, const QType& qtype)
 }
 
 // Used by e.g. boost multi-index
-inline size_t hash_value(const QType qtype) {
+inline size_t hash_value(const QType qtype)
+{
   return qtype.getCode();
 }
 
 struct QClass
 {
-  constexpr QClass(uint16_t code = 0) : qclass(code) {}
+  constexpr QClass(uint16_t code = 0) :
+    qclass(code) {}
 
-  constexpr operator uint16_t() const {
+  constexpr operator uint16_t() const
+  {
     return qclass;
   }
   constexpr uint16_t getCode() const

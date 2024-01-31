@@ -10,7 +10,13 @@
 #include "noinitvector.hh"
 
 /* Async is only returned for TLS connections, if OpenSSL's async mode has been enabled */
-enum class IOState : uint8_t { Done, NeedRead, NeedWrite, Async };
+enum class IOState : uint8_t
+{
+  Done,
+  NeedRead,
+  NeedWrite,
+  Async
+};
 
 class TLSSession
 {
@@ -26,10 +32,10 @@ public:
   virtual IOState tryConnect(bool fastOpen, const ComboAddress& remote) = 0;
   virtual void connect(bool fastOpen, const ComboAddress& remote, const struct timeval& timeout) = 0;
   virtual IOState tryHandshake() = 0;
-  virtual size_t read(void* buffer, size_t bufferSize, const struct timeval& readTimeout, const struct timeval& totalTimeout={0,0}, bool allowIncomplete=false) = 0;
+  virtual size_t read(void* buffer, size_t bufferSize, const struct timeval& readTimeout, const struct timeval& totalTimeout = {0, 0}, bool allowIncomplete = false) = 0;
   virtual size_t write(const void* buffer, size_t bufferSize, const struct timeval& writeTimeout) = 0;
   virtual IOState tryWrite(const PacketBuffer& buffer, size_t& pos, size_t toWrite) = 0;
-  virtual IOState tryRead(PacketBuffer& buffer, size_t& pos, size_t toRead, bool allowIncomplete=false) = 0;
+  virtual IOState tryRead(PacketBuffer& buffer, size_t& pos, size_t toRead, bool allowIncomplete = false) = 0;
   virtual std::string getServerNameIndication() const = 0;
   virtual std::vector<uint8_t> getNextProtocol() const = 0;
   virtual LibsslTLSVersion getTLSVersion() const = 0;
@@ -93,11 +99,11 @@ public:
         rotateTicketsKey(now);
         d_rotatingTicketsKey.clear();
       }
-      catch(const std::runtime_error& e) {
+      catch (const std::runtime_error& e) {
         d_rotatingTicketsKey.clear();
         throw std::runtime_error(std::string("Error generating a new tickets key for TLS context:") + e.what());
       }
-      catch(...) {
+      catch (...) {
         d_rotatingTicketsKey.clear();
         throw;
       }
@@ -119,7 +125,7 @@ public:
   }
 
   /* called in a client context, if the client advertised more than one ALPN values and the server returned more than one as well, to select the one to use. */
-  virtual bool setNextProtocolSelectCallback(bool(*)(unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen))
+  virtual bool setNextProtocolSelectCallback(bool (*)(unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen))
   {
     return false;
   }
@@ -133,13 +139,20 @@ protected:
 class TLSFrontend
 {
 public:
-  enum class ALPN : uint8_t { Unset, DoT, DoH };
+  enum class ALPN : uint8_t
+  {
+    Unset,
+    DoT,
+    DoH
+  };
 
-  TLSFrontend(ALPN alpn): d_alpn(alpn)
+  TLSFrontend(ALPN alpn) :
+    d_alpn(alpn)
   {
   }
 
-  TLSFrontend(std::shared_ptr<TLSCtx> ctx): d_ctx(std::move(ctx))
+  TLSFrontend(std::shared_ptr<TLSCtx> ctx) :
+    d_ctx(std::move(ctx))
   {
   }
 
@@ -225,6 +238,7 @@ public:
   ALPN d_alpn{ALPN::Unset};
   /* whether the proxy protocol is inside or outside the TLS layer */
   bool d_proxyProtocolOutsideTLS{false};
+
 protected:
   std::shared_ptr<TLSCtx> d_ctx{nullptr};
 };
@@ -292,12 +306,12 @@ public:
     }
     else {
       if (!s_disableConnectForUnitTests) {
-        SConnectWithTimeout(d_socket, remote, /* no timeout, we will handle it ourselves */ timeval{0,0});
+        SConnectWithTimeout(d_socket, remote, /* no timeout, we will handle it ourselves */ timeval{0, 0});
       }
     }
 #else
     if (!s_disableConnectForUnitTests) {
-      SConnectWithTimeout(d_socket, remote, /* no timeout, we will handle it ourselves */ timeval{0,0});
+      SConnectWithTimeout(d_socket, remote, /* no timeout, we will handle it ourselves */ timeval{0, 0});
     }
 #endif /* MSG_FASTOPEN */
 
@@ -350,11 +364,12 @@ public:
     return IOState::Done;
   }
 
-  size_t read(void* buffer, size_t bufferSize, const struct timeval& readTimeout, const struct timeval& totalTimeout = {0,0}, bool allowIncomplete=false)
+  size_t read(void* buffer, size_t bufferSize, const struct timeval& readTimeout, const struct timeval& totalTimeout = {0, 0}, bool allowIncomplete = false)
   {
     if (d_conn) {
       return d_conn->read(buffer, bufferSize, readTimeout, totalTimeout, allowIncomplete);
-    } else {
+    }
+    else {
       return readn2WithTimeout(d_socket, buffer, bufferSize, readTimeout, totalTimeout, allowIncomplete);
     }
   }
@@ -365,7 +380,7 @@ public:
      return Done when toRead bytes have been read, needRead or needWrite if the IO operation
      would block.
   */
-  IOState tryRead(PacketBuffer& buffer, size_t& pos, size_t toRead, bool allowIncomplete=false, bool bypassFilters=false)
+  IOState tryRead(PacketBuffer& buffer, size_t& pos, size_t toRead, bool allowIncomplete = false, bool bypassFilters = false)
   {
     if (buffer.size() < toRead || pos >= toRead) {
       throw std::out_of_range("Calling tryRead() with a too small buffer (" + std::to_string(buffer.size()) + ") for a read of " + std::to_string(toRead - pos) + " bytes starting at " + std::to_string(pos));
@@ -393,8 +408,7 @@ public:
       if (allowIncomplete) {
         break;
       }
-    }
-    while (pos < toRead);
+    } while (pos < toRead);
 
     return IOState::Done;
   }
@@ -417,7 +431,7 @@ public:
 #ifdef MSG_FASTOPEN
     if (d_fastOpen) {
       int socketFlags = MSG_FASTOPEN;
-      size_t sent = sendMsgWithOptions(d_socket, reinterpret_cast<const char *>(&buffer.at(pos)), toWrite - pos, &d_remote, nullptr, 0, socketFlags);
+      size_t sent = sendMsgWithOptions(d_socket, reinterpret_cast<const char*>(&buffer.at(pos)), toWrite - pos, &d_remote, nullptr, 0, socketFlags);
       if (sent > 0) {
         d_fastOpen = false;
         pos += sent;
@@ -447,8 +461,7 @@ public:
       }
 
       pos += static_cast<size_t>(res);
-    }
-    while (pos < toWrite);
+    } while (pos < toWrite);
 
     return IOState::Done;
   }
@@ -462,7 +475,7 @@ public:
 #ifdef MSG_FASTOPEN
     if (d_fastOpen) {
       int socketFlags = MSG_FASTOPEN;
-      size_t sent = sendMsgWithOptions(d_socket, reinterpret_cast<const char *>(buffer), bufferSize, &d_remote, nullptr, 0, socketFlags);
+      size_t sent = sendMsgWithOptions(d_socket, reinterpret_cast<const char*>(buffer), bufferSize, &d_remote, nullptr, 0, socketFlags);
       if (sent > 0) {
         d_fastOpen = false;
       }

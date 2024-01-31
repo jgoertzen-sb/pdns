@@ -27,7 +27,6 @@
 class PacketCache : public boost::noncopyable
 {
 public:
-
   /* hash the packet from the provided position, which should point right after tje qname. This skips:
      - the query ID ;
      - EDNS Cookie options, if any ;
@@ -45,7 +44,7 @@ public:
        = 15
     */
     const dnsheader_aligned dnsheaderdata(packet.data());
-    const struct dnsheader *dh = dnsheaderdata.get();
+    const struct dnsheader* dh = dnsheaderdata.get();
     if (ntohs(dh->qdcount) != 1 || ntohs(dh->ancount) != 0 || ntohs(dh->nscount) != 0 || ntohs(dh->arcount) != 1 || (pos + 15) >= packetSize) {
       if (packetSize > pos) {
         currentHash = burtle(reinterpret_cast<const unsigned char*>(&packet.at(pos)), packetSize - pos, currentHash);
@@ -113,7 +112,7 @@ public:
     // code, as it should be consistent with the hash function.
     uint32_t currentHash = burtle(reinterpret_cast<const unsigned char*>(&packet.at(2)), sizeof(dnsheader) - 2, 0); // rest of dnsheader, skip id
 
-    for (pos = sizeof(dnsheader); pos < packetSize; ) {
+    for (pos = sizeof(dnsheader); pos < packetSize;) {
       const unsigned char labelLen = static_cast<unsigned char>(packet.at(pos));
       ++pos;
       if (labelLen == 0) {
@@ -221,10 +220,9 @@ public:
     }
 
     if (pos >= querySize) {
-        return true;
+      return true;
     }
 
     return cachedQuery.compare(pos, cachedQuerySize - pos, query, pos, querySize - pos) == 0;
   }
-
 };

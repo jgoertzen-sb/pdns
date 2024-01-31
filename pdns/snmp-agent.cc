@@ -12,20 +12,20 @@
 #ifndef HAVE_SNMP_SELECT_INFO2
 /* that's terrible, because it means we are going to have trouble with large
    FD numbers at some point.. */
-# define netsnmp_large_fd_set fd_set
-# define snmp_read2 snmp_read
-# define snmp_select_info2 snmp_select_info
-# define netsnmp_large_fd_set_init(...)
-# define netsnmp_large_fd_set_cleanup(...)
-# define NETSNMP_LARGE_FD_SET FD_SET
-# define NETSNMP_LARGE_FD_CLR FD_CLR
-# define NETSNMP_LARGE_FD_ZERO FD_ZERO
-# define NETSNMP_LARGE_FD_ISSET FD_ISSET
+#define netsnmp_large_fd_set fd_set
+#define snmp_read2 snmp_read
+#define snmp_select_info2 snmp_select_info
+#define netsnmp_large_fd_set_init(...)
+#define netsnmp_large_fd_set_cleanup(...)
+#define NETSNMP_LARGE_FD_SET FD_SET
+#define NETSNMP_LARGE_FD_CLR FD_CLR
+#define NETSNMP_LARGE_FD_ZERO FD_ZERO
+#define NETSNMP_LARGE_FD_ISSET FD_ISSET
 #else
-# include <net-snmp/library/large_fd_set.h>
+#include <net-snmp/library/large_fd_set.h>
 #endif
 
-const std::array<oid, 11> SNMPAgent::snmpTrapOID = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
+const std::array<oid, 11> SNMPAgent::snmpTrapOID = {1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0};
 
 int SNMPAgent::setCounter64Value(netsnmp_request_info* request,
                                  uint64_t value)
@@ -40,11 +40,11 @@ int SNMPAgent::setCounter64Value(netsnmp_request_info* request,
   return SNMP_ERR_NOERROR;
 }
 
-bool SNMPAgent::sendTrap(pdns::channel::Sender<netsnmp_variable_list, void(*)(netsnmp_variable_list*)>& sender,
+bool SNMPAgent::sendTrap(pdns::channel::Sender<netsnmp_variable_list, void (*)(netsnmp_variable_list*)>& sender,
                          netsnmp_variable_list* varList)
 {
-  try  {
-    auto obj = std::unique_ptr<netsnmp_variable_list, void(*)(netsnmp_variable_list*)>(varList, snmp_free_varbind);
+  try {
+    auto obj = std::unique_ptr<netsnmp_variable_list, void (*)(netsnmp_variable_list*)>(varList, snmp_free_varbind);
     return sender.send(std::move(obj));
   }
   catch (...) {
@@ -114,19 +114,19 @@ void SNMPAgent::worker()
   int maxfd = 0;
   int block = 1;
   netsnmp_large_fd_set fdset;
-  struct timeval timeout = { 0, 0 };
+  struct timeval timeout = {0, 0};
   struct timeval now;
 
   /* we want to be notified if a trap is waiting
    to be sent */
   mplexer->addReadFD(d_receiver.getDescriptor(), &handleTrapsCB, this);
 
-  while(true) {
+  while (true) {
     netsnmp_large_fd_set_init(&fdset, FD_SETSIZE);
     NETSNMP_LARGE_FD_ZERO(&fdset);
 
     block = 1;
-    timeout = { 0, 0 };
+    timeout = {0, 0};
     snmp_select_info2(&maxfd, &fdset, &timeout, &block);
 
     for (int fd = 0; fd < maxfd; fd++) {
@@ -149,7 +149,7 @@ void SNMPAgent::worker()
         try {
           mplexer->removeReadFD(fd);
         }
-        catch(const FDMultiplexerException& e) {
+        catch (const FDMultiplexerException& e) {
           /* we might get an exception when removing a closed file descriptor,
              just ignore it */
         }
@@ -185,7 +185,7 @@ SNMPAgent::SNMPAgent([[maybe_unused]] const std::string& name, [[maybe_unused]] 
 
   init_snmp(name.c_str());
 
-  auto [sender, receiver] = pdns::channel::createObjectQueue<netsnmp_variable_list, void(*)(netsnmp_variable_list*)>();
+  auto [sender, receiver] = pdns::channel::createObjectQueue<netsnmp_variable_list, void (*)(netsnmp_variable_list*)>();
   d_sender = std::move(sender);
   d_receiver = std::move(receiver);
 #endif /* HAVE_NET_SNMP */

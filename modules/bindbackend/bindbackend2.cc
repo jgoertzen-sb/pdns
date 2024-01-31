@@ -1256,7 +1256,7 @@ void Bind2Backend::handle::reset()
   mustlog = false;
 }
 
-//#define DLOG(x) x
+// #define DLOG(x) x
 bool Bind2Backend::handle::get_normal(DNSResourceRecord& r)
 {
   DLOG(g_log << "Bind2Backend get() was called for " << qtype.toString() << " record for '" << qname << "' - " << d_records->size() << " available in total!" << endl);
@@ -1281,8 +1281,8 @@ bool Bind2Backend::handle::get_normal(DNSResourceRecord& r)
   r.qtype = (d_iter)->qtype;
   r.ttl = (d_iter)->ttl;
 
-  //if(!d_iter->auth && r.qtype.getCode() != QType::A && r.qtype.getCode()!=QType::AAAA && r.qtype.getCode() != QType::NS)
-  //  cerr<<"Warning! Unauth response for qtype "<< r.qtype.toString() << " for '"<<r.qname<<"'"<<endl;
+  // if(!d_iter->auth && r.qtype.getCode() != QType::A && r.qtype.getCode()!=QType::AAAA && r.qtype.getCode() != QType::NS)
+  //   cerr<<"Warning! Unauth response for qtype "<< r.qtype.toString() << " for '"<<r.qname<<"'"<<endl;
   r.auth = d_iter->auth;
 
   d_iter++;

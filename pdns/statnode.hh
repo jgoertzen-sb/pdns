@@ -27,10 +27,9 @@
 class StatNode
 {
 public:
-
   struct Stat
   {
-    Stat() {};
+    Stat(){};
     uint64_t queries{0};
     uint64_t noerrors{0};
     uint64_t nxdomains{0};
@@ -38,10 +37,11 @@ public:
     uint64_t drops{0};
     uint64_t bytes{0};
     uint64_t hits{0};
-    using remotes_t = std::map<ComboAddress,int,ComboAddress::addressOnlyLessThan>;
+    using remotes_t = std::map<ComboAddress, int, ComboAddress::addressOnlyLessThan>;
     remotes_t remotes;
 
-    Stat& operator+=(const Stat& rhs) {
+    Stat& operator+=(const Stat& rhs)
+    {
       queries += rhs.queries;
       noerrors += rhs.noerrors;
       nxdomains += rhs.nxdomains;
@@ -66,7 +66,7 @@ public:
   uint8_t labelsCount{0};
 
   void submit(const DNSName& domain, int rcode, unsigned int bytes, bool hit, const boost::optional<const ComboAddress&>& remote);
-  Stat print(unsigned int depth=0, Stat newstat=Stat(), bool silent=false) const;
+  Stat print(unsigned int depth = 0, Stat newstat = Stat(), bool silent = false) const;
   void visit(const visitor_t& visitor, Stat& newstat, unsigned int depth = 0) const;
   bool empty() const
   {
