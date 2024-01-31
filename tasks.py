@@ -400,6 +400,9 @@ def install_rec_build_deps(c):
 @task
 def install_dnsdist_build_deps(c):
     c.sudo('apt-get install -y --no-install-recommends ' +  ' '.join(all_build_deps + git_build_deps + dnsdist_build_deps))
+    install_liboqs(c)
+    install_openssl32(c)
+    install_oqs_provider(c)
 
 @task
 def ci_autoconf(c):
