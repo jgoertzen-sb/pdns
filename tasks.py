@@ -24,7 +24,7 @@ oqs_build_deps = [
     'doxygen',
     'graphviz',
     'python3-yaml',
-    'valgrind',
+    'valgrind=3.20',
 ]
 openssl32_build_deps = [
     'gcc',
