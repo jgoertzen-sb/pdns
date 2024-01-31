@@ -91,7 +91,7 @@ void TCPNameserver::go()
     g_log << Logger::Error << "TCP server is unable to launch backends - will try again when questions come in: " << ae.reason << endl;
   }
 
-  std::thread th([this]() {  thread(); });
+  std::thread th([this]() { thread(); });
   th.detach();
 }
 

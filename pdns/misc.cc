@@ -632,7 +632,7 @@ string U32ToIP(uint32_t val)
            (val >> 24) & 0xff,
            (val >> 16) & 0xff,
            (val >> 8) & 0xff,
-           (val) & 0xff);
+           (val)&0xff);
   return string(tmp);
 }
 
