@@ -545,26 +545,6 @@ struct SOAData
   [[nodiscard]] uint32_t getNegativeTTL() const { return min(ttl, minimum); }
 };
 
-
-struct SOAData
-{
-  SOAData() : domain_id(-1) {};
-
-  DNSName qname;
-  DNSName nameserver;
-  DNSName rname;
-  uint32_t ttl{};
-  uint32_t serial{};
-  uint32_t refresh{};
-  uint32_t retry{};
-  uint32_t expire{};
-  uint32_t minimum{};
-  DNSBackend *db{};
-  int domain_id{};
-
-  [[nodiscard]] uint32_t getNegativeTTL() const { return min(ttl, minimum); }
-};
-
 /** helper function for both DNSPacket and addSOARecord() - converts a line into a struct, for easier parsing */
 void fillSOAData(const string& content, SOAData& soaData);
 // same but more karmic
