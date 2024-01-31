@@ -13,7 +13,7 @@ quiche_hash = 'eb242a14c4d801a90b57b6021dd29f7a62099f3a4d7a7ba889e105f8328e6c1f'
 
 
 valgrind_build_deps = [
-    'apt-get install build-essential',
+    'build-essential',
 ]
 oqs_build_deps = [
     'astyle',
