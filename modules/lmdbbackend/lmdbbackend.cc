@@ -861,7 +861,7 @@ namespace serialization
   template <class Archive>
   void serialize(Archive& ar, LMDBBackend::DomainMeta& g, const unsigned int /* version */)
   {
-    ar& g.domain & g.key & g.value;
+    ar& g.domain& g.key& g.value;
   }
 
   template <class Archive>
@@ -875,7 +875,7 @@ namespace serialization
   {
     ar& g.domain& g.content& g.flags& g.active;
     if (version >= 1) {
-      ar & g.published;
+      ar& g.published;
     }
     else {
       g.published = true;
