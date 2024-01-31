@@ -14,6 +14,7 @@ quiche_hash = 'eb242a14c4d801a90b57b6021dd29f7a62099f3a4d7a7ba889e105f8328e6c1f'
 
 valgrind_build_deps = [
     'build-essential',
+    'libc6-dbg',
 ]
 oqs_build_deps = [
     'astyle',
@@ -48,7 +49,7 @@ all_build_deps = [
 ]
 git_build_deps = [
     'autoconf',
-    'automake',
+    'automake'
     'bison',
     'bzip2',
     'curl',
