@@ -284,6 +284,7 @@ DHCID
 dhcpd
 dhcpdupdate
 diffs
+dilithium
 DIGESTALGOS
 Digitalus
 dijk
@@ -1272,6 +1273,7 @@ Spaans
 Spackages
 spams
 SPHINXBUILD
+sphincs
 sphinxcontrib
 sphinxjsondomain
 SPHINXOPTS
