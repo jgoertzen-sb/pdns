@@ -72,14 +72,14 @@ public:
   bool get(DNSResourceRecord& rr) override;
   void getAllDomains(vector<DomainInfo>* domains, bool getSerial, bool include_disabled) override;
 
-  //Master mode operation
-  void getUpdatedMasters(vector<DomainInfo>* domains) override;
+  // Primary mode operation
+  void getUpdatedPrimaries(vector<DomainInfo>& domains, std::unordered_set<DNSName>& catalogs, CatalogHashMap& catalogHashes) override;
   void setNotified(uint32_t id, uint32_t serial) override;
 
 private:
   vector<string> getLocations();
 
-  //TypeDefs
+  // TypeDefs
   struct tag_zone
   {
   };
@@ -96,7 +96,7 @@ private:
   typedef TDI_t::index<tag_zone>::type TDIByZone_t;
   typedef TDI_t::index<tag_domainid>::type TDIById_t;
 
-  //data member variables
+  // data member variables
   uint64_t d_taiepoch;
   QType d_qtype;
   std::unique_ptr<CDB> d_cdbReader;

@@ -1,5 +1,8 @@
 
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
@@ -190,7 +193,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_basic)
     /* blocked A */
     DNSRecord dr;
     dr.d_type = QType::A;
-    dr.d_content = DNSRecordContent::mastermake(QType::A, QClass::IN, responseIP.toString());
+    dr.setContent(DNSRecordContent::make(QType::A, QClass::IN, responseIP.toString()));
     const auto matchingPolicy = dfe.getPostPolicy({dr}, std::unordered_map<std::string, bool>(), DNSFilterEngine::maximumPriority);
     BOOST_CHECK(matchingPolicy.d_type == DNSFilterEngine::PolicyType::ResponseIP);
     BOOST_CHECK(matchingPolicy.d_kind == DNSFilterEngine::PolicyKind::Drop);
@@ -205,7 +208,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_basic)
     /* allowed A */
     DNSRecord dr;
     dr.d_type = QType::A;
-    dr.d_content = DNSRecordContent::mastermake(QType::A, QClass::IN, "192.0.2.142");
+    dr.setContent(DNSRecordContent::make(QType::A, QClass::IN, "192.0.2.142"));
     const auto matchingPolicy = dfe.getPostPolicy({dr}, std::unordered_map<std::string, bool>(), DNSFilterEngine::maximumPriority);
     BOOST_CHECK(matchingPolicy.d_type == DNSFilterEngine::PolicyType::None);
     DNSFilterEngine::Policy zonePolicy;
@@ -317,16 +320,16 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
   const DNSName bad1("bad1.example.com.");
   const DNSName bad2("bad2.example.com.");
 
-  zone->addQNameTrigger(bad1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden.example.net.")}));
+  zone->addQNameTrigger(bad1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden.example.net.")}));
   BOOST_CHECK_EQUAL(zone->size(), 1U);
 
-  zone->addQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "192.0.2.1")}));
+  zone->addQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "192.0.2.1")}));
   BOOST_CHECK_EQUAL(zone->size(), 2U);
 
-  zone->addQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "192.0.2.2")}));
+  zone->addQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "192.0.2.2")}));
   BOOST_CHECK_EQUAL(zone->size(), 2U);
 
-  zone->addQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::MX, QClass::IN, "10 garden-mail.example.net.")}));
+  zone->addQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::MX, QClass::IN, "10 garden-mail.example.net.")}));
   BOOST_CHECK_EQUAL(zone->size(), 2U);
 
   dfe.addZone(zone);
@@ -341,7 +344,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden.example.net.");
   }
@@ -359,7 +362,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
         const auto& record = records.at(0);
         BOOST_CHECK(record.d_type == QType::A);
         BOOST_CHECK(record.d_class == QClass::IN);
-        auto content = std::dynamic_pointer_cast<ARecordContent>(record.d_content);
+        auto content = getRR<ARecordContent>(record);
         BOOST_CHECK(content != nullptr);
         BOOST_CHECK_EQUAL(content->getCA().toString(), "192.0.2.1");
       }
@@ -367,7 +370,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
         const auto& record = records.at(1);
         BOOST_CHECK(record.d_type == QType::A);
         BOOST_CHECK(record.d_class == QClass::IN);
-        auto content = std::dynamic_pointer_cast<ARecordContent>(record.d_content);
+        auto content = getRR<ARecordContent>(record);
         BOOST_CHECK(content != nullptr);
         BOOST_CHECK_EQUAL(content->getCA().toString(), "192.0.2.2");
       }
@@ -379,7 +382,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
       const auto& record = records.at(0);
       BOOST_CHECK(record.d_type == QType::MX);
       BOOST_CHECK(record.d_class == QClass::IN);
-      auto content = std::dynamic_pointer_cast<MXRecordContent>(record.d_content);
+      auto content = getRR<MXRecordContent>(record);
       BOOST_CHECK(content != nullptr);
       BOOST_CHECK_EQUAL(content->d_mxname.toString(), "garden-mail.example.net.");
     }
@@ -392,7 +395,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
   }
 
   /* remove only one entry, one of the A local records */
-  zone->rmQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "192.0.2.1")}));
+  zone->rmQNameTrigger(bad2, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "192.0.2.1")}));
   BOOST_CHECK_EQUAL(zone->size(), 2U);
 
   {
@@ -408,7 +411,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
         const auto& record = records.at(0);
         BOOST_CHECK(record.d_type == QType::A);
         BOOST_CHECK(record.d_class == QClass::IN);
-        auto content = std::dynamic_pointer_cast<ARecordContent>(record.d_content);
+        auto content = getRR<ARecordContent>(record);
         BOOST_CHECK(content != nullptr);
         BOOST_CHECK_EQUAL(content->getCA().toString(), "192.0.2.2");
       }
@@ -420,7 +423,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data)
       const auto& record = records.at(0);
       BOOST_CHECK(record.d_type == QType::MX);
       BOOST_CHECK(record.d_class == QClass::IN);
-      auto content = std::dynamic_pointer_cast<MXRecordContent>(record.d_content);
+      auto content = getRR<MXRecordContent>(record);
       BOOST_CHECK(content != nullptr);
       BOOST_CHECK_EQUAL(content->d_mxname.toString(), "garden-mail.example.net.");
     }
@@ -444,9 +447,9 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data_netmask)
   const DNSName name("foo.example.com");
   const Netmask nm1("192.168.1.0/24");
 
-  zone->addClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.4")}));
-  zone->addClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.5")}));
-  zone->addClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::AAAA, QClass::IN, "::1234")}));
+  zone->addClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.4")}));
+  zone->addClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.5")}));
+  zone->addClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::AAAA, QClass::IN, "::1234")}));
   BOOST_CHECK_EQUAL(zone->size(), 1U);
 
   dfe.addZone(zone);
@@ -460,14 +463,14 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data_netmask)
     const auto& record1 = records.at(0);
     BOOST_CHECK(record1.d_type == QType::A);
     BOOST_CHECK(record1.d_class == QClass::IN);
-    auto content1 = std::dynamic_pointer_cast<ARecordContent>(record1.d_content);
+    auto content1 = getRR<ARecordContent>(record1);
     BOOST_CHECK(content1 != nullptr);
     BOOST_CHECK_EQUAL(content1->getCA().toString(), "1.2.3.4");
 
     const auto& record2 = records.at(1);
     BOOST_CHECK(record2.d_type == QType::A);
     BOOST_CHECK(record2.d_class == QClass::IN);
-    auto content2 = std::dynamic_pointer_cast<ARecordContent>(record2.d_content);
+    auto content2 = getRR<ARecordContent>(record2);
     BOOST_CHECK(content2 != nullptr);
     BOOST_CHECK_EQUAL(content2->getCA().toString(), "1.2.3.5");
   }
@@ -481,22 +484,22 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data_netmask)
     const auto& record1 = records.at(0);
     BOOST_CHECK(record1.d_type == QType::AAAA);
     BOOST_CHECK(record1.d_class == QClass::IN);
-    auto content1 = std::dynamic_pointer_cast<AAAARecordContent>(record1.d_content);
+    auto content1 = getRR<AAAARecordContent>(record1);
     BOOST_CHECK(content1 != nullptr);
     BOOST_CHECK_EQUAL(content1->getCA().toString(), "::1234");
   }
 
   // Try to zap 1 nonexisting record
-  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.1.1.1")}));
+  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.1.1.1")}));
 
   // Zap a record using a wider netmask
-  zone->rmClientTrigger(Netmask("192.168.0.0/16"), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.4")}));
+  zone->rmClientTrigger(Netmask("192.168.0.0/16"), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.4")}));
 
   // Zap a record using a narrow netmask
-  zone->rmClientTrigger(Netmask("192.168.1.1/32"), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.4")}));
+  zone->rmClientTrigger(Netmask("192.168.1.1/32"), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.4")}));
 
   // Zap 1 existing record
-  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.5")}));
+  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.5")}));
 
   { // A query should match one record now
     const auto matchingPolicy = dfe.getClientPolicy(ComboAddress("192.168.1.1"), std::unordered_map<std::string, bool>(), DNSFilterEngine::maximumPriority);
@@ -507,7 +510,7 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data_netmask)
     const auto& record1 = records.at(0);
     BOOST_CHECK(record1.d_type == QType::A);
     BOOST_CHECK(record1.d_class == QClass::IN);
-    auto content1 = std::dynamic_pointer_cast<ARecordContent>(record1.d_content);
+    auto content1 = getRR<ARecordContent>(record1);
     BOOST_CHECK(content1 != nullptr);
     BOOST_CHECK_EQUAL(content1->getCA().toString(), "1.2.3.4");
   }
@@ -520,16 +523,16 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data_netmask)
     const auto& record1 = records.at(0);
     BOOST_CHECK(record1.d_type == QType::AAAA);
     BOOST_CHECK(record1.d_class == QClass::IN);
-    auto content1 = std::dynamic_pointer_cast<AAAARecordContent>(record1.d_content);
+    auto content1 = getRR<AAAARecordContent>(record1);
     BOOST_CHECK(content1 != nullptr);
     BOOST_CHECK_EQUAL(content1->getCA().toString(), "::1234");
   }
 
   // Zap one more A record
-  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.4")}));
+  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.4")}));
 
   // Zap now nonexisting record
-  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::A, QClass::IN, "1.2.3.4")}));
+  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::A, QClass::IN, "1.2.3.4")}));
 
   { // AAAA query should still match one record
     const auto matchingPolicy = dfe.getClientPolicy(ComboAddress("192.168.1.1"), std::unordered_map<std::string, bool>(), DNSFilterEngine::maximumPriority);
@@ -540,13 +543,13 @@ BOOST_AUTO_TEST_CASE(test_filter_policies_local_data_netmask)
     const auto& record1 = records.at(0);
     BOOST_CHECK(record1.d_type == QType::AAAA);
     BOOST_CHECK(record1.d_class == QClass::IN);
-    auto content1 = std::dynamic_pointer_cast<AAAARecordContent>(record1.d_content);
+    auto content1 = getRR<AAAARecordContent>(record1);
     BOOST_CHECK(content1 != nullptr);
     BOOST_CHECK_EQUAL(content1->getCA().toString(), "::1234");
   }
 
   // Zap AAAA record
-  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::AAAA, QClass::IN, "::1234")}));
+  zone->rmClientTrigger(nm1, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::AAAA, QClass::IN, "::1234")}));
 
   { // there should be no match left
     const auto matchingPolicy = dfe.getClientPolicy(ComboAddress("192.168.1.1"), std::unordered_map<std::string, bool>(), DNSFilterEngine::maximumPriority);
@@ -569,10 +572,10 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies)
   const DNSName badWildcard("*.bad-wildcard.example.com.");
   const DNSName badUnderWildcard("sub.bad-wildcard.example.com.");
 
-  zone1->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden1a.example.net.")}));
-  zone2->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden2a.example.net.")}));
-  zone1->addQNameTrigger(badWildcard, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden1b.example.net.")}));
-  zone2->addQNameTrigger(badUnderWildcard, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden2b.example.net.")}));
+  zone1->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden1a.example.net.")}));
+  zone2->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden2a.example.net.")}));
+  zone1->addQNameTrigger(badWildcard, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden1b.example.net.")}));
+  zone2->addQNameTrigger(badUnderWildcard, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden2b.example.net.")}));
 
   dfe.addZone(zone1);
   dfe.addZone(zone2);
@@ -587,7 +590,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden1a.example.net.");
   }
@@ -602,7 +605,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden1b.example.net.");
   }
@@ -617,7 +620,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden1a.example.net.");
   }
@@ -632,7 +635,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden2a.example.net.");
   }
@@ -660,17 +663,17 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
   const DNSName nsName("ns.bad.wolf.");
   const ComboAddress responseIP("192.0.2.254");
 
-  zone1->addClientTrigger(Netmask(clientIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "client1a.example.net.")}));
-  zone1->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden1a.example.net.")}));
-  zone1->addNSIPTrigger(Netmask(nsIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSIP, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "nsip1a.example.net.")}));
-  zone1->addNSTrigger(nsName, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSDName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "nsname1a.example.net.")}));
-  zone1->addResponseTrigger(Netmask(responseIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ResponseIP, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "response1a.example.net.")}));
+  zone1->addClientTrigger(Netmask(clientIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "client1a.example.net.")}));
+  zone1->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden1a.example.net.")}));
+  zone1->addNSIPTrigger(Netmask(nsIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSIP, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "nsip1a.example.net.")}));
+  zone1->addNSTrigger(nsName, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSDName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "nsname1a.example.net.")}));
+  zone1->addResponseTrigger(Netmask(responseIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ResponseIP, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "response1a.example.net.")}));
 
-  zone2->addClientTrigger(Netmask(clientIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "client2a.example.net.")}));
-  zone2->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "garden2a.example.net.")}));
-  zone2->addNSIPTrigger(Netmask(nsIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSIP, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "nsip2a.example.net.")}));
-  zone2->addNSTrigger(nsName, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSDName, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "nsname2a.example.net.")}));
-  zone2->addResponseTrigger(Netmask(responseIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ResponseIP, 0, nullptr, {DNSRecordContent::mastermake(QType::CNAME, QClass::IN, "response2a.example.net.")}));
+  zone2->addClientTrigger(Netmask(clientIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ClientIP, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "client2a.example.net.")}));
+  zone2->addQNameTrigger(bad, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::QName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "garden2a.example.net.")}));
+  zone2->addNSIPTrigger(Netmask(nsIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSIP, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "nsip2a.example.net.")}));
+  zone2->addNSTrigger(nsName, DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::NSDName, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "nsname2a.example.net.")}));
+  zone2->addResponseTrigger(Netmask(responseIP, 32), DNSFilterEngine::Policy(DNSFilterEngine::PolicyKind::Custom, DNSFilterEngine::PolicyType::ResponseIP, 0, nullptr, {DNSRecordContent::make(QType::CNAME, QClass::IN, "response2a.example.net.")}));
 
   dfe.addZone(zone1);
   dfe.addZone(zone2);
@@ -687,7 +690,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "client1a.example.net.");
   }
@@ -709,7 +712,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden1a.example.net.");
   }
@@ -724,7 +727,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden1a.example.net.");
   }
@@ -746,7 +749,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "garden2a.example.net.");
   }
@@ -768,7 +771,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "nsname1a.example.net.");
   }
@@ -790,7 +793,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "nsip1a.example.net.");
   }
@@ -806,7 +809,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     /* blocked A in the response */
     DNSRecord dr;
     dr.d_type = QType::A;
-    dr.d_content = DNSRecordContent::mastermake(QType::A, QClass::IN, responseIP.toString());
+    dr.setContent(DNSRecordContent::make(QType::A, QClass::IN, responseIP.toString()));
     const auto matchingPolicy = dfe.getPostPolicy({dr}, std::unordered_map<std::string, bool>(), DNSFilterEngine::maximumPriority);
     BOOST_CHECK(matchingPolicy.d_type == DNSFilterEngine::PolicyType::ResponseIP);
     BOOST_CHECK(matchingPolicy.d_kind == DNSFilterEngine::PolicyKind::Custom);
@@ -815,7 +818,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     const auto& record = records.at(0);
     BOOST_CHECK(record.d_type == QType::CNAME);
     BOOST_CHECK(record.d_class == QClass::IN);
-    auto content = std::dynamic_pointer_cast<CNAMERecordContent>(record.d_content);
+    auto content = getRR<CNAMERecordContent>(record);
     BOOST_CHECK(content != nullptr);
     BOOST_CHECK_EQUAL(content->getTarget().toString(), "response1a.example.net.");
   }
@@ -824,7 +827,7 @@ BOOST_AUTO_TEST_CASE(test_multiple_filter_policies_order)
     /* blocked A in the response, except 1 is disabled and 2's priority is too high */
     DNSRecord dr;
     dr.d_type = QType::A;
-    dr.d_content = DNSRecordContent::mastermake(QType::A, QClass::IN, responseIP.toString());
+    dr.setContent(DNSRecordContent::make(QType::A, QClass::IN, responseIP.toString()));
     const auto matchingPolicy = dfe.getPostPolicy({dr}, {{zone1->getName(), true}}, 1);
     BOOST_CHECK(matchingPolicy.d_type == DNSFilterEngine::PolicyType::None);
     BOOST_CHECK(matchingPolicy.d_kind == DNSFilterEngine::PolicyKind::NoAction);

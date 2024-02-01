@@ -1,9 +1,9 @@
 Packet Policies
 ===============
 
-dnsdist works in essence like any other loadbalancer:
+:program:`dnsdist` works in essence like any other loadbalancer:
 
-It receives packets on one or several addresses it listens on, and determines whether it will process this packet based on the :doc:`advanced/acl`. Should the packet be processed, dnsdist attempts to match any of the configured rules in order and when one matches, the associated action is performed.
+It receives packets on one or several addresses it listens on, and determines whether it will process this packet based on the :doc:`advanced/acl`. Should the packet be processed, :program:`dnsdist` attempts to match any of the configured rules in order and when one matches, the associated action is performed.
 
 These rule and action combinations are considered policies.
 
@@ -19,6 +19,7 @@ Each packet can be:
 - Be delayed
 
 This decision can be taken at different times during the forwarding process.
+All packets not handled by an explicit action are forwarded to a downstream server in the default pool.
 
 Examples
 ~~~~~~~~
@@ -72,8 +73,7 @@ The regex is applied case insensitively.
 
 Alternatively, if compiled in, :func:`RE2Rule` provides similar functionality, but against libre2.
 
-Note that to check if a name is in a list of domains, :func:`SuffixMatchNodeRule` is preferred over complex regular expressions or multiple instances of :func:`RegexRule`.
-The :func:`makeRule` convenience function can be used to create a :func:`SuffixMatchNodeRule`.
+Note that to check if a name is in a list of domains, :func:`QNameSuffixRule` is preferred over complex regular expressions or multiple instances of :func:`RegexRule`.
 
 Rule Generators
 ---------------
@@ -153,9 +153,13 @@ For Rules related to the incoming query:
   .. versionchanged:: 1.6.0
     Added ``name`` to the ``options``.
 
-  Add a Rule and Action to the existing rules.
+  .. versionchanged:: 1.9.0
+    Passing a string or list of strings instead of a :class:`DNSRule` is deprecated, use :func:`NetmaskGroupRule` or :func:`QNameSuffixRule` instead
 
-  :param DNSrule rule: A DNSRule, e.g. an :func:`AllRule` or a compounded bunch of rules using e.g. :func:`AndRule`
+  Add a Rule and Action to the existing rules.
+  If a string (or list of) is passed as the first parameter instead of a :class:`DNSRule`, it behaves as if the string or list of strings was passed to :func:`NetmaskGroupRule` or :func:`SuffixMatchNodeRule`.
+
+  :param DNSrule rule: A :class:`DNSRule`, e.g. an :func:`AllRule`, or a compounded bunch of rules using e.g. :func:`AndRule`. Before 1.9.0 it was also possible to pass a string (or list of strings) but doing so is now deprecated.
   :param action: The action to take
   :param table options: A table with key: value pairs with options.
 
@@ -168,11 +172,61 @@ For Rules related to the incoming query:
 
   Remove all current rules.
 
-.. function:: getAction(n) -> Action
+.. function:: getAction(n) -> DNSDistRuleAction
 
-  Returns the Action associated with rule ``n``.
+  Returns the :class:`DNSDistRuleAction` associated with rule ``n``.
 
   :param int n: The rule number
+
+.. function:: getCacheHitResponseRule(selector) -> DNSDistResponseRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Return the cache-hit response rule corresponding to the selector, if any.
+  The selector can be the position of the rule in the list, as an integer,
+  its name as a string or its UUID as a string as well.
+
+  :param int or str selector: The position in the list, name or UUID of the rule to return.
+
+.. function:: getCacheInsertedResponseRule(selector) -> DNSDistResponseRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Return the cache-inserted response rule corresponding to the selector, if any.
+  The selector can be the position of the rule in the list, as an integer,
+  its name as a string or its UUID as a string as well.
+
+  :param int or str selector: The position in the list, name or UUID of the rule to return.
+
+.. function:: getResponseRule(selector) -> DNSDistResponseRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Return the response rule corresponding to the selector, if any.
+  The selector can be the position of the rule in the list, as an integer,
+  its name as a string or its UUID as a string as well.
+
+  :param int or str selector: The position in the list, name or UUID of the rule to return.
+
+.. function:: getRule(selector) -> DNSDistRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Return the rule corresponding to the selector, if any.
+  The selector can be the position of the rule in the list, as an integer,
+  its name as a string or its UUID as a string as well.
+
+  :param int or str selector: The position in the list, name or UUID of the rule to return.
+
+.. function:: getSelfAnsweredResponseRule(selector) -> DNSDistResponseRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Return the self-answered response rule corresponding to the selector, if any.
+  The selector can be the position of the rule in the list, as an integer,
+  its name as a string or its UUID as a string as well.
+
+  :param int or str selector: The position in the list, name or UUID of the rule to return.
 
 .. function:: mvRule(from, to)
 
@@ -244,9 +298,13 @@ For Rules related to responses:
   .. versionchanged:: 1.6.0
     Added ``name`` to the ``options``.
 
-  Add a Rule and Action for responses to the existing rules.
+  .. versionchanged:: 1.9.0
+    Passing a string or list of strings instead of a :class:`DNSRule` is deprecated, use :func:`NetmaskGroupRule` or :func:`QNameSuffixRule` instead
 
-  :param DNSRule: A DNSRule, e.g. an :func:`AllRule` or a compounded bunch of rules using e.g. :func:`AndRule`
+  Add a Rule and Action for responses to the existing rules.
+  If a string (or list of) is passed as the first parameter instead of a :class:`DNSRule`, it behaves as if the string or list of strings was passed to :func:`NetmaskGroupRule` or :func:`SuffixMatchNodeRule`.
+
+  :param DNSrule rule: A :class:`DNSRule`, e.g. an :func:`AllRule`, or a compounded bunch of rules using e.g. :func:`AndRule`. Before 1.9.0 it was also possible to pass a string (or list of strings) but doing so is now deprecated.
   :param action: The action to take
   :param table options: A table with key: value pairs with options.
 
@@ -303,9 +361,13 @@ Functions for manipulating Cache Hit Response Rules:
   .. versionchanged:: 1.6.0
     Added ``name`` to the ``options``.
 
-  Add a Rule and ResponseAction for Cache Hits to the existing rules.
+  .. versionchanged:: 1.9.0
+    Passing a string or list of strings instead of a :class:`DNSRule` is deprecated, use :func:`NetmaskGroupRule` or :func:`QNameSuffixRule` instead
 
-  :param DNSRule: A DNSRule, e.g. an :func:`AllRule` or a compounded bunch of rules using e.g. :func:`AndRule`
+  Add a Rule and ResponseAction for Cache Hits to the existing rules.
+  If a string (or list of) is passed as the first parameter instead of a :class:`DNSRule`, it behaves as if the string or list of strings was passed to :func:`NetmaskGroupRule` or :func:`SuffixMatchNodeRule`.
+
+  :param DNSrule rule: A :class:`DNSRule`, e.g. an :func:`AllRule`, or a compounded bunch of rules using e.g. :func:`AndRule`. Before 1.9.0 it was also possible to pass a string (or list of strings) but doing so is now deprecated.
   :param action: The action to take
   :param table options: A table with key: value pairs with options.
 
@@ -353,6 +415,62 @@ Functions for manipulating Cache Hit Response Rules:
 
   Before 1.6.0 this function used to move the last cache hit response rule to the first position, which is now handled by :func:`mvCacheHitResponseRuleToTop`.
 
+Functions for manipulating Cache Inserted Response Rules:
+
+.. function:: addCacheInsertedResponseAction(DNSRule, action [, options])
+
+  .. versionadded:: 1.8.0
+
+  .. versionchanged:: 1.9.0
+    Passing a string or list of strings instead of a :class:`DNSRule` is deprecated, use :func:`NetmaskGroupRule` or :func:`QNameSuffixRule` instead
+
+  Add a Rule and ResponseAction that is executed after a cache entry has been inserted to the existing rules.
+  If a string (or list of) is passed as the first parameter instead of a :class:`DNSRule`, it behaves as if the string or list of strings was passed to :func:`NetmaskGroupRule` or :func:`SuffixMatchNodeRule`.
+
+  :param DNSrule rule: A :class:`DNSRule`, e.g. an :func:`AllRule`, or a compounded bunch of rules using e.g. :func:`AndRule`. Before 1.9.0 it was also possible to pass a string (or list of strings) but doing so is now deprecated.
+  :param action: The action to take
+  :param table options: A table with key: value pairs with options.
+
+  Options:
+
+  * ``uuid``: string - UUID to assign to the new rule. By default a random UUID is generated for each rule.
+  * ``name``: string - Name to assign to the new rule.
+
+.. function:: mvCacheInsertedResponseRule(from, to)
+
+  .. versionadded:: 1.8.0
+
+  Move cache inserted response rule ``from`` to a position where it is in front of ``to``.
+  ``to`` can be one larger than the largest rule, in which case the rule will be moved to the last position.
+
+  :param int from: Rule number to move
+  :param int to: Location to more the Rule to
+
+.. function:: mvCacheInsertedResponseRuleToTop()
+
+  .. versionadded:: 1.8.0
+
+  This function moves the last cache inserted response rule to the first position.
+
+.. function:: rmCacheInsertedResponseRule(id)
+
+  .. versionadded:: 1.8.0
+
+  :param int id: The position of the rule to remove if ``id`` is numerical, its UUID or name otherwise
+
+.. function:: showCacheInsertedResponseRules([options])
+
+  .. versionadded:: 1.8.0
+
+  Show all defined cache inserted response rules, optionally displaying their UUIDs.
+
+  :param table options: A table with key: value pairs with display options.
+
+  Options:
+
+  * ``showUUIDs=false``: bool - Whether to display the UUIDs, defaults to false.
+  * ``truncateRuleWidth=-1``: int - Truncate rules output to ``truncateRuleWidth`` size. Defaults to ``-1`` to display the full rule.
+
 Functions for manipulating Self-Answered Response Rules:
 
 .. function:: addSelfAnsweredResponseAction(DNSRule, action [, options])
@@ -360,9 +478,13 @@ Functions for manipulating Self-Answered Response Rules:
   .. versionchanged:: 1.6.0
     Added ``name`` to the ``options``.
 
-  Add a Rule and Action for Self-Answered queries to the existing rules.
+  .. versionchanged:: 1.9.0
+    Passing a string or list of strings instead of a :class:`DNSRule` is deprecated, use :func:`NetmaskGroupRule` or :func:`QNameSuffixRule` instead
 
-  :param DNSRule: A DNSRule, e.g. an :func:`AllRule` or a compounded bunch of rules using e.g. :func:`AndRule`
+  Add a Rule and Action for Self-Answered queries to the existing rules.
+  If a string (or list of) is passed as the first parameter instead of a :class:`DNSRule`, it behaves as if the string or list of strings was passed to :func:`NetmaskGroupRule` or :func:`SuffixMatchNodeRule`.
+
+  :param DNSrule rule: A :class:`DNSRule`, e.g. an :func:`AllRule`, or a compounded bunch of rules using e.g. :func:`AndRule`. Before 1.9.0 it was also possible to pass a string (or list of strings) but doing so is now deprecated.
   :param action: The action to take
   :param table options: A table with key: value pairs with options.
 
@@ -469,7 +591,11 @@ These ``DNSRule``\ s be one of the following items:
 
   .. versionadded:: 1.4.0
 
+  .. versionchanged:: 1.8.0
+     see ``keepIncomingHeaders`` on :func:`addDOHLocal`
+
   Matches DNS over HTTPS queries with a HTTP header ``name`` whose content matches the regular expression ``regex``.
+  Since 1.8.0 it is necessary to set the ``keepIncomingHeaders`` option to true on :func:`addDOHLocal` to be able to use this rule.
 
   :param str name: The case-insensitive name of the HTTP header to match on
   :param str regex: A regular expression to match the content of the specified header
@@ -550,7 +676,10 @@ These ``DNSRule``\ s be one of the following items:
 
   :param string function: the name of a Lua function
 
-.. function:: MaxQPSIPRule(qps[, v4Mask[, v6Mask[, burst[, expiration[, cleanupDelay[, scanFraction]]]]]])
+.. function:: MaxQPSIPRule(qps[, v4Mask[, v6Mask[, burst[, expiration[, cleanupDelay[, scanFraction [, shards]]]]]]])
+
+  .. versionchanged:: 1.8.0
+    ``shards`` parameter added
 
   Matches traffic for a subnet specified by ``v4Mask`` or ``v6Mask`` exceeding ``qps`` queries per second up to ``burst`` allowed.
   This rule keeps track of QPS by netmask or source IP. This state is cleaned up regularly if  ``cleanupDelay`` is greater than zero,
@@ -563,6 +692,7 @@ These ``DNSRule``\ s be one of the following items:
   :param int expiration: How long to keep netmask or IP addresses after they have last been seen, in seconds. Default is 300
   :param int cleanupDelay: The number of seconds between two cleanups. Default is 60
   :param int scanFraction: The maximum fraction of the store to scan for expired entries, for example 5 would scan at most 20% of it. Default is 10 so 10%
+  :param int shards: How many shards to use, to decrease lock contention between threads. Default is 10 and is a safe default unless a very high number of threads are used to process incoming queries
 
 .. function:: MaxQPSRule(qps)
 
@@ -576,12 +706,16 @@ These ``DNSRule``\ s be one of the following items:
   .. versionchanged:: 1.4.0
     ``quiet`` parameter added
 
-  Matches traffic from/to the network range specified in ``nmg``.
+  .. versionchanged:: 1.9.0
+    The ``nmg`` parameter now accepts a string or a list of strings in addition to a class:`NetmaskGroup` object.
+
+  Matches traffic from/to the network range specified in the ``nmg``, which can be a string, a list of strings,
+  or a :class:`NetmaskGroup` object created via :func:`newNMG`.
 
   Set the ``src`` parameter to false to match ``nmg`` against destination address instead of source address.
   This can be used to differentiate between clients
 
-  :param NetMaskGroup nmg: The NetMaskGroup to match on
+  :param NetmaskGroup nmg: The netmasks to match, can be a string, a list of strings or a :class:`NetmaskGroup` object.
   :param bool src: Whether to match source or destination address of the packet. Defaults to true (matches source)
   :param bool quiet: Do not display the list of matched netmasks in Rules. Default is false.
 
@@ -591,6 +725,15 @@ These ``DNSRule``\ s be one of the following items:
   ``code`` can be directly specified as an integer, or one of the :ref:`built-in DNSOpcodes <DNSOpcode>`.
 
   :param int code: The opcode to match
+
+.. function:: PayloadSizeRule(comparison, size)
+
+  .. versionadded:: 1.9.0
+
+  Matches queries or responses whose DNS payload size fits the given comparison.
+
+  :param str comparison: The comparison operator to use. Supported values are ``equal``, ``greater``, ``greaterOrEqual``, ``smaller`` and ``smallerOrEqual``.
+  :param int size: The size to compare to.
 
 .. function:: ProbaRule(probability)
 
@@ -627,9 +770,28 @@ These ``DNSRule``\ s be one of the following items:
 
    Matches if the set contains exact qname.
 
-   To match subdomain names, see :func:`SuffixMatchNodeRule`.
+   To match subdomain names, see :func:`QNameSuffixRule`.
 
-   :param DNSNameSet set: Set with qnames.
+   :param DNSNameSet set: Set with qnames of type class:`DNSNameSet` created with :func:`newDNSNameSet`.
+
+.. function:: QNameSuffixRule(suffixes [, quiet])
+
+  .. versionadded:: 1.9.0
+
+  Matches based on a group of domain suffixes for rapid testing of membership.
+  The first parameter, ``suffixes``, can be a string, list of strings or a class:`SuffixMatchNode` object created with :func:`newSuffixMatchNode`.
+  Pass true as second parameter to prevent listing of all domains matched.
+
+  To match domain names exactly, see :func:`QNameSetRule`.
+
+  This rule existed before 1.9.0 but was called :func:`SuffixMatchNodeRule`, only accepting a :class:`SuffixMatchNode` parameter.
+
+  :param suffixes: A string, list of strings, or a :class:`SuffixMatchNode` to match on
+  :param bool quiet: Do not display the list of matched domains in Rules. Default is false.
+
+   Matches queries with the specified qname exactly.
+
+   :param string qname: Qname to match
 
 .. function:: QNameLabelsCountRule(min, max)
 
@@ -708,7 +870,7 @@ These ``DNSRule``\ s be one of the following items:
 
   For an example of usage, see :func:`RegexRule`.
 
-  :note: Only available when dnsdist was built with libre2 support.
+  :note: Only available when :program:`dnsdist` was built with libre2 support.
 
   :param str regex: The regular expression to match the QNAME.
 
@@ -720,26 +882,33 @@ These ``DNSRule``\ s be one of the following items:
   sense for DoT or DoH, and for that last one matching on the HTTP Host header using :func:`HTTPHeaderRule`
   might provide more consistent results.
   As of the version 2.3.0-beta of h2o, it is unfortunately not possible to extract the SNI value from DoH
-  connections, and it is therefore necessary to use the HTTP Host header until version 2.3.0 is released.
+  connections, and it is therefore necessary to use the HTTP Host header until version 2.3.0 is released,
+  or ``nghttp2`` is used for incoming DoH instead (1.9.0+).
 
   :param str name: The exact SNI name to match.
 
 .. function:: SuffixMatchNodeRule(smn[, quiet])
 
+  .. versionchanged:: 1.9.0
+    The ``smn`` parameter now accepts a string or a list of strings in addition to a class:`SuffixMatchNode` object.
+
   Matches based on a group of domain suffixes for rapid testing of membership.
+  The first parameter, ``smn``, can be a string, list of strings or a class:`SuffixMatchNode` object created with :func:`newSuffixMatchNode`.
   Pass true as second parameter to prevent listing of all domains matched.
 
   To match domain names exactly, see :func:`QNameSetRule`.
 
-  :param SuffixMatchNode smn: The SuffixMatchNode to match on
+  Since 1.9.0, this rule can also be used via the alias :func:`QNameSuffixRule`.
+
+  :param SuffixMatchNode smn: A string, list of strings, or a :class:`SuffixMatchNode` to match on
   :param bool quiet: Do not display the list of matched domains in Rules. Default is false.
 
 .. function:: TagRule(name [, value])
 
   Matches question or answer with a tag named ``name`` set. If ``value`` is specified, the existing tag value should match too.
 
-  :param bool name: The name of the tag that has to be set
-  :param bool value: If set, the value the tag has to be set to. Default is unset
+  :param string name: The name of the tag that has to be set
+  :param string value: If set, the value the tag has to be set to. Default is unset
 
 .. function:: TCPRule(tcp)
 
@@ -796,7 +965,7 @@ Combining Rules
 
 .. function:: OrRule(selectors)
 
-  Matches the traffic if one or more of the the ``selectors`` Rules does match.
+  Matches the traffic if one or more of the ``selectors`` Rules does match.
 
   :param {Rule} selector: A table of Rules
 
@@ -805,10 +974,20 @@ Convenience Functions
 
 .. function:: makeRule(rule)
 
-  Make a :func:`NetmaskGroupRule` or a :func:`SuffixMatchNodeRule`, depending on it is called.
+  .. versionchanged:: 1.9.0
+    This function is deprecated, please use :func:`NetmaskGroupRule` or :func:`QnameSuffixRule` instead
+
+  Make a :func:`NetmaskGroupRule` or a :func:`SuffixMatchNodeRule`, depending on how it is called.
+  The `rule` parameter can be a string, or a list of strings, that should contain either:
+
+  * netmasks: in which case it will behave as :func:`NetmaskGroupRule`, or
+  * domain names: in which case it will behave as :func:`SuffixMatchNodeRule`
+
+  Mixing both netmasks and domain names is not supported, and will result in domain names being ignored!
+
   ``makeRule("0.0.0.0/0")`` will for example match all IPv4 traffic, ``makeRule({"be","nl","lu"})`` will match all Benelux DNS traffic.
 
-  :param string rule: A string to convert to a rule.
+  :param string rule: A string, or list of strings, to convert to a rule.
 
 
 Actions
@@ -846,7 +1025,7 @@ The following actions exist.
 
   Removes given type(s) records from the response. Beware you can accidentally turn the answer into a NODATA response
   without a SOA record in the additional section in which case you may want to use :func:`NegativeAndSOAAction` to generate an answer,
-  see example bellow.
+  see example below.
   Subsequent rules are processed after this action.
 
   .. code-block:: Lua
@@ -909,7 +1088,7 @@ The following actions exist.
 
 .. function:: DnstapLogAction(identity, logger[, alterFunction])
 
-  Send the the current query to a remote logger as a :doc:`dnstap <reference/dnstap>` message.
+  Send the current query to a remote logger as a :doc:`dnstap <reference/dnstap>` message.
   ``alterFunction`` is a callback, receiving a :class:`DNSQuestion` and a :class:`DnstapMessage`, that can be used to modify the message.
   Subsequent rules are processed after this action.
 
@@ -919,7 +1098,7 @@ The following actions exist.
 
 .. function:: DnstapLogResponseAction(identity, logger[, alterFunction])
 
-  Send the the current response to a remote logger as a :doc:`dnstap <reference/dnstap>` message.
+  Send the current response to a remote logger as a :doc:`dnstap <reference/dnstap>` message.
   ``alterFunction`` is a callback, receiving a :class:`DNSQuestion` and a :class:`DnstapMessage`, that can be used to modify the message.
   Subsequent rules are processed after this action.
 
@@ -1028,7 +1207,7 @@ The following actions exist.
   :param KeyValueLookupKey lookupKey: The key to use for the lookup
   :param string destinationTag: The name of the tag to store the result into
 
-.. function:: LimitTTLResponseAction(min[, max])
+.. function:: LimitTTLResponseAction(min[, max [, types]])
 
   .. versionadded:: 1.8.0
 
@@ -1036,6 +1215,7 @@ The following actions exist.
 
   :param int min: The minimum allowed value
   :param int max: The maximum allowed value
+  :param list of int: The record types to cap the TTL for. Default is empty which means all records will be capped.
 
 .. function:: LogAction([filename[, binary[, append[, buffered[, verboseOnly[, includeTimestamp]]]]]])
 
@@ -1169,6 +1349,9 @@ The following actions exist.
 
   .. versionadded:: 1.6.0
 
+  .. versionchanged:: 1.8.0
+    Added the ``soaInAuthoritySection`` option.
+
   Turn a question into a response, either a NXDOMAIN or a NODATA one based on ''nxd'', setting the QR bit to 1 and adding a SOA record in the additional section.
   Note that this function was called :func:`SetNegativeAndSOAAction` before 1.6.0.
 
@@ -1189,6 +1372,7 @@ The following actions exist.
   * ``aa``: bool - Set the AA bit to this value (true means the bit is set, false means it's cleared). Default is to clear it.
   * ``ad``: bool - Set the AD bit to this value (true means the bit is set, false means it's cleared). Default is to clear it.
   * ``ra``: bool - Set the RA bit to this value (true means the bit is set, false means it's cleared). Default is to copy the value of the RD bit from the incoming query.
+  * ``soaInAuthoritySection``: bool - Place the SOA record in the authority section for a complete NXDOMAIN/NODATA response that works as a cacheable negative response, rather than the RPZ-style response with a purely informational SOA in the additional section. Default is false (SOA in additional section).
 
 .. function:: NoneAction()
 
@@ -1221,7 +1405,7 @@ The following actions exist.
 
   :param int maxqps: The QPS limit
 
-.. function:: QPSPoolAction(maxqps, poolname)
+.. function:: QPSPoolAction(maxqps, poolname [, stop])
 
   .. versionchanged:: 1.8.0
     Added the ``stop`` optional parameter.
@@ -1250,44 +1434,77 @@ The following actions exist.
   * ``ad``: bool - Set the AD bit to this value (true means the bit is set, false means it's cleared). Default is to clear it.
   * ``ra``: bool - Set the RA bit to this value (true means the bit is set, false means it's cleared). Default is to copy the value of the RD bit from the incoming query.
 
-.. function:: RemoteLogAction(remoteLogger[, alterFunction [, options]])
+.. function:: RemoteLogAction(remoteLogger[, alterFunction [, options [, metas]]])
 
   .. versionchanged:: 1.4.0
     ``ipEncryptKey`` optional key added to the options table.
 
+  .. versionchanged:: 1.8.0
+    ``metas`` optional parameter added.
+    ``exportTags`` optional key added to the options table.
+
   Send the content of this query to a remote logger via Protocol Buffer.
   ``alterFunction`` is a callback, receiving a :class:`DNSQuestion` and a :class:`DNSDistProtoBufMessage`, that can be used to modify the Protocol Buffer content, for example for anonymization purposes.
+  Since 1.8.0 it is possible to add configurable meta-data fields to the Protocol Buffer message via the ``metas`` parameter, which takes a list of ``name``=``key`` pairs. For each entry in the list, a new value named ``name``
+  will be added to the message with the value corresponding to the ``key``. Available keys are:
+
+  * ``doh-header:<HEADER>``: the content of the corresponding ``<HEADER>`` HTTP header for DoH queries, empty otherwise
+  * ``doh-host``: the ``Host`` header for DoH queries, empty otherwise
+  * ``doh-path``: the HTTP path for DoH queries, empty otherwise
+  * ``doh-query-string``: the HTTP query string for DoH queries, empty otherwise
+  * ``doh-scheme``: the HTTP scheme for DoH queries, empty otherwise
+  * ``pool``: the currently selected pool of servers
+  * ``proxy-protocol-value:<TYPE>``: the content of the proxy protocol value of type ``<TYPE>``, if any
+  * ``proxy-protocol-values``: the content of all proxy protocol values as a "<type1>:<value1>", ..., "<typeN>:<valueN>" strings
+  * ``b64-content``: the base64-encoded DNS payload of the current query
+  * ``sni``: the Server Name Indication value for queries received over DoT or DoH. Empty otherwise.
+  * ``tag:<TAG>``: the content of the corresponding ``<TAG>`` if any
+  * ``tags``: the list of all tags, and their values, as a "<key1>:<value1>", ..., "<keyN>:<valueN>" strings. Note that a tag with an empty value will be exported as "<key>", not "<key>:".
+
   Subsequent rules are processed after this action.
 
   :param string remoteLogger: The :func:`remoteLogger <newRemoteLogger>` object to write to
   :param string alterFunction: Name of a function to modify the contents of the logs before sending
   :param table options: A table with key: value pairs.
+  :param table metas: A list of ``name``=``key`` pairs, for meta-data to be added to Protocol Buffer message.
 
   Options:
 
   * ``serverID=""``: str - Set the Server Identity field.
   * ``ipEncryptKey=""``: str - A key, that can be generated via the :func:`makeIPCipherKey` function, to encrypt the IP address of the requestor for anonymization purposes. The encryption is done using ipcrypt for IPv4 and a 128-bit AES ECB operation for IPv6.
+  * ``exportTags=""``: str - The comma-separated list of keys of internal tags to export into the ``tags`` Protocol Buffer field, as "key:value" strings. Note that a tag with an empty value will be exported as "<key>", not "<key>:". An empty string means that no internal tag will be exported. The special value ``*`` means that all tags will be exported.
 
-.. function:: RemoteLogResponseAction(remoteLogger[, alterFunction[, includeCNAME [, options]]])
+.. function:: RemoteLogResponseAction(remoteLogger[, alterFunction[, includeCNAME [, options [, metas]]]])
 
   .. versionchanged:: 1.4.0
     ``ipEncryptKey`` optional key added to the options table.
+
+  .. versionchanged:: 1.8.0
+    ``metas`` optional parameter added.
+    ``exportTags`` optional key added to the options table.
+
+  .. versionchanged:: 1.9.0
+    ``exportExtendedErrorsToMeta`` optional key added to the options table.
 
   Send the content of this response to a remote logger via Protocol Buffer.
   ``alterFunction`` is the same callback that receiving a :class:`DNSQuestion` and a :class:`DNSDistProtoBufMessage`, that can be used to modify the Protocol Buffer content, for example for anonymization purposes.
   ``includeCNAME`` indicates whether CNAME records inside the response should be parsed and exported.
   The default is to only exports A and AAAA records.
+  Since 1.8.0 it is possible to add configurable meta-data fields to the Protocol Buffer message via the ``metas`` parameter, which takes a list of ``name``=``key`` pairs. See :func:`RemoteLogAction` for the list of available keys.
   Subsequent rules are processed after this action.
 
   :param string remoteLogger: The :func:`remoteLogger <newRemoteLogger>` object to write to
   :param string alterFunction: Name of a function to modify the contents of the logs before sending
   :param bool includeCNAME: Whether or not to parse and export CNAMEs. Default false
   :param table options: A table with key: value pairs.
+  :param table metas: A list of ``name``=``key`` pairs, for meta-data to be added to Protocol Buffer message.
 
   Options:
 
   * ``serverID=""``: str - Set the Server Identity field.
   * ``ipEncryptKey=""``: str - A key, that can be generated via the :func:`makeIPCipherKey` function, to encrypt the IP address of the requestor for anonymization purposes. The encryption is done using ipcrypt for IPv4 and a 128-bit AES ECB operation for IPv6.
+  * ``exportTags=""``: str - The comma-separated list of keys of internal tags to export into the ``tags`` Protocol Buffer field, as "key:value" strings. Note that a tag with an empty value will be exported as "<key>", not "<key>:". An empty string means that no internal tag will be exported. The special value ``*`` means that all tags will be exported.
+  * ``exportExtendedErrorsToMeta=""``: str - Export Extended DNS Errors present in the DNS response, if any, into the ``meta`` Protocol Buffer field using the specified ``key``. The EDE info code will be exported as an integer value, and the EDE extra text, if present, as a string value.
 
 .. function:: SetAdditionalProxyProtocolValueAction(type, value)
 
@@ -1361,6 +1578,26 @@ The following actions exist.
   :param int option: The EDNS option number
   :param string data: The EDNS0 option raw content
 
+.. function:: SetExtendedDNSErrorAction(infoCode [, extraText])
+
+  .. versionadded:: 1.9.0
+
+  Set an Extended DNS Error status that will be added to the response corresponding to the current query.
+  Subsequent rules are processed after this action.
+
+  :param int infoCode: The EDNS Extended DNS Error code
+  :param string extraText: The optional EDNS Extended DNS Error extra text
+
+.. function:: SetExtendedDNSErrorResponseAction(infoCode [, extraText])
+
+  .. versionadded:: 1.9.0
+
+  Set an Extended DNS Error status that will be added to this response.
+  Subsequent rules are processed after this action.
+
+  :param int infoCode: The EDNS Extended DNS Error code
+  :param string extraText: The optional EDNS Extended DNS Error extra text
+
 .. function:: SetMacAddrAction(option)
 
   .. versionadded:: 1.6.0
@@ -1371,6 +1608,22 @@ The following actions exist.
   Note that this function was called :func:`MacAddrAction` before 1.6.0.
 
   :param int option: The EDNS0 option number
+
+.. function:: SetMaxReturnedTTLAction(max)
+
+  .. versionadded:: 1.8.0
+
+  Cap the TTLs of the response to the given maximum, but only after inserting the response into the packet cache with the initial TTL values.
+
+  :param int max: The maximum allowed value
+
+.. function:: SetMaxReturnedTTLResponseAction(max)
+
+  .. versionadded:: 1.8.0
+
+  Cap the TTLs of the response to the given maximum, but only after inserting the response into the packet cache with the initial TTL values.
+
+  :param int max: The maximum allowed value
 
 .. function:: SetMaxTTLResponseAction(max)
 
@@ -1432,6 +1685,16 @@ The following actions exist.
   Subsequent rules are processed after this action.
 
   :param table values: A table of types and values to send, for example: ``{ [0] = foo", [42] = "bar" }``
+
+.. function:: SetReducedTTLResponseAction(percentage)
+
+  .. versionadded:: 1.8.0
+
+  Reduce the TTL of records in a response to a percentage of the original TTL. For example,
+  passing 50 means that the original TTL will be cut in half.
+  Subsequent rules are processed after this action.
+
+  :param int percentage: The percentage to use
 
 .. function:: SetSkipCacheAction()
 
@@ -1559,6 +1822,9 @@ The following actions exist.
   .. versionchanged:: 1.6.0
     Up to 1.6.0, it was only possible to spoof one answer.
 
+  .. versionchanged:: 1.9.0
+    Added the optional parameter ``typeForAny``.
+
   Forge a response with the specified raw bytes as record data.
 
   .. code-block:: Lua
@@ -1569,6 +1835,8 @@ The following actions exist.
     addAction(AndRule({QNameRule('raw-srv.powerdns.com.'), QTypeRule(DNSQType.SRV)}), SpoofRawAction("\000\000\000\000\255\255\003srv\008powerdns\003com\000", { aa=true, ttl=3600 }))
     -- select reverse queries for '127.0.0.1' and answer with 'localhost'
     addAction(AndRule({QNameRule('1.0.0.127.in-addr.arpa.'), QTypeRule(DNSQType.PTR)}), SpoofRawAction("\009localhost\000"))
+    -- rfc8482: Providing Minimal-Sized Responses to DNS Queries That Have QTYPE=ANY via HINFO of value "rfc8482"
+    addAction(QTypeRule(DNSQType.ANY), SpoofRawAction("\007rfc\056\052\056\050\000", { typeForAny=DNSQType.HINFO }))
 
   :func:`DNSName:toDNSString` is convenient for converting names to wire format for passing to ``SpoofRawAction``.
 
@@ -1595,6 +1863,7 @@ The following actions exist.
   * ``ad``: bool - Set the AD bit to this value (true means the bit is set, false means it's cleared). Default is to clear it.
   * ``ra``: bool - Set the RA bit to this value (true means the bit is set, false means it's cleared). Default is to copy the value of the RD bit from the incoming query.
   * ``ttl``: int - The TTL of the record.
+  * ``typeForAny``: int - The record type to use when responding to queries of type ``ANY``, as using ``ANY`` for the type of the response record would not make sense.
 
 .. function:: SpoofSVCAction(svcParams [, options])
 
@@ -1654,14 +1923,31 @@ The following actions exist.
   Before 1.7.0 this action was performed even when the query had been received over TCP, which required the use of :func:`TCPRule` to
   prevent the TC bit from being set over TCP transports.
 
-.. function:: TeeAction(remote[, addECS])
+.. function:: TCResponseAction()
+
+  .. versionadded:: 1.9.0
+
+  Truncate an existing answer, to force the client to TCP. Only applied to answers that will be sent to the client over TCP.
+  In addition to the TC bit being set, all records are removed from the answer, authority and additional sections.
+
+.. function:: TeeAction(remote[, addECS[, local [, addProxyProtocol]]])
+
+  .. versionchanged:: 1.8.0
+    Added the optional parameter ``local``.
+
+  .. versionchanged:: 1.9.0
+    Added the optional parameter ``addProxyProtocol``.
 
   Send copy of query to ``remote``, keep stats on responses.
   If ``addECS`` is set to true, EDNS Client Subnet information will be added to the query.
+  If ``addProxyProtocol`` is set to true, a Proxy Protocol v2 payload will be prepended in front of the query. The payload will contain the protocol the initial query was received over (UDP or TCP), as well as the initial source and destination addresses and ports.
+  If ``local`` has provided a value like "192.0.2.53", :program:`dnsdist` will try binding that address as local address when sending the queries.
   Subsequent rules are processed after this action.
 
   :param string remote: An IP:PORT combination to send the copied queries to
-  :param bool addECS: Whether or not to add ECS information. Default false
+  :param bool addECS: Whether to add ECS information. Default false.
+  :param str local: The local address to use to send queries. The default is to let the kernel pick one.
+  :param bool addProxyProtocol: Whether to prepend a proxy protocol v2 payload in front of the query. Default to false.
 
 .. function:: TempFailureCacheTTLAction(ttl)
 
@@ -1673,3 +1959,45 @@ The following actions exist.
   Subsequent rules are processed after this action.
 
   :param int ttl: Cache TTL for temporary failure replies
+
+Objects
+-------
+
+.. class:: DNSDistRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Represents a rule composed of a :class:`DNSRule` selector, to select the queries this applies to,
+  and a :class:`DNSAction` action to apply when the selector matches.
+
+  .. method:: DNSDistRuleAction:getAction()
+
+    Return the :class:`DNSAction` action of this rule.
+
+  .. method:: DNSDistRuleAction:getSelector()
+
+    Return the :class:`DNSRule` selector of this rule.
+
+.. class:: DNSDistResponseRuleAction
+
+  .. versionadded:: 1.9.0
+
+  Represents a rule composed of a :class:`DNSRule` selector, to select the responses this applies to,
+  and a :class:`DNSResponseAction` action to apply when the selector matches.
+
+  .. method:: DNSDistResponseRuleAction:getAction()
+
+    Return the :class:`DNSResponseAction` action of this rule.
+
+  .. method:: DNSDistResponseRuleAction:getSelector()
+
+    Return the :class:`DNSRule` selector of this rule.
+
+.. class:: DNSRule
+
+  .. versionadded:: 1.9.0
+
+  .. method:: DNSRule:getMatches() -> int
+
+    Return the number of times this selector matched a query or a response. Note that if the same selector is reused for different ``DNSDistRuleAction``
+    objects, the counter will be common to all these objects.

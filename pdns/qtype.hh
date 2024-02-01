@@ -20,6 +20,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #pragma once
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "namespaces.hh"
 
 /** The QType class is meant to deal easily with the different kind of resource types, like 'A', 'NS',
@@ -39,11 +43,13 @@
 class QType
 {
 public:
-  QType(uint16_t qtype = 0) : code(qtype) {}
-  QType &operator=(const char *);
-  QType &operator=(const string &);
+  QType(uint16_t qtype = 0) :
+    code(qtype) {}
+  QType& operator=(const char*);
+  QType& operator=(const string&);
 
-  operator uint16_t() const {
+  operator uint16_t() const
+  {
     return code;
   }
 
@@ -53,12 +59,24 @@ public:
     return code;
   }
 
+  /**
+   * \brief Return whether we know the name of this type.
+   *
+   * This does not presume that we have an implemented a content representation for this type,
+   * for that please see DNSRecordContent::isRegisteredType().
+   */
   bool isSupportedType() const;
+  /**
+   * \brief Whether the type is either a QTYPE or Meta-Type as defined by rfc6895 section 3.1.
+   *
+   * Note that ANY is 255 and falls outside the range.
+   */
   bool isMetadataType() const;
 
   static uint16_t chartocode(const char* p);
-  
-  enum typeenum : uint16_t {
+
+  enum typeenum : uint16_t
+  {
     ENT = 0,
     A = 1,
     NS = 2,
@@ -123,37 +141,54 @@ public:
     CAA = 257,
     DLV = 32769,
     ADDR = 65400,
+#if !defined(RECURSOR)
     ALIAS = 65401,
     LUA = 65402
+#endif
   };
+
+  const static uint16_t rfc6895MetaLowerBound = 128;
+  const static uint16_t rfc6895MetaUpperBound = 254; // Note 255: ANY is not included
+  const static uint16_t rfc6895Reserved = 65535;
 
   const static map<const string, uint16_t> names;
   const static map<uint16_t, const string> numbers;
 
 private:
-
   uint16_t code;
 };
 
 // Define hash function on QType. See https://en.cppreference.com/w/cpp/utility/hash
-namespace std {
-  template<> struct hash<QType> {
-    std::size_t operator()(QType qtype) const noexcept {
-      return std::hash<uint16_t>{}(qtype.getCode());
-    }
-  };
+namespace std
+{
+template <>
+struct hash<QType>
+{
+  std::size_t operator()(QType qtype) const noexcept
+  {
+    return std::hash<uint16_t>{}(qtype.getCode());
+  }
+};
+}
+
+inline std::ostream& operator<<(std::ostream& stream, const QType& qtype)
+{
+  return stream << qtype.toString();
 }
 
 // Used by e.g. boost multi-index
-inline size_t hash_value(const QType qtype) {
+inline size_t hash_value(const QType qtype)
+{
   return qtype.getCode();
 }
 
 struct QClass
 {
-  constexpr QClass(uint16_t code = 0) : qclass(code) {}
+  constexpr QClass(uint16_t code = 0) :
+    qclass(code) {}
 
-  constexpr operator uint16_t() const {
+  constexpr operator uint16_t() const
+  {
     return qclass;
   }
   constexpr uint16_t getCode() const

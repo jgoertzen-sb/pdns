@@ -26,10 +26,10 @@
 #include "dnssecinfra.hh"
 #include "tsigverifier.hh"
 
-vector<pair<vector<DNSRecord>, vector<DNSRecord> > > processIXFRRecords(const ComboAddress& primary, const DNSName& zone,
-                                                                        const vector<DNSRecord>& records, const std::shared_ptr<SOARecordContent>& primarySOA)
+vector<pair<vector<DNSRecord>, vector<DNSRecord>>> processIXFRRecords(const ComboAddress& primary, const DNSName& zone,
+                                                                      const vector<DNSRecord>& records, const std::shared_ptr<const SOARecordContent>& primarySOA)
 {
-  vector<pair<vector<DNSRecord>, vector<DNSRecord> > >  ret;
+  vector<pair<vector<DNSRecord>, vector<DNSRecord>>> ret;
 
   if (records.size() == 0 || primarySOA == nullptr) {
     return ret;
@@ -39,7 +39,7 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > processIXFRRecords(const Co
   // we don't increase pos because the final SOA
   // of the previous sequence is also the first SOA
   // of this one
-  for(unsigned int pos = 1; pos < records.size(); ) {
+  for (unsigned int pos = 1; pos < records.size();) {
     vector<DNSRecord> remove, add;
 
     // cerr<<"Looking at record in position "<<pos<<" of type "<<QType(records[pos].d_type).getName()<<endl;
@@ -51,7 +51,7 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > processIXFRRecords(const Co
 
     auto sr = getRR<SOARecordContent>(records[pos]);
     if (!sr) {
-      throw std::runtime_error("Error getting the content of the first SOA record of this IXFR sequence for zone '"+zone.toLogString()+"' from primary '"+primary.toStringWithPort()+"'");
+      throw std::runtime_error("Error getting the content of the first SOA record of this IXFR sequence for zone '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + "'");
     }
 
     // cerr<<"Serial is "<<sr->d_st.serial<<", final serial is "<<primarySOA->d_st.serial<<endl;
@@ -72,7 +72,7 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > processIXFRRecords(const Co
     remove.push_back(records[pos]); // this adds the SOA
 
     // process removals
-    for(pos++; pos < records.size() && records[pos].d_type != QType::SOA; ++pos) {
+    for (pos++; pos < records.size() && records[pos].d_type != QType::SOA; ++pos) {
       remove.push_back(records[pos]);
     }
 
@@ -92,7 +92,7 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > processIXFRRecords(const Co
     add.push_back(records[pos]); // this adds the new SOA
 
     // process additions
-    for(pos++; pos < records.size() && records[pos].d_type != QType::SOA; ++pos)  {
+    for (pos++; pos < records.size() && records[pos].d_type != QType::SOA; ++pos) {
       add.push_back(records[pos]);
     }
 
@@ -123,46 +123,71 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > processIXFRRecords(const Co
 }
 
 // Returns pairs of "remove & add" vectors. If you get an empty remove, it means you got an AXFR!
-vector<pair<vector<DNSRecord>, vector<DNSRecord> > > getIXFRDeltas(const ComboAddress& primary, const DNSName& zone, const DNSRecord& oursr, 
-                                                                   const TSIGTriplet& tt, const ComboAddress* laddr, size_t maxReceivedBytes)
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): https://github.com/PowerDNS/pdns/issues/12791
+vector<pair<vector<DNSRecord>, vector<DNSRecord>>> getIXFRDeltas(const ComboAddress& primary, const DNSName& zone, const DNSRecord& oursr,
+                                                                 uint16_t xfrTimeout, bool totalTimeout,
+                                                                 const TSIGTriplet& tt, const ComboAddress* laddr, size_t maxReceivedBytes)
 {
-  vector<pair<vector<DNSRecord>, vector<DNSRecord> > >  ret;
+  // Auth documents xfrTimeout to be a max idle time (sets totalTimeout=false)
+  // Rec documents it to be a total XFR time (sets totalTimeout=true)
+  //
+  vector<pair<vector<DNSRecord>, vector<DNSRecord>>> ret;
   vector<uint8_t> packet;
   DNSPacketWriter pw(packet, zone, QType::IXFR);
-  pw.getHeader()->qr=0;
-  pw.getHeader()->rd=0;
-  pw.getHeader()->id=dns_random_uint16();
+  pw.getHeader()->qr = 0;
+  pw.getHeader()->rd = 0;
+  pw.getHeader()->id = dns_random_uint16();
   pw.startRecord(zone, QType::SOA, 0, QClass::IN, DNSResourceRecord::AUTHORITY);
-  oursr.d_content->toPacket(pw);
+  oursr.getContent()->toPacket(pw);
 
   pw.commit();
   TSIGRecordContent trc;
   TSIGTCPVerifier tsigVerifier(tt, primary, trc);
-  if(!tt.algo.empty()) {
+  if (!tt.algo.empty()) {
     TSIGHashEnum the;
     getTSIGHashEnum(tt.algo, the);
     try {
       trc.d_algoName = getTSIGAlgoName(the);
-    } catch(PDNSException& pe) {
-      throw std::runtime_error("TSIG algorithm '"+tt.algo.toLogString()+"' is unknown.");
+    }
+    catch (PDNSException& pe) {
+      throw std::runtime_error("TSIG algorithm '" + tt.algo.toLogString() + "' is unknown.");
     }
     trc.d_time = time((time_t*)nullptr);
     trc.d_fudge = 300;
-    trc.d_origID=ntohs(pw.getHeader()->id);
-    trc.d_eRcode=0;
+    trc.d_origID = ntohs(pw.getHeader()->id);
+    trc.d_eRcode = 0;
     addTSIG(pw, trc, tt.name, tt.secret, "", false);
   }
-  uint16_t len=htons(packet.size());
+  uint16_t len = htons(packet.size());
   string msg((const char*)&len, 2);
   msg.append((const char*)&packet[0], packet.size());
 
   Socket s(primary.sin4.sin_family, SOCK_STREAM);
-  //  cout<<"going to connect"<<endl;
-  if(laddr)
+  if (laddr != nullptr) {
     s.bind(*laddr);
-  s.connect(primary);
-  //  cout<<"Connected"<<endl;
-  s.writen(msg);
+  }
+  s.setNonBlocking();
+
+  const time_t xfrStart = time(nullptr);
+
+  // Helper function: if we have a total timeout, check it and set elapsed to the total time taken sofar,
+  // otherwise set elapsed to 0, making the total time limit ineffective
+  const auto timeoutChecker = [=]() -> time_t {
+    time_t elapsed = 0;
+    if (totalTimeout) {
+      elapsed = time(nullptr) - xfrStart;
+      if (elapsed >= xfrTimeout) {
+        throw std::runtime_error("Reached the maximum elapsed time in an IXFR delta for zone '" + zone.toLogString() + "' from primary " + primary.toStringWithPort());
+      }
+    }
+    return elapsed;
+  };
+
+  s.connect(primary, xfrTimeout);
+
+  time_t elapsed = timeoutChecker();
+  // coverity[store_truncates_time_t]
+  s.writenWithTimeout(msg.data(), msg.size(), xfrTimeout - elapsed);
 
   // CURRENT PRIMARY SOA
   // REPEAT:
@@ -170,82 +195,128 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > getIXFRDeltas(const ComboAd
   //   RECORDS TO REMOVE
   //   SOA WHERE THIS DELTA GOES
   //   RECORDS TO ADD
-  // CURRENT PRIMARY SOA 
-  std::shared_ptr<SOARecordContent> primarySOA = nullptr;
+  // CURRENT PRIMARY SOA
+  std::shared_ptr<const SOARecordContent> primarySOA = nullptr;
   vector<DNSRecord> records;
   size_t receivedBytes = 0;
-  int8_t ixfrInProgress = -2;
   std::string reply;
 
-  for(;;) {
-    // IXFR end
-    if (ixfrInProgress >= 0)
-      break;
+  enum transferStyle
+  {
+    Unknown,
+    AXFR,
+    IXFR
+  } style
+    = Unknown;
+  const unsigned int expectedSOAForAXFR = 2;
+  const unsigned int expectedSOAForIXFR = 3;
+  unsigned int primarySOACount = 0;
 
-    if(s.read((char*)&len, sizeof(len)) != sizeof(len))
+  std::string state;
+  for (;;) {
+    // IXFR or AXFR style end reached? We don't want to process trailing data after the closing SOA
+    if (style == AXFR && primarySOACount == expectedSOAForAXFR) {
+      state = "AXFRdone";
       break;
-
-    len=ntohs(len);
-    //    cout<<"Got chunk of "<<len<<" bytes"<<endl;
-    if(!len)
+    }
+    if (style == IXFR && primarySOACount == expectedSOAForIXFR) {
+      state = "IXFRdone";
       break;
+    }
 
-    if (maxReceivedBytes > 0 && (maxReceivedBytes - receivedBytes) < (size_t) len)
-      throw std::runtime_error("Reached the maximum number of received bytes in an IXFR delta for zone '"+zone.toLogString()+"' from primary "+primary.toStringWithPort());
+    elapsed = timeoutChecker();
+    try {
+      const struct timeval remainingTime = {.tv_sec = xfrTimeout - elapsed, .tv_usec = 0};
+      const struct timeval idleTime = remainingTime;
+      readn2WithTimeout(s.getHandle(), &len, sizeof(len), idleTime, remainingTime, false);
+    }
+    catch (const runtime_error& ex) {
+      state = ex.what();
+      break;
+    }
+
+    len = ntohs(len);
+    if (len == 0) {
+      state = "zeroLen";
+      break;
+    }
+    // Currently no more break statements after this
+
+    if (maxReceivedBytes > 0 && (maxReceivedBytes - receivedBytes) < (size_t)len) {
+      throw std::runtime_error("Reached the maximum number of received bytes in an IXFR delta for zone '" + zone.toLogString() + "' from primary " + primary.toStringWithPort());
+    }
 
     reply.resize(len);
-    readn2(s.getHandle(), &reply.at(0), len);
+
+    elapsed = timeoutChecker();
+    const struct timeval remainingTime = {.tv_sec = xfrTimeout - elapsed, .tv_usec = 0};
+    const struct timeval idleTime = remainingTime;
+    readn2WithTimeout(s.getHandle(), reply.data(), len, idleTime, remainingTime, false);
     receivedBytes += len;
 
     MOADNSParser mdp(false, reply);
-    if(mdp.d_header.rcode) 
-      throw std::runtime_error("Got an error trying to IXFR zone '"+zone.toLogString()+"' from primary '"+primary.toStringWithPort()+"': "+RCode::to_s(mdp.d_header.rcode));
+    if (mdp.d_header.rcode) {
+      throw std::runtime_error("Got an error trying to IXFR zone '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + "': " + RCode::to_s(mdp.d_header.rcode));
+    }
 
-    //    cout<<"Got a response, rcode: "<<mdp.d_header.rcode<<", got "<<mdp.d_answers.size()<<" answers"<<endl;
-
-    if(!tt.algo.empty()) { // TSIG verify message
+    if (!tt.algo.empty()) { // TSIG verify message
       tsigVerifier.check(reply, mdp);
     }
 
-    for(auto& r: mdp.d_answers) {
-      //      cout<<r.first.d_name<< " " <<r.first.d_content->getZoneRepresentation()<<endl;
-      if(!primarySOA) {
+    for (auto& r : mdp.d_answers) {
+      if (!primarySOA) {
         // we have not seen the first SOA record yet
         if (r.first.d_type != QType::SOA) {
-          throw std::runtime_error("The first record of the IXFR answer for zone '"+zone.toLogString()+"' from primary '"+primary.toStringWithPort()+"' is not a SOA ("+QType(r.first.d_type).toString()+")");
+          throw std::runtime_error("The first record of the IXFR answer for zone '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + "' is not a SOA (" + QType(r.first.d_type).toString() + ")");
         }
 
         auto sr = getRR<SOARecordContent>(r.first);
         if (!sr) {
-          throw std::runtime_error("Error getting the content of the first SOA record of the IXFR answer for zone '"+zone.toLogString()+"' from primary '"+primary.toStringWithPort()+"'");
+          throw std::runtime_error("Error getting the content of the first SOA record of the IXFR answer for zone '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + "'");
         }
 
-        if(sr->d_st.serial == std::dynamic_pointer_cast<SOARecordContent>(oursr.d_content)->d_st.serial) {
+        if (sr->d_st.serial == getRR<SOARecordContent>(oursr)->d_st.serial) {
           // we are up to date
           return ret;
         }
-        primarySOA = sr;
-      } else if (r.first.d_type == QType::SOA) {
+        primarySOA = std::move(sr);
+        ++primarySOACount;
+      }
+      else if (r.first.d_type == QType::SOA) {
         auto sr = getRR<SOARecordContent>(r.first);
         if (!sr) {
-          throw std::runtime_error("Error getting the content of SOA record of IXFR answer for zone '"+zone.toLogString()+"' from primary '"+primary.toStringWithPort()+"'");
+          throw std::runtime_error("Error getting the content of SOA record of IXFR answer for zone '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + "'");
         }
 
-        // we hit the last SOA record
-        // IXFR is considered to be done if we hit the last SOA record twice
+        // we hit a marker SOA record
         if (primarySOA->d_st.serial == sr->d_st.serial) {
-          ixfrInProgress++;
+          ++primarySOACount;
+        }
+      }
+      // When we see the 2nd record, we can decide what the style is
+      if (records.size() == 1 && style == Unknown) {
+        if (r.first.d_type != QType::SOA) {
+          // Non-empty AXFR style has a non-SOA record following the first SOA
+          style = AXFR;
+        }
+        else if (primarySOACount == expectedSOAForAXFR) {
+          // Empty zone AXFR style: start SOA is immediately followed by end marker SOA
+          style = AXFR;
+        }
+        else {
+          // IXFR has a 2nd SOA (with different serial) following the first
+          style = IXFR;
         }
       }
 
-      if(r.first.d_place != DNSResourceRecord::ANSWER) {
-        if(r.first.d_type == QType::TSIG)
+      if (r.first.d_place != DNSResourceRecord::ANSWER) {
+        if (r.first.d_type == QType::TSIG)
           continue;
 
-        if(r.first.d_type == QType::OPT)
+        if (r.first.d_type == QType::OPT)
           continue;
 
-        throw std::runtime_error("Unexpected record (" +QType(r.first.d_type).toString()+") in non-answer section ("+std::to_string(r.first.d_place)+")in IXFR response for zone '"+zone.toLogString()+"' from primary '"+primary.toStringWithPort());
+        throw std::runtime_error("Unexpected record (" + QType(r.first.d_type).toString() + ") in non-answer section (" + std::to_string(r.first.d_place) + ") in IXFR response for zone '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort());
       }
 
       r.first.d_name.makeUsRelative(zone);
@@ -253,7 +324,21 @@ vector<pair<vector<DNSRecord>, vector<DNSRecord> > > getIXFRDeltas(const ComboAd
     }
   }
 
-  //  cout<<"Got "<<records.size()<<" records"<<endl;
+  switch (style) {
+  case IXFR:
+    if (primarySOACount != expectedSOAForIXFR) {
+      throw std::runtime_error("Incomplete IXFR transfer (primarySOACount=" + std::to_string(primarySOACount) + ") for '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + " state=" + state);
+    }
+    break;
+  case AXFR:
+    if (primarySOACount != expectedSOAForAXFR) {
+      throw std::runtime_error("Incomplete AXFR style transfer (primarySOACount=" + std::to_string(primarySOACount) + ")  for '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + " state=" + state);
+    }
+    break;
+  case Unknown:
+    throw std::runtime_error("Incomplete XFR (primarySOACount=" + std::to_string(primarySOACount) + ") for '" + zone.toLogString() + "' from primary '" + primary.toStringWithPort() + " state=" + state);
+    break;
+  }
 
   return processIXFRRecords(primary, zone, records, primarySOA);
 }

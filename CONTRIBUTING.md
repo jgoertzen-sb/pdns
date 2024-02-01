@@ -73,17 +73,88 @@ plus various other directories with `regression-tests.*` names.
 * If this commit fixes an issue, put "Closes #XXXX" in the message
 * Do not put whitespace fixes/cleanup and functionality changes in the same commit
 
-# Coding Guidelines
-We have `clang-format` in place, but not for all files yet.
-This is an incremental process.
-If you're adding new code, adhering to the formatting config is appreciated.
-Formatting breakage in already formatted files will be caught by the CI.
-To format all files that are supposed to be formatted, run `make format-code` in the root of the tree.
+# Formatting and Coding Guidelines
 
-Additional guidelines:
+## `clang-format`
 
-* Don't have end-of-line whitespace
-* Use spaces instead of tabs
-* Although the codebase does not consistently have them, [docblock](https://www.doxygen.nl/manual/docblocks.html)s on functions and classes are appreciated
-* Never hesitate to write comments on anything that might not be immediately clear just from reading the code
-* When adding whole new things, consider putting them in a `pdns::X` namespace. Look for `namespace pdns` in the codebase for examples.
+We have `clang-format` in place, but not for all files yet. We are working towards a fully formatted codebase in an incremental fashion.
+
+If you're adding new code, adhering to the formatting configuration available in `.clang-format` is appreciated. If you are touching code that is not yet formatted, it would also be very appreciated to format it in a separate commit first.
+
+Any formatting breakage in already formatted files will be caught by the CI. To format all files that are supposed to be formatted, run `make format-code` in the root of the tree.
+
+## Formatting guidelines
+
+* Don't have end-of-line whitespace.
+* Use spaces instead of tabs.
+
+## Coding guidelines
+
+The coding guidelines can be found in the repository at
+[CODING_GUIDELINES.md](https://github.com/PowerDNS/pdns/blob/master/CODING_GUIDELINES.md)
+
+## Code Checkers
+
+### `clang-tidy`
+
+`clang-tidy` requires a [compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html) to work.
+See the ["Compilation Database" section of the DEVELOPMENT document](DEVELOPMENT.md#compilation-database) on how to generate a compilation database.
+
+Once the compilation database has been generated, you can pick one of the two available `clang-tidy` configuration files to run checks on source files.
+Picking a configuration file is a matter of creating a symbolic link called `.clang-tidy` to said file in the topmost level of the sub-project you're working on (or the toplevel repository directory if you're working on PowerDNS auth).
+
+We provide two configuration files for `clang-tidy`:
+
+1. A minimal [.clang-tidy.bugs](.clang-tidy.bugs) which only enables a few checks for common bugs.
+   This configuration can be enabled using `ln -sf .clang-tidy.bugs .clang-tidy`.
+
+2. A more complete [.clang-tidy.full](.clang-tidy.full) which enables almost all available checks.
+   This configuration can be enabled using `ln -sf .clang-tidy.full .clang-tidy` and is recommended for all new code.
+
+### `clang-tidy` and CI
+
+We run `clang-tidy` using the `.clang-tidy.full` configuration as part of our CI. `clang-tidy` warnings will show up on a pull request if any are introduced.
+
+However, it may happen that existing code could produce warnings and can show up too due to being part of the pull request. In such a case there are two options:
+
+1. Fix the warnings in a separate commit.
+2. If fixing the warning would be too much trouble at this point in time, disabling the specific warning using the `// NOLINTNEXTLINE` or `// NOLINT` directives can be acceptable given the following is adhered to:
+
+Any added `// NOLINTNEXTLINE` or `// NOLINT` directive or others need to have a Github issue title, issue number and link next to them in the description along with the name or Github nickname of the person that wrote it. The Github issue must have an assignee and an accurate description of what needs to be done. As an example:
+
+`// NOLINTNEXTLINE(<warning-name>) <issue-number> <issue-link> <person-name>: <issue-title> + a short comment if needed.`
+
+If the warning cannot be avoided in any way, a good explanation is needed. As an example:
+
+`// NOLINTNEXTLINE(*-cast): Using the OpenSSL C APIs.`
+
+### Additional checkers
+
+Even though we don't automatically run any of the code checkers listed below as part of our CI, it might make sense to run them manually, not only on newly added code, but to also improve existing code.
+
+* `clang`'s static analyzer, sometimes also referred as `scan-build`
+* `cppcheck`
+
+# Development Environment
+
+Information about setting up a development environment using a language server like [`clangd`](https://clangd.llvm.org/) or [`ccls`](https://github.com/MaskRay/ccls) can be found in [DEVELOPMENT.md](DEVELOPMENT.md).
+
+# Debugging
+
+## Using GDB
+
+To get a good debugging experience with `gdb`, it is recommended to build PowerDNS using the following flags:
+
+* `CC` and `CXX` set to `gcc` and `g++`, respectively.
+* `CFLAGS` and `CXXFLAGS` set to `-ggdb -Og -fno-inline`.
+
+These variables need to be set during the `configure` step, as follows:
+
+```sh
+export CC=clang CXX=clang++
+export CFLAGS="-ggdb -Og -fno-inline" CXXFLAGS="-ggdb -Og -fno-inline"
+./configure --with-modules=gsqlite3 --disable-lua-records --enable-unit-tests
+make -j 8
+```
+
+[GDB Dashboard](https://github.com/cyrus-and/gdb-dashboard) can be used to vastly improve the GDB debugging experience.

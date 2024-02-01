@@ -5,7 +5,7 @@
 #   dig a www.example.com @0 -p 1053
 
 # Builder
-FROM debian:10-slim AS builder
+FROM debian:11-slim AS builder
 
 # Reusable layer for base update
 RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
@@ -20,19 +20,18 @@ RUN apt-get install -y --no-install-recommends \
     
 
 WORKDIR /source/
-
-RUN git clone --branch fea/raw_key_support https://github.com/gothremote/openssl.git openssl
-RUN git clone --branch main https://github.com/open-quantum-safe/liboqs.git
-RUN cd liboqs && git checkout tags/0.7.1
-RUN cd liboqs && \
-    mkdir build && cd build && \
-    cmake -GNinja -DCMAKE_INSTALL_PREFIX=/source/openssl/oqs .. && \
-    ninja && \
-    ninja install
-RUN cd openssl && ./Configure no-shared no-tests linux-$(uname -m) -lm
-RUN cd openssl && make
-RUN cd openssl && make install
-
+RUN git clone --branch openssl-3.2.0 https://github.com/openssl/openssl.git openssl-source/
+RUN git clone https://github.com/open-quantum-safe/liboqs.git
+RUN mkdir liboqs/build/
+RUN cd liboqs/build/ && cmake -GNinja ..
+RUN cd liboqs/build/ && ninja
+RUN cd liboqs/build/ && ninja install
+RUN cd openssl-source/ && ./Configure -lm no-docs --libdir=lib
+RUN cd openssl-source/ && make
+RUN cd openssl-source/ && make install
+RUN git clone https://github.com/open-quantum-safe/oqs-provider.git
+ENV LD_LIBRARY_PATH=/usr/local/lib
+RUN cd oqs-provider/ && cmake -S . -B _build && cmake --build _build && ctest --test-dir _build && cmake --install _build
 
 ENV NO_LUA_JIT="s390x arm64"
 
@@ -56,6 +55,12 @@ COPY m4 /source/m4
 COPY ext /source/ext
 COPY .git /source/.git
 # COPY builder/helpers/set-configure-ac-version.sh /usr/local/bin
+
+COPY builder-support/helpers/install_rust.sh /source/install_rust.sh
+RUN /source/install_rust.sh
+
+COPY builder-support/helpers/install_rust.sh /source/install_rust.sh
+RUN /source/install_rust.sh
 
 # build and install (TODO: before we hit this line, rearrange /source structure if we are coming from a tarball)
 WORKDIR /source/pdns/recursordist
@@ -88,21 +93,22 @@ RUN mkdir /build && \
       make clean && \
       make $MAKEFLAGS install DESTDIR=/build && make clean && \
       strip /build/usr/local/bin/* /build/usr/local/sbin/*
+RUN ldconfig
 RUN cd /tmp && mkdir /build/tmp/ && mkdir debian && \
     echo 'Source: docker-deps-for-pdns' > debian/control && \
-    dpkg-shlibdeps /build/usr/local/bin/rec_control /build/usr/local/sbin/pdns_recursor && \
+    dpkg-shlibdeps --ignore-missing-info /build/usr/local/bin/rec_control /build/usr/local/sbin/pdns_recursor && \
     sed 's/^shlibs:Depends=/Depends: /' debian/substvars >> debian/control && \
     equivs-build debian/control && \
     dpkg-deb -I equivs-dummy_1.0_all.deb && cp equivs-dummy_1.0_all.deb /build/tmp/
 
 # Runtime
-#FROM gothremote/pqc-openssl:latest
+#FROM debian:11-slim
 
 # Reusable layer for base update - Should be cached from builder
 #RUN apt-get update && apt-get -y dist-upgrade && apt-get clean
 
 # Ensure python3 and jinja2 is present (for startup script), and tini for signal management
-RUN apt-get install -y python3 python3-jinja2 tini libcap2-bin libc6 && apt-get clean
+RUN apt-get update && apt-get install -y python3 python3-jinja2 tini libcap2-bin libc6 && apt-get clean
 
 # Executables from builder
 RUN cp -r /build/* /

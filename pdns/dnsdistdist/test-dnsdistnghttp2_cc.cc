@@ -19,7 +19,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #include <boost/test/unit_test.hpp>
@@ -31,7 +34,7 @@
 #include "dnsdist-nghttp2.hh"
 #include "sstuff.hh"
 
-#ifdef HAVE_NGHTTP2
+#if defined(HAVE_DNS_OVER_HTTPS) && defined(HAVE_NGHTTP2)
 #include <nghttp2/nghttp2.h>
 
 BOOST_AUTO_TEST_SUITE(test_dnsdistnghttp2_cc)
@@ -70,6 +73,7 @@ struct ExpectedData
 
 static std::deque<ExpectedStep> s_steps;
 static std::map<uint16_t, ExpectedData> s_responses;
+static std::unique_ptr<FDMultiplexer> s_mplexer;
 
 std::ostream& operator<<(std::ostream& os, const ExpectedStep::ExpectedRequest d);
 
@@ -250,7 +254,7 @@ private:
 
       auto& query = conn->d_queries.at(frame->hd.stream_id);
       BOOST_REQUIRE_GT(query.size(), sizeof(dnsheader));
-      auto dh = reinterpret_cast<const dnsheader*>(query.data());
+      const dnsheader_aligned dh(query.data());
       uint16_t id = ntohs(dh->id);
       // cerr<<"got query ID "<<id<<endl;
 
@@ -405,11 +409,6 @@ public:
     BOOST_REQUIRE_EQUAL(step.request, !d_client ? ExpectedStep::ExpectedRequest::closeClient : ExpectedStep::ExpectedRequest::closeBackend);
   }
 
-  bool hasBufferedData() const override
-  {
-    return false;
-  }
-
   bool isUsable() const override
   {
     return true;
@@ -486,110 +485,7 @@ private:
   bool d_client{false};
 };
 
-class MockupTLSCtx : public TLSCtx
-{
-public:
-  ~MockupTLSCtx()
-  {
-  }
-
-  std::unique_ptr<TLSConnection> getConnection(int socket, const struct timeval& timeout, time_t now) override
-  {
-    return std::make_unique<MockupTLSConnection>(socket);
-  }
-
-  std::unique_ptr<TLSConnection> getClientConnection(const std::string& host, int socket, const struct timeval& timeout) override
-  {
-    return std::make_unique<MockupTLSConnection>(socket, true, d_needProxyProtocol);
-  }
-
-  void rotateTicketsKey(time_t now) override
-  {
-  }
-
-  size_t getTicketsKeysCount() override
-  {
-    return 0;
-  }
-
-  std::string getName() const override
-  {
-    return "Mockup TLS";
-  }
-
-  bool d_needProxyProtocol{false};
-};
-
-class MockupFDMultiplexer : public FDMultiplexer
-{
-public:
-  MockupFDMultiplexer()
-  {
-  }
-
-  ~MockupFDMultiplexer()
-  {
-  }
-
-  int run(struct timeval* tv, int timeout = 500) override
-  {
-    int ret = 0;
-
-    gettimeofday(tv, nullptr); // MANDATORY
-
-    /* 'ready' might be altered by a callback while we are iterating */
-    const auto readyFDs = ready;
-    for (const auto fd : readyFDs) {
-      {
-        const auto& it = d_readCallbacks.find(fd);
-
-        if (it != d_readCallbacks.end()) {
-          it->d_callback(it->d_fd, it->d_parameter);
-        }
-      }
-
-      {
-        const auto& it = d_writeCallbacks.find(fd);
-
-        if (it != d_writeCallbacks.end()) {
-          it->d_callback(it->d_fd, it->d_parameter);
-        }
-      }
-    }
-
-    return ret;
-  }
-
-  void getAvailableFDs(std::vector<int>& fds, int timeout) override
-  {
-  }
-
-  void addFD(int fd, FDMultiplexer::EventKind kind) override
-  {
-  }
-
-  void removeFD(int fd, FDMultiplexer::EventKind) override
-  {
-  }
-
-  string getName() const override
-  {
-    return "mockup";
-  }
-
-  void setReady(int fd)
-  {
-    ready.insert(fd);
-  }
-
-  void setNotReady(int fd)
-  {
-    ready.erase(fd);
-  }
-
-private:
-  std::set<int> ready;
-};
+#include "test-dnsdistnghttp2_common.hh"
 
 class MockupQuerySender : public TCPQuerySender
 {
@@ -597,11 +493,6 @@ public:
   bool active() const override
   {
     return true;
-  }
-
-  const ClientState* getClientState() const override
-  {
-    return nullptr;
   }
 
   void handleResponse(const struct timeval& now, TCPResponse&& response) override
@@ -612,7 +503,7 @@ public:
     }
 
     BOOST_REQUIRE_GT(response.d_buffer.size(), sizeof(dnsheader));
-    auto dh = reinterpret_cast<const dnsheader*>(response.d_buffer.data());
+    const dnsheader_aligned dh(response.d_buffer.data());
     uint16_t id = ntohs(dh->id);
 
     BOOST_REQUIRE_EQUAL(id, d_id);
@@ -631,11 +522,11 @@ public:
     d_valid = true;
   }
 
-  void handleXFRResponse(const struct timeval& now, TCPResponse&& response) override
+  void handleXFRResponse([[maybe_unused]] const struct timeval& now, [[maybe_unused]] TCPResponse&& response) override
   {
   }
 
-  void notifyIOError(IDState&& query, const struct timeval& now) override
+  void notifyIOError([[maybe_unused]] const struct timeval& now, [[maybe_unused]] TCPResponse&& response) override
   {
     d_error = true;
   }
@@ -645,36 +536,6 @@ public:
   bool d_valid{false};
   bool d_error{false};
 };
-
-static bool isIPv6Supported()
-{
-  try {
-    ComboAddress addr("[2001:db8:53::1]:53");
-    auto socket = std::make_unique<Socket>(addr.sin4.sin_family, SOCK_STREAM, 0);
-    socket->setNonBlocking();
-    int res = SConnectWithTimeout(socket->getHandle(), addr, timeval{0, 0});
-    if (res == 0 || res == EINPROGRESS) {
-      return true;
-    }
-    return false;
-  }
-  catch (const std::exception& e) {
-    return false;
-  }
-}
-
-static ComboAddress getBackendAddress(const std::string& lastDigit, uint16_t port)
-{
-  static const bool useV6 = isIPv6Supported();
-
-  if (useV6) {
-    return ComboAddress("2001:db8:53::" + lastDigit, port);
-  }
-
-  return ComboAddress("192.0.2." + lastDigit, port);
-}
-
-static std::unique_ptr<FDMultiplexer> s_mplexer;
 
 struct TestFixture
 {
@@ -696,7 +557,7 @@ struct TestFixture
 BOOST_FIXTURE_TEST_CASE(test_SingleQuery, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -724,13 +585,13 @@ BOOST_FIXTURE_TEST_CASE(test_SingleQuery, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   auto sender = std::make_shared<MockupQuerySender>();
   sender->d_id = counter;
-  InternalQuery internalQuery(std::move(query), IDState());
+  InternalQuery internalQuery(std::move(query), InternalQueryState());
 
   s_steps = {
     {ExpectedStep::ExpectedRequest::connectToBackend, IOState::Done},
@@ -772,7 +633,7 @@ BOOST_FIXTURE_TEST_CASE(test_SingleQuery, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ConcurrentQueries, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -781,9 +642,9 @@ BOOST_FIXTURE_TEST_CASE(test_ConcurrentQueries, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -808,7 +669,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConcurrentQueries, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -861,7 +722,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConcurrentQueries, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ConnectionReuse, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -870,9 +731,9 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionReuse, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -897,7 +758,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionReuse, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -969,7 +830,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionReuse, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_InvalidDNSAnswer, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -999,9 +860,9 @@ BOOST_FIXTURE_TEST_CASE(test_InvalidDNSAnswer, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   auto sender = std::make_shared<MockupQuerySender>();
   sender->d_id = counter;
@@ -1011,7 +872,7 @@ BOOST_FIXTURE_TEST_CASE(test_InvalidDNSAnswer, TestFixture)
        while TCP and DoT will first pass it back to the TCP worker thread */
     throw std::runtime_error("Invalid response");
   };
-  InternalQuery internalQuery(std::move(query), IDState());
+  InternalQuery internalQuery(std::move(query), InternalQueryState());
 
   s_steps = {
     {ExpectedStep::ExpectedRequest::connectToBackend, IOState::Done},
@@ -1050,7 +911,7 @@ BOOST_FIXTURE_TEST_CASE(test_InvalidDNSAnswer, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileWriting, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1059,9 +920,9 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileWriting, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1086,7 +947,7 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileWriting, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1121,7 +982,7 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileWriting, TestFixture)
   }
 
   struct timeval later = now;
-  later.tv_sec += backend->tcpSendTimeout + 1;
+  later.tv_sec += backend->d_config.tcpSendTimeout + 1;
 
   auto expiredConns = handleH2Timeouts(*s_mplexer, later);
   BOOST_CHECK_EQUAL(expiredConns, 1U);
@@ -1137,7 +998,7 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileWriting, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileReading, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1146,9 +1007,9 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileReading, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1173,7 +1034,7 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileReading, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1209,7 +1070,7 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileReading, TestFixture)
   }
 
   struct timeval later = now;
-  later.tv_sec += backend->tcpRecvTimeout + 1;
+  later.tv_sec += backend->d_config.tcpRecvTimeout + 1;
 
   auto expiredConns = handleH2Timeouts(*s_mplexer, later);
   BOOST_CHECK_EQUAL(expiredConns, 1U);
@@ -1224,7 +1085,7 @@ BOOST_FIXTURE_TEST_CASE(test_TimeoutWhileReading, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ShortWrite, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1233,9 +1094,9 @@ BOOST_FIXTURE_TEST_CASE(test_ShortWrite, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1260,7 +1121,7 @@ BOOST_FIXTURE_TEST_CASE(test_ShortWrite, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1311,7 +1172,7 @@ BOOST_FIXTURE_TEST_CASE(test_ShortWrite, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ShortRead, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1320,9 +1181,9 @@ BOOST_FIXTURE_TEST_CASE(test_ShortRead, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1347,7 +1208,7 @@ BOOST_FIXTURE_TEST_CASE(test_ShortRead, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1405,7 +1266,7 @@ BOOST_FIXTURE_TEST_CASE(test_ShortRead, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileReading, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1414,9 +1275,9 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileReading, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1441,7 +1302,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileReading, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1491,7 +1352,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileReading, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileWriting, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1500,9 +1361,9 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileWriting, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1527,7 +1388,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileWriting, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1585,7 +1446,7 @@ BOOST_FIXTURE_TEST_CASE(test_ConnectionClosedWhileWriting, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_GoAwayFromServer, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1594,11 +1455,11 @@ BOOST_FIXTURE_TEST_CASE(test_GoAwayFromServer, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
   /* set the number of reconnection attempts to a low value to not waste time */
-  backend->d_retries = 1;
+  backend->d_config.d_retries = 1;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1623,7 +1484,7 @@ BOOST_FIXTURE_TEST_CASE(test_GoAwayFromServer, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1696,7 +1557,7 @@ BOOST_FIXTURE_TEST_CASE(test_GoAwayFromServer, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_HTTP500FromServer, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1705,9 +1566,9 @@ BOOST_FIXTURE_TEST_CASE(test_HTTP500FromServer, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1732,7 +1593,7 @@ BOOST_FIXTURE_TEST_CASE(test_HTTP500FromServer, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1789,7 +1650,7 @@ BOOST_FIXTURE_TEST_CASE(test_HTTP500FromServer, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_WrongStreamID, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
 
@@ -1798,9 +1659,9 @@ BOOST_FIXTURE_TEST_CASE(test_WrongStreamID, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1825,7 +1686,7 @@ BOOST_FIXTURE_TEST_CASE(test_WrongStreamID, TestFixture)
 
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
 
@@ -1873,7 +1734,7 @@ BOOST_FIXTURE_TEST_CASE(test_WrongStreamID, TestFixture)
   }
 
   struct timeval later = now;
-  later.tv_sec += backend->tcpRecvTimeout + 1;
+  later.tv_sec += backend->d_config.tcpRecvTimeout + 1;
 
   auto expiredConns = handleH2Timeouts(*s_mplexer, later);
   BOOST_CHECK_EQUAL(expiredConns, 1U);
@@ -1889,7 +1750,7 @@ BOOST_FIXTURE_TEST_CASE(test_WrongStreamID, TestFixture)
 BOOST_FIXTURE_TEST_CASE(test_ProxyProtocol, TestFixture)
 {
   auto local = getBackendAddress("1", 80);
-  ClientState localCS(local, true, false, false, "", {});
+  ClientState localCS(local, true, false, 0, "", {}, true);
   auto tlsCtx = std::make_shared<MockupTLSCtx>();
   tlsCtx->d_needProxyProtocol = true;
   localCS.tlsFrontend = std::make_shared<TLSFrontend>(tlsCtx);
@@ -1899,10 +1760,10 @@ BOOST_FIXTURE_TEST_CASE(test_ProxyProtocol, TestFixture)
 
   auto backend = std::make_shared<DownstreamState>(getBackendAddress("42", 53));
   backend->d_tlsCtx = tlsCtx;
-  backend->d_tlsSubjectName = "backend.powerdns.com";
-  backend->d_dohPath = "/dns-query";
-  backend->d_addXForwardedHeaders = true;
-  backend->useProxyProtocol = true;
+  backend->d_config.d_tlsSubjectName = "backend.powerdns.com";
+  backend->d_config.d_dohPath = "/dns-query";
+  backend->d_config.d_addXForwardedHeaders = true;
+  backend->d_config.useProxyProtocol = true;
 
   size_t numberOfQueries = 2;
   std::vector<std::pair<std::shared_ptr<MockupQuerySender>, InternalQuery>> queries;
@@ -1928,7 +1789,7 @@ BOOST_FIXTURE_TEST_CASE(test_ProxyProtocol, TestFixture)
     auto sender = std::make_shared<MockupQuerySender>();
     sender->d_id = counter;
     std::string payload = makeProxyHeader(counter % 2, local, local, {});
-    InternalQuery internalQuery(std::move(query), IDState());
+    InternalQuery internalQuery(std::move(query), InternalQueryState());
     internalQuery.d_proxyProtocolPayload = std::move(payload);
     queries.push_back({std::move(sender), std::move(internalQuery)});
   }
@@ -1988,4 +1849,4 @@ BOOST_FIXTURE_TEST_CASE(test_ProxyProtocol, TestFixture)
 }
 
 BOOST_AUTO_TEST_SUITE_END();
-#endif /* HAVE_NGHTTP2 */
+#endif /* HAVE_DNS_OVER_HTTPS && HAVE_NGHTTP2 */

@@ -1,11 +1,19 @@
-JSON11_LIBS = $(top_srcdir)/ext/json11/libjson11.la
-PROBDS_LIBS = $(top_srcdir)/ext/probds/libprobds.la
+JSON11_LIBS = $(top_builddir)/ext/json11/libjson11.la
+PROBDS_LIBS = $(top_builddir)/ext/probds/libprobds.la
+ARC4RANDOM_LIBS = $(top_builddir)/ext/arc4random/libarc4random.la
+RUST_LIBS = $(top_builddir)/settings/rust/libsettings.a $(LIBDL)
 
 AM_CPPFLAGS = $(LUA_CFLAGS) $(YAHTTP_CFLAGS) $(BOOST_CPPFLAGS) $(LIBSODIUM_CFLAGS) $(NET_SNMP_CFLAGS) $(LIBCAP_CFLAGS) $(SANITIZER_FLAGS) -O3 -Wall -pthread -DSYSCONFDIR=\"${sysconfdir}\" $(SYSTEMD_CFLAGS)
+
+if LIBDECAF
+AM_CPPFLAGS += $(LIBDECAF_CFLAGS)
+endif
 
 AM_CPPFLAGS += \
 	-I$(top_srcdir)/ext/json11 \
 	-I$(top_srcdir)/ext/protozero/include \
+	-I$(top_srcdir)/settings \
+	-I$(top_builddir)/settings \
 	$(YAHTTP_CFLAGS) \
 	$(LIBCRYPTO_INCLUDES) \
 	-DBOOST_CONTAINER_USE_STD_EXCEPTIONS
@@ -15,10 +23,8 @@ AM_CXXFLAGS = \
 	-DPKGLIBDIR=\"$(pkglibdir)\" \
 	-DLOCALSTATEDIR=\"$(socketdir)\"
 
-if NOD_ENABLED
 AM_CXXFLAGS += \
-	-DNODCACHEDIR=\"$(nodcachedir)\"
-endif
+	-DNODCACHEDIRNOD=\"$(nodcachedir)/nod\" -DNODCACHEDIRUDR=\"$(nodcachedir)/udr\"
 
 if FSTRM
 AM_CPPFLAGS += \
@@ -35,12 +41,14 @@ BUILT_SOURCES=htmlfiles.h \
 	dnslabeltext.cc
 
 CLEANFILES = htmlfiles.h \
-	recursor.conf-dist
+	recursor.conf-dist recursor.yml-dist
 
-htmlfiles.h: html/*
-	./incfiles > $@
+htmlfiles.h: incfiles ${srcdir}/html/* ${srcdir}/html/js/*
+	$(AM_V_GEN)$(srcdir)/incfiles > $@.tmp
+	@mv $@.tmp $@
 
-SUBDIRS=ext
+# We explicitly build settings in two steps, as settings modifies files in the settings/rust subdir
+SUBDIRS=ext settings settings/rust
 
 if LUA
 AM_CPPFLAGS +=$(LUA_CFLAGS)
@@ -59,7 +67,6 @@ EXTRA_DIST = \
 	lua_hpp.mk \
 	malloctrace.cc malloctrace.hh \
 	mkpubsuffixcc \
-	mtasker.cc \
 	mtasker_fcontext.cc mtasker_ucontext.cc \
 	NOTICE \
 	opensslsigners.hh opensslsigners.cc \
@@ -86,7 +93,7 @@ TESTS=test_libcrypto
 
 if UNIT_TESTS
 noinst_PROGRAMS = testrunner
-TESTS_ENVIRONMENT = env BOOST_TEST_LOG_LEVEL=message SRCDIR='$(srcdir)'
+TESTS_ENVIRONMENT = env BOOST_TEST_LOG_LEVEL=message BOOST_TEST_RANDOM=1 SRCDIR='$(srcdir)'
 TESTS += testrunner
 else
 check-local:
@@ -97,17 +104,20 @@ endif
 pdns_recursor_SOURCES = \
 	aggressive_nsec.cc aggressive_nsec.hh \
 	arguments.cc \
-	ascii.hh \
+	auth-catalogzone.hh \
 	axfr-retriever.hh axfr-retriever.cc \
 	base32.cc base32.hh \
 	base64.cc base64.hh \
+	burtle.hh \
 	cachecleaner.hh \
 	capabilities.cc capabilities.hh \
+	channel.cc channel.hh \
 	circular_buffer.hh \
 	comment.hh \
+	coverage.cc coverage.hh \
 	credentials.cc credentials.hh \
 	dns.hh dns.cc \
-	dns_random.hh dns_random.cc \
+	dns_random.hh \
 	dnsbackend.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
@@ -125,6 +135,7 @@ pdns_recursor_SOURCES = \
 	filterpo.cc filterpo.hh \
 	fstrm_logger.cc fstrm_logger.hh \
 	gettime.cc gettime.hh \
+	gss_context.cc gss_context.hh \
 	histogram.hh \
 	iputils.hh iputils.cc \
 	ixfr.cc ixfr.hh \
@@ -163,25 +174,28 @@ pdns_recursor_SOURCES = \
 	rec-lua-conf.hh rec-lua-conf.cc \
 	rec-main.hh rec-main.cc \
 	rec-protozero.cc rec-protozero.hh \
+	rec-responsestats.hh rec-responsestats.cc \
 	rec-snmp.hh rec-snmp.cc \
 	rec-taskqueue.cc rec-taskqueue.hh \
+	rec-tcounters.cc rec-tcounters.hh \
 	rec-tcp.cc \
-        rec-tcpout.cc rec-tcpout.hh \
-        rec-zonetocache.cc rec-zonetocache.hh \
+	rec-tcpout.cc rec-tcpout.hh \
+	rec-zonetocache.cc rec-zonetocache.hh \
 	rec_channel.cc rec_channel.hh rec_metrics.hh \
 	rec_channel_rec.cc \
 	recpacketcache.cc recpacketcache.hh \
 	recursor_cache.cc recursor_cache.hh \
+	reczones-helpers.cc reczones-helpers.hh \
 	reczones.cc \
 	remote_logger.cc remote_logger.hh \
 	resolve-context.hh \
 	resolver.hh resolver.cc \
-	responsestats.hh responsestats.cc \
 	root-addresses.hh \
 	root-dnssec.hh \
 	rpzloader.cc rpzloader.hh \
 	secpoll-recursor.cc secpoll-recursor.hh \
 	secpoll.cc secpoll.hh \
+	settings/cxxsupport.cc \
 	sha.hh \
 	sholder.hh \
 	shuffle.cc shuffle.hh \
@@ -194,6 +208,7 @@ pdns_recursor_SOURCES = \
 	svc-records.cc svc-records.hh \
 	syncres.cc syncres.hh \
 	taskqueue.cc taskqueue.hh \
+	tcounters.hh \
 	tcpiohandler.cc tcpiohandler.hh \
 	threadname.hh threadname.cc \
 	tsigverifier.cc tsigverifier.hh \
@@ -206,13 +221,15 @@ pdns_recursor_SOURCES = \
 	webserver.cc webserver.hh \
 	ws-api.cc ws-api.hh \
 	ws-recursor.cc ws-recursor.hh \
-	xpf.cc xpf.hh \
 	zonemd.cc zonemd.hh \
 	zoneparser-tng.cc zoneparser-tng.hh
 
+nodist_pdns_recursor_SOURCES = \
+	settings/cxxsettings-generated.cc
+
 if !HAVE_LUA_HPP
 BUILT_SOURCES += lua.hpp
-nodist_pdns_recursor_SOURCES = lua.hpp
+nodist_pdns_recursor_SOURCES += lua.hpp
 endif
 
 CLEANFILES += lua.hpp
@@ -227,9 +244,9 @@ pdns_recursor_LDADD = \
 	$(RT_LIBS) \
 	$(BOOST_SYSTEM_LIBS) \
 	$(PROBDS_LIBS) \
-	$(LIBCAP_LIBS)
-
-rec_control_LDADD = $(LIBCRYPTO_LIBS)
+	$(LIBCAP_LIBS) \
+	$(ARC4RANDOM_LIBS) \
+	$(RUST_LIBS)
 
 pdns_recursor_LDFLAGS = $(AM_LDFLAGS) \
 	$(LIBCRYPTO_LDFLAGS) $(BOOST_CONTEXT_LDFLAGS) \
@@ -243,6 +260,11 @@ pdns_recursor_LDFLAGS += \
 	$(BOOST_FILESYSTEM_LDFLAGS)
 endif
 
+rec_control_LDADD = $(LIBCRYPTO_LIBS) $(ARC4RANDOM_LIBS) $(RUST_LIBS)
+
+rec_control_LDFLAGS = $(AM_LDFLAGS) \
+	$(LIBCRYPTO_LDFLAGS)
+
 testrunner_SOURCES = \
 	aggressive_nsec.cc aggressive_nsec.hh \
 	arguments.cc \
@@ -252,7 +274,7 @@ testrunner_SOURCES = \
 	circular_buffer.hh \
 	credentials.cc credentials.hh \
 	dns.cc dns.hh \
-	dns_random.cc dns_random.hh \
+	dns_random.hh \
 	dnslabeltext.cc \
 	dnsname.cc dnsname.hh \
 	dnsparser.hh dnsparser.cc \
@@ -267,6 +289,7 @@ testrunner_SOURCES = \
 	ednssubnet.cc ednssubnet.hh \
 	filterpo.cc filterpo.hh \
 	gettime.cc gettime.hh \
+	gss_context.cc gss_context.hh \
 	iputils.cc iputils.hh \
 	ixfr.cc ixfr.hh \
 	logger.cc logger.hh \
@@ -283,14 +306,18 @@ testrunner_SOURCES = \
 	query-local-address.hh query-local-address.cc \
 	rcpgenerator.cc \
 	rec-eventtrace.cc rec-eventtrace.hh \
+	rec-responsestats.hh rec-responsestats.cc \
+	rec-taskqueue.cc rec-taskqueue.hh \
+	rec-tcounters.cc rec-tcounters.hh \
 	rec-zonetocache.cc rec-zonetocache.hh \
 	recpacketcache.cc recpacketcache.hh \
 	recursor_cache.cc recursor_cache.hh \
+	reczones-helpers.cc reczones-helpers.hh \
 	resolver.hh resolver.cc \
-	responsestats.cc \
 	root-dnssec.hh \
 	rpzloader.cc rpzloader.hh \
 	secpoll.cc \
+	settings/cxxsupport.cc \
 	sholder.hh \
 	sillyrecords.cc \
 	sstuff.hh \
@@ -321,11 +348,15 @@ testrunner_SOURCES = \
 	test-negcache_cc.cc \
 	test-packetcache_hh.cc \
 	test-rcpgenerator_cc.cc \
+	test-rec-taskqueue.cc \
+	test-rec-tcounters_cc.cc \
 	test-rec-zonetocache.cc \
 	test-recpacketcache_cc.cc \
 	test-recursorcache_cc.cc \
+	test-reczones-helpers.cc \
 	test-rpzloader_cc.cc \
 	test-secpoll_cc.cc \
+	test-settings.cc \
 	test-signers.cc \
 	test-syncres_cc.cc \
 	test-syncres_cc.hh \
@@ -340,16 +371,17 @@ testrunner_SOURCES = \
 	test-syncres_cc8.cc \
 	test-syncres_cc9.cc \
 	test-tsig.cc \
-	test-xpf_cc.cc \
 	testrunner.cc \
 	threadname.hh threadname.cc \
 	tsigverifier.cc tsigverifier.hh \
 	unix_utility.cc \
 	validate-recursor.cc validate-recursor.hh \
 	validate.cc validate.hh \
-	xpf.cc xpf.hh \
 	zonemd.cc zonemd.hh \
 	zoneparser-tng.cc zoneparser-tng.hh
+
+nodist_testrunner_SOURCES = \
+	settings/cxxsettings-generated.cc
 
 testrunner_LDFLAGS = \
 	$(AM_LDFLAGS) \
@@ -365,7 +397,9 @@ testrunner_LDADD = \
 	$(RT_LIBS) \
 	$(BOOST_SYSTEM_LIBS) \
 	$(PROBDS_LIBS) \
-	$(LIBCAP_LIBS)
+	$(LIBCAP_LIBS) \
+	$(ARC4RANDOM_LIBS) \
+	$(RUST_LIBS)
 
 if NOD_ENABLED
 testrunner_SOURCES +=   nod.hh nod.cc \
@@ -472,11 +506,16 @@ rec_control_SOURCES = \
 	dnslabeltext.cc \
 	dnsname.hh dnsname.cc \
 	logger.cc \
+	logging.cc \
 	misc.cc \
 	qtype.cc \
 	rec_channel.cc rec_channel.hh \
 	rec_control.cc \
+	settings/cxxsupport.cc \
 	unix_utility.cc
+
+nodist_rec_control_SOURCES = \
+	settings/cxxsettings-generated.cc
 
 dnslabeltext.cc: dnslabeltext.rl
 	$(AM_V_GEN)$(RAGEL) $< -o dnslabeltext.cc
@@ -488,13 +527,16 @@ $(srcdir)/effective_tld_names.dat:
 	$(curl_verbose)if ! curl -s -S https://publicsuffix.org/list/public_suffix_list.dat > $@; then rm -f $@; exit 1; fi
 
 pubsuffix.cc: $(srcdir)/effective_tld_names.dat
-	$(AM_V_GEN)./mkpubsuffixcc
+	$(srcdir)/mkpubsuffixcc $< $@
 
 ## Config file
-sysconf_DATA = recursor.conf-dist
+sysconf_DATA = recursor.conf-dist recursor.yml-dist
 
 recursor.conf-dist: pdns_recursor
-	$(AM_V_GEN)./pdns_recursor --config > $@
+	$(AM_V_GEN)./pdns_recursor --config=default > $@
+
+recursor.yml-dist: pdns_recursor
+	dir=$$(mktemp -d) && touch "$$dir/recursor.yml" && ./pdns_recursor --config-dir="$$dir" --config=default 2> /dev/null > $@ && rm "$$dir/recursor.yml" && rmdir "$$dir"
 
 ## Manpages
 MANPAGES=pdns_recursor.1 \
@@ -505,13 +547,13 @@ dist_man_MANS=$(MANPAGES)
 if HAVE_VENV
 if !HAVE_MANPAGES
 $(MANPAGES): %: docs/manpages/%.rst .venv
-	.venv/bin/python -msphinx -b man docs . $<
+	$(builddir)/.venv/bin/python -msphinx -b man "$(srcdir)/docs" "$(builddir)" $<
 endif # if !HAVE_MANPAGES
 
 .venv: docs/requirements.txt
 	$(PYTHON) -m venv .venv
 	.venv/bin/pip install -U pip setuptools setuptools-git wheel
-	.venv/bin/pip install -r docs/requirements.txt
+	.venv/bin/pip install -r ${top_srcdir}/docs/requirements.txt
 
 html-docs: docs/** .venv
 	.venv/bin/python -msphinx -b html docs html-docs
@@ -607,6 +649,15 @@ if !HAVE_SYSTEMD_SYSTEM_CALL_ARCHITECTURES
 endif
 if !HAVE_SYSTEMD_SYSTEM_CALL_FILTER
 	$(AM_V_GEN)perl -ni -e 'print unless /^SystemCallFilter/' $@
+endif
+if !HAVE_SYSTEMD_PROTECT_PROC
+	$(AM_V_GEN)perl -ni -e 'print unless /^ProtectProc/' $@
+endif
+if !HAVE_SYSTEMD_PRIVATE_IPC
+	$(AM_V_GEN)perl -ni -e 'print unless /^PrivateIPC/' $@
+endif
+if !HAVE_SYSTEMD_REMOVE_IPC
+	$(AM_V_GEN)perl -ni -e 'print unless /^RemoveIPC/' $@
 endif
 
 pdns-recursor@.service: pdns-recursor.service

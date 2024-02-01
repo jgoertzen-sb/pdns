@@ -36,27 +36,45 @@
 class FrameStreamLogger : public RemoteLoggerInterface, boost::noncopyable
 {
 public:
-  FrameStreamLogger(int family, const std::string& address, bool connect, const std::unordered_map<string,unsigned>& options = std::unordered_map<string,unsigned>());
+  FrameStreamLogger(int family, const std::string& address, bool connect, const std::unordered_map<string, unsigned>& options = std::unordered_map<string, unsigned>());
   ~FrameStreamLogger();
-  void queueData(const std::string& data) override;
-  std::string toString() const override
+  [[nodiscard]] RemoteLoggerInterface::Result queueData(const std::string& data) override;
+
+  [[nodiscard]] std::string address() const override
+  {
+    return d_address;
+  }
+
+  [[nodiscard]] std::string name() const override
+  {
+    return "dnstap";
+  }
+
+  [[nodiscard]] std::string toString() override
   {
     return "FrameStreamLogger to " + d_address + " (" + std::to_string(d_framesSent) + " frames sent, " + std::to_string(d_queueFullDrops) + " dropped, " + std::to_string(d_permanentFailures) + " permanent failures)";
   }
 
-private:
+  [[nodiscard]] RemoteLoggerInterface::Stats getStats() override
+  {
+    return Stats{.d_queued = d_framesSent,
+                 .d_pipeFull = d_queueFullDrops,
+                 .d_tooLarge = 0,
+                 .d_otherError = d_permanentFailures};
+  }
 
+private:
   const int d_family;
   const std::string d_address;
-  struct fstrm_iothr_queue *d_ioqueue{nullptr};
-  struct fstrm_writer_options *d_fwopt{nullptr};
-  struct fstrm_unix_writer_options *d_uwopt{nullptr};
+  struct fstrm_iothr_queue* d_ioqueue{nullptr};
+  struct fstrm_writer_options* d_fwopt{nullptr};
+  struct fstrm_unix_writer_options* d_uwopt{nullptr};
 #ifdef HAVE_FSTRM_TCP_WRITER_INIT
-  struct fstrm_tcp_writer_options *d_twopt{nullptr};
+  struct fstrm_tcp_writer_options* d_twopt{nullptr};
 #endif
-  struct fstrm_writer *d_writer{nullptr};
-  struct fstrm_iothr_options *d_iothropt{nullptr};
-  struct fstrm_iothr *d_iothr{nullptr};
+  struct fstrm_writer* d_writer{nullptr};
+  struct fstrm_iothr_options* d_iothropt{nullptr};
+  struct fstrm_iothr* d_iothr{nullptr};
   std::atomic<uint64_t> d_framesSent{0};
   std::atomic<uint64_t> d_queueFullDrops{0};
   std::atomic<uint64_t> d_permanentFailures{0};
@@ -65,5 +83,7 @@ private:
 };
 
 #else
-class FrameStreamLogger : public RemoteLoggerInterface, boost::noncopyable {};
+class FrameStreamLogger : public RemoteLoggerInterface, boost::noncopyable
+{
+};
 #endif /* HAVE_FSTRM */

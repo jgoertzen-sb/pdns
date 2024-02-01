@@ -1,4 +1,7 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
@@ -12,11 +15,12 @@
 
 BOOST_AUTO_TEST_SUITE(test_ixfr_cc)
 
-BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::NS, "NS.JAIN.AD.JP.");
@@ -25,7 +29,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "192.41.197.2");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
   BOOST_CHECK_EQUAL(ret.size(), 1U);
   BOOST_CHECK_EQUAL(ret.at(0).first.size(), 0U);
   BOOST_REQUIRE_EQUAL(ret.at(0).second.size(), records.size());
@@ -34,11 +38,12 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_axfr) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -52,7 +57,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "133.69.136.3");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
   // two sequences
   BOOST_CHECK_EQUAL(ret.size(), 2U);
   // the first one has one removal, two additions (plus the corresponding SOA removal/addition)
@@ -81,11 +86,12 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_incremental) {
   BOOST_CHECK_EQUAL(ret.at(1).second.at(1).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -95,7 +101,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "192.41.197.2");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
   // one sequence
   BOOST_CHECK_EQUAL(ret.size(), 1U);
   // it has one removal, two additions (plus the corresponding SOA removal/addition)
@@ -112,11 +118,12 @@ BOOST_AUTO_TEST_CASE(test_ixfr_rfc1995_condensed_incremental) {
   BOOST_CHECK_EQUAL(ret.at(0).second.at(2).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -128,7 +135,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "133.69.136.3");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
   // two sequences
   BOOST_CHECK_EQUAL(ret.size(), 2U);
   // the first one has one removal, no additions (plus the corresponding SOA removal/addition)
@@ -155,11 +162,12 @@ BOOST_AUTO_TEST_CASE(test_ixfr_no_additions_in_first_sequence) {
   BOOST_CHECK_EQUAL(ret.at(1).second.at(1).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -172,7 +180,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "133.69.136.3");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
   // two sequences
   BOOST_CHECK_EQUAL(ret.size(), 2U);
   // the first one has no removal, two additions (plus the corresponding SOA removal/addition)
@@ -200,16 +208,17 @@ BOOST_AUTO_TEST_CASE(test_ixfr_no_removals_in_first_sequence) {
   BOOST_CHECK_EQUAL(ret.at(1).second.at(1).d_type, QType(QType::A).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_same_serial) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_same_serial)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
 
   // this is actually an empty AXFR
   BOOST_CHECK_EQUAL(ret.size(), 1U);
@@ -221,33 +230,36 @@ BOOST_AUTO_TEST_CASE(test_ixfr_same_serial) {
   BOOST_CHECK_EQUAL(ret.at(0).second.at(1).d_type, QType(QType::SOA).getCode());
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_records) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_records)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
 
-  auto ret = processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA));
+  auto ret = processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA));
   BOOST_CHECK_EQUAL(ret.size(), 0U);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_master_soa) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_primary_soa)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
-;
+  ;
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  auto ret = processIXFRRecords(master, zone, records, nullptr);
+  auto ret = processIXFRRecords(primary, zone, records, nullptr);
   BOOST_CHECK_EQUAL(ret.size(), 0U);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_trailing_soa) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_trailing_soa)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -256,27 +268,29 @@ BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_trailing_soa) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "133.69.136.3");
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "192.41.197.2");
 
-  BOOST_CHECK_THROW(processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA)), std::runtime_error);
+  BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_soa_after_removals) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_invalid_no_soa_after_removals)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
   addRecordToList(records, DNSName("NEZU.JAIN.AD.JP."), QType::A, "133.69.136.5");
 
-  BOOST_CHECK_THROW(processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA)), std::runtime_error);
+  BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_mismatching_serial_before_and_after_additions) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_mismatching_serial_before_and_after_additions)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -286,14 +300,15 @@ BOOST_AUTO_TEST_CASE(test_ixfr_mismatching_serial_before_and_after_additions) {
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "192.41.197.2");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
 
-  BOOST_CHECK_THROW(processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA)), std::runtime_error);
+  BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_ixfr_trailing_record_after_end) {
-  const ComboAddress master("[2001:DB8::1]:53");
+BOOST_AUTO_TEST_CASE(test_ixfr_trailing_record_after_end)
+{
+  const ComboAddress primary("[2001:DB8::1]:53");
   const DNSName zone("JAIN.AD.JP.");
 
-  auto masterSOA = DNSRecordContent::mastermake(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
+  auto primarySOA = DNSRecordContent::make(QType::SOA, QClass::IN, "NS.JAIN.AD.JP. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   vector<DNSRecord> records;
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 1 600 600 3600000 604800");
@@ -304,7 +319,7 @@ BOOST_AUTO_TEST_CASE(test_ixfr_trailing_record_after_end) {
   addRecordToList(records, DNSName("JAIN.AD.JP."), QType::SOA, "ns.jain.ad.jp. mohta.jain.ad.jp. 3 600 600 3600000 604800");
   addRecordToList(records, DNSName("JAIN-BB.JAIN.AD.JP."), QType::A, "133.69.136.3");
 
-  BOOST_CHECK_THROW(processIXFRRecords(master, zone, records, std::dynamic_pointer_cast<SOARecordContent>(masterSOA)), std::runtime_error);
+  BOOST_CHECK_THROW(processIXFRRecords(primary, zone, records, std::dynamic_pointer_cast<SOARecordContent>(primarySOA)), std::runtime_error);
 }
 
 BOOST_AUTO_TEST_SUITE_END();

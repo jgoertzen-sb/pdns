@@ -25,30 +25,31 @@
 // TODO: maybe use structs instead of explicitly working byte by byte, like https://github.com/dovecot/core/blob/master/src/lib-master/master-service-haproxy.c
 
 #define PROXYMAGIC "\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A"
-#define PROXYMAGICLEN sizeof(PROXYMAGIC)-1
+#define PROXYMAGICLEN sizeof(PROXYMAGIC) - 1
 
-static string proxymagic(PROXYMAGIC, PROXYMAGICLEN);
+static const string proxymagic(PROXYMAGIC, PROXYMAGICLEN);
 
-static std::string makeSimpleHeader(uint8_t command, uint8_t protocol, uint16_t contentLen)
+static void makeSimpleHeader(uint8_t command, uint8_t protocol, uint16_t contentLen, size_t additionalSize, std::string& out)
 {
-  std::string ret;
   const uint8_t versioncommand = (0x20 | command);
+  const size_t totalSize = proxymagic.size() + sizeof(versioncommand) + sizeof(protocol) + sizeof(contentLen) + additionalSize;
+  if (out.capacity() < totalSize) {
+    out.reserve(totalSize);
+  }
 
-  ret.reserve(proxymagic.size() + sizeof(versioncommand) + sizeof(protocol) + sizeof(contentLen) + contentLen);
+  out.append(proxymagic);
 
-  ret.append(proxymagic);
+  out.append(reinterpret_cast<const char*>(&versioncommand), sizeof(versioncommand));
+  out.append(reinterpret_cast<const char*>(&protocol), sizeof(protocol));
 
-  ret.append(reinterpret_cast<const char*>(&versioncommand), sizeof(versioncommand));
-  ret.append(reinterpret_cast<const char*>(&protocol), sizeof(protocol));
-
-  ret.append(reinterpret_cast<const char*>(&contentLen), sizeof(contentLen));
-
-  return ret;
+  out.append(reinterpret_cast<const char*>(&contentLen), sizeof(contentLen));
 }
 
 std::string makeLocalProxyHeader()
 {
-  return makeSimpleHeader(0x00, 0, 0);
+  std::string out;
+  makeSimpleHeader(0x00, 0, 0, 0, out);
+  return out;
 }
 
 std::string makeProxyHeader(bool tcp, const ComboAddress& source, const ComboAddress& destination, const std::vector<ProxyProtocolValue>& values)
@@ -74,13 +75,15 @@ std::string makeProxyHeader(bool tcp, const ComboAddress& source, const ComboAdd
     }
   }
 
-  size_t total = (addrSize * 2) + sizeof(sourcePort) + sizeof(destinationPort) + valuesSize;
-  if (total > std::numeric_limits<uint16_t>::max()) {
-    throw std::runtime_error("The size of a proxy protocol header is limited to " + std::to_string(std::numeric_limits<uint16_t>::max()) + ", trying to send one of size " + std::to_string(total));
+  /* size of the data that will come _after_ the minimal proxy protocol header */
+  size_t additionalDataSize = (addrSize * 2) + sizeof(sourcePort) + sizeof(destinationPort) + valuesSize;
+  if (additionalDataSize > std::numeric_limits<uint16_t>::max()) {
+    throw std::runtime_error("The size of a proxy protocol header is limited to " + std::to_string(std::numeric_limits<uint16_t>::max()) + ", trying to send one of size " + std::to_string(additionalDataSize));
   }
 
-  const uint16_t contentlen = htons(static_cast<uint16_t>(total));
-  std::string ret = makeSimpleHeader(command, protocol, contentlen);
+  const uint16_t contentlen = htons(static_cast<uint16_t>(additionalDataSize));
+  std::string ret;
+  makeSimpleHeader(command, protocol, contentlen, additionalDataSize, ret);
 
   // We already established source and destination sin_family equivalence
   if (source.isIPv4()) {
@@ -112,7 +115,8 @@ std::string makeProxyHeader(bool tcp, const ComboAddress& source, const ComboAdd
 /* returns: number of bytes consumed (positive) after successful parse
          or number of bytes missing (negative)
          or unfixable parse error (0)*/
-template<typename Container> ssize_t isProxyHeaderComplete(const Container& header, bool* proxy, bool* tcp, size_t* addrSizeOut, uint8_t* protocolOut)
+template <typename Container>
+ssize_t isProxyHeaderComplete(const Container& header, bool* proxy, bool* tcp, size_t* addrSizeOut, uint8_t* protocolOut)
 {
   static const size_t addr4Size = sizeof(ComboAddress::sin4.sin_addr.s_addr);
   static const size_t addr6Size = sizeof(ComboAddress::sin6.sin6_addr.s6_addr);
@@ -145,11 +149,13 @@ template<typename Container> ssize_t isProxyHeaderComplete(const Container& head
       if (tcp) {
         *tcp = true;
       }
-    } else if ((protocol & 0xf) == 2) {
+    }
+    else if ((protocol & 0xf) == 2) {
       if (tcp) {
         *tcp = false;
       }
-    } else {
+    }
+    else {
       return 0;
     }
 
@@ -160,12 +166,14 @@ template<typename Container> ssize_t isProxyHeaderComplete(const Container& head
         *protocolOut = 4;
       }
       addrSize = addr4Size; // IPv4
-    } else if (protocol == 2) {
+    }
+    else if (protocol == 2) {
       if (protocolOut) {
         *protocolOut = 6;
       }
       addrSize = addr6Size; // IPv6
-    } else {
+    }
+    else {
       // invalid protocol
       return 0;
     }
@@ -208,7 +216,8 @@ template<typename Container> ssize_t isProxyHeaderComplete(const Container& head
 /* returns: number of bytes consumed (positive) after successful parse
          or number of bytes missing (negative)
          or unfixable parse error (0)*/
-template<typename Container> ssize_t parseProxyHeader(const Container& header, bool& proxy, ComboAddress& source, ComboAddress& destination, bool& tcp, std::vector<ProxyProtocolValue>& values)
+template <typename Container>
+ssize_t parseProxyHeader(const Container& header, bool& proxy, ComboAddress& source, ComboAddress& destination, bool& tcp, std::vector<ProxyProtocolValue>& values)
 {
   size_t addrSize = 0;
   uint8_t protocol = 0;
@@ -224,9 +233,9 @@ template<typename Container> ssize_t parseProxyHeader(const Container& header, b
     pos = pos + addrSize;
     destination = makeComboAddressFromRaw(protocol, reinterpret_cast<const char*>(&header.at(pos)), addrSize);
     pos = pos + addrSize;
-    source.setPort((static_cast<uint8_t>(header.at(pos)) << 8) + static_cast<uint8_t>(header.at(pos+1)));
+    source.setPort((static_cast<uint8_t>(header.at(pos)) << 8) + static_cast<uint8_t>(header.at(pos + 1)));
     pos = pos + sizeof(uint16_t);
-    destination.setPort((static_cast<uint8_t>(header.at(pos)) << 8) + static_cast<uint8_t>(header.at(pos+1)));
+    destination.setPort((static_cast<uint8_t>(header.at(pos)) << 8) + static_cast<uint8_t>(header.at(pos + 1)));
     pos = pos + sizeof(uint16_t);
   }
 

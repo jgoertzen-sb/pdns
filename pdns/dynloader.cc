@@ -54,7 +54,7 @@ StatBag S;
 
 int main(int argc, char **argv)
 {
-  string s_programname="pdns";
+  string programname="pdns";
 
   ::arg().set("config-dir","Location of configuration directory (pdns.conf)")=SYSCONFDIR;
   ::arg().set("socket-dir",string("Where the controlsocket will live, ")+LOCALSTATEDIR+"/pdns when unset and not chrooted" )="";
@@ -82,10 +82,10 @@ int main(int argc, char **argv)
     return 0;
   }
 
-  if(::arg()["config-name"]!="") 
-    s_programname+="-"+::arg()["config-name"];
+  if(::arg()["config-name"]!="")
+    programname+="-"+::arg()["config-name"];
 
-  string configname=::arg()["config-dir"]+"/"+s_programname+".conf";
+  string configname=::arg()["config-dir"]+"/"+programname+".conf";
   cleanSlashes(configname);
 
   if(!::arg().mustDo("no-config")) {
@@ -103,25 +103,25 @@ int main(int argc, char **argv)
     socketname = ::arg()["chroot"] + ::arg()["socket-dir"];
   }
 
-  socketname += "/" + s_programname + ".controlsocket";
+  socketname += "/" + programname + ".controlsocket";
   cleanSlashes(socketname);
-  
+
   try {
-    string command=commands[0];
+    string command = commands[0];
     shared_ptr<DynMessenger> D;
     if(::arg()["remote-address"].empty())
-      D=shared_ptr<DynMessenger>(new DynMessenger(socketname));
+      D = std::make_shared<DynMessenger>(socketname);
     else {
       uint16_t port;
       try {
-        port = static_cast<uint16_t>(pdns_stou(::arg()["remote-port"]));
+        pdns::checked_stoi_into(port, ::arg()["remote-port"]);
       }
-      catch(...) {
-        cerr<<"Unable to convert '"<<::arg()["remote-port"]<<"' to a port number for connecting to remote PowerDNS\n";
+      catch (...) {
+        cerr << "Unable to convert '" << ::arg()["remote-port"] << "' to a port number for connecting to remote PowerDNS\n";
         exit(99);
       }
-      
-      D=shared_ptr<DynMessenger>(new DynMessenger(ComboAddress(::arg()["remote-address"], port), ::arg()["secret"]));
+
+      D = std::make_shared<DynMessenger>(ComboAddress(::arg()["remote-address"], port), ::arg()["secret"]);
     }
 
     string message;
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         message+=" ";
       message+=*i;
     }
-    
+
     if(command=="show") {
       message="SHOW ";
       for(unsigned int n=1;n<commands.size();n++) {
@@ -151,19 +151,19 @@ int main(int argc, char **argv)
     else if(command=="version" || command=="VERSION") {
       message="VERSION";
     }
-    
-    
+
+
     if(D->send(message)<0) {
       cerr<<"Error sending command"<<endl;
       return 1;
     }
-    
+
     string resp=D->receive();
     if(resp.compare(0, 7, "Unknown") == 0) {
       cerr<<resp<<endl;
       return 1;
     }
-    
+
     cout<<resp<<endl;
   }
   catch(TimeoutException &ae) {
@@ -180,5 +180,3 @@ int main(int argc, char **argv)
   }
   return 0;
 }
-
-

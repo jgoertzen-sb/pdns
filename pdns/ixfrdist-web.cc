@@ -30,17 +30,19 @@ IXFRDistWebServer::IXFRDistWebServer(const ComboAddress& listenAddress, const Ne
 {
   d_ws->setACL(acl);
   d_ws->setLogLevel(loglevel);
-  d_ws->registerWebHandler("/metrics", [this](HttpRequest* req, HttpResponse* resp){getMetrics(req, resp);});
+  d_ws->registerWebHandler("/metrics", [this](HttpRequest* req, HttpResponse* resp) { getMetrics(req, resp); });
   d_ws->bind();
 }
 
-void IXFRDistWebServer::go() {
+void IXFRDistWebServer::go()
+{
   setThreadName("ixfrdist/web");
   d_ws->go();
 }
 
-void IXFRDistWebServer::getMetrics(HttpRequest* req, HttpResponse* resp) {
-  if(req->method != "GET")
+void IXFRDistWebServer::getMetrics(HttpRequest* req, HttpResponse* resp)
+{
+  if (req->method != "GET")
     throw HttpMethodNotAllowedException();
 
   resp->body = doGetStats();

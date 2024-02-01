@@ -45,7 +45,9 @@ algorithms are supported:
 -  ecdsa384
 -  ed25519
 -  ed448
--  falcon
+-  falcon512
+-  dilithium2
+-  sphincs+-sha256-128s
 
 activate-zone-key *ZONE* *KEY-ID*
     Activate a key with id *KEY-ID* within a zone called *ZONE*.
@@ -72,25 +74,36 @@ export-zone-key *ZONE* *KEY-ID*
     Export to standard output full (private) key with key id *KEY-ID*
     within zone called *ZONE*. The format used is compatible with BIND
     and NSD/LDNS.
+export-zone-key-pem *ZONE* *KEY-ID*
+    Export to standard output full (private) key with key id *KEY-ID*
+    within zone called *ZONE* in the PEM file format. The format is
+    compatible with many non-DNS software products.
 generate-zone-key {**KSK**,\ **ZSK**} [*ALGORITHM*] [*KEYBITS*]
     Generate a ZSK or KSK to stdout with specified algorithm and bits
     and print it on STDOUT. If *ALGORITHM* is not set, ECDSA256 is
     used. If *KEYBITS* is not set, an appropriate keysize is selected
     for *ALGORITHM*. Each ECC-based algorithm supports only one valid
     *KEYBITS* value: For ECDSA256 and ED25519, it is 256; for ECDSA384,
-    it is 384; for ED448, it is 456; and for falcon, it is 10248.
+    it is 384; for ED448, it is 456; for falcon512, it is 10248;
+    for dilithium2 it is 20224; and for sphincs+-sha256-128s it is 512.
 import-zone-key *ZONE* *FILE* {**KSK**,\ **ZSK**}
-    Import from *FILE* a full (private) key for zone called *ZONE*. The
+    Import from *FILE* a full (private) key for the zone called *ZONE*. The
     format used is compatible with BIND and NSD/LDNS. **KSK** or **ZSK**
     specifies the flags this key should have on import. Prints the id of
     the added key.
+import-zone-key-pem *ZONE* *FILE* *ALGORITHM* {**KSK**,\**ZSK**}
+    Import from PEM *FILE* a full (private) key for the zone called
+    *ZONE* with a specified *ALGORITHM*. The format used is compatible
+    with many non-DNS software products. **KSK** or **ZSK** specifies
+    the flags this key should have on import. Prints the id of the added
+    key.
 publish-zone-key *ZONE* *KEY-ID*
     Publish the key with id *KEY-ID* within a zone called *ZONE*.
 remove-zone-key *ZONE* *KEY-ID*
     Remove a key with id *KEY-ID* from a zone called *ZONE*.
 set-nsec3 *ZONE* ['*HASH-ALGORITHM* *FLAGS* *ITERATIONS* *SALT*'] [**narrow**]
     Sets NSEC3 parameters for this zone. The quoted parameters are 4
-    values that are used for the the NSEC3PARAM record and decide how
+    values that are used for the NSEC3PARAM record and decide how
     NSEC3 records are created. The NSEC3 parameters must be quoted on
     the command line. *HASH-ALGORITHM* must be 1 (SHA-1). Setting
     *FLAGS* to 1 enables NSEC3 opt-out operation. Only do this if you
@@ -140,11 +153,11 @@ commands require an *ALGORITHM*, the following are available:
 -  hmac-sha384
 -  hmac-sha512
 
-activate-tsig-key *ZONE* *NAME* {**primary**,\ **secondary**}
+activate-tsig-key *ZONE* *NAME* {**primary**,\ **secondary**,\ **producer**,\ **consumer**}
     Enable TSIG authenticated AXFR using the key *NAME* for zone *ZONE*.
-    This sets the ``TSIG-ALLOW-AXFR`` (primary) or ``AXFR-MASTER-TSIG``
-    (secondary) zone metadata.
-deactivate-tsig-key *ZONE* *NAME* {**primary**,\ **secondary**}
+    This sets the ``TSIG-ALLOW-AXFR`` (primary/producer) or ``AXFR-MASTER-TSIG``
+    (secondary/consumer) zone metadata.
+deactivate-tsig-key *ZONE* *NAME* {**primary**,\ **secondary**,\ **producer**,\ **consumer**}
     Disable TSIG authenticated AXFR using the key *NAME* for zone
     *ZONE*.
 delete-tsig-key *NAME*
@@ -161,8 +174,8 @@ ZONE MANIPULATION COMMANDS
 --------------------------
 
 add-record *ZONE* *NAME* *TYPE* [*TTL*] *CONTENT*
-    Add one or more records of *NAME* and *TYPE* to *ZONE* with *CONTENT* 
-    and optional *TTL*. If *TTL* is not set, default will be used. 
+    Add one or more records of *NAME* and *TYPE* to *ZONE* with *CONTENT*
+    and optional *TTL*. If *TTL* is not set, default will be used.
 add-autoprimary *IP* *NAMESERVER* [*ACCOUNT*]
     Add a autoprimary entry into the backend. This enables receiving zone updates from other servers.
 remove-autoprimary *IP* *NAMESERVER*
@@ -171,10 +184,10 @@ list-autoprimaries
     List all autoprimaries.
 create-zone *ZONE*
     Create an empty zone named *ZONE*.
-create-secondary-zone *ZONE* *PRIMARY* [*PRIMARY*]..
+create-secondary-zone *ZONE* *PRIMARY* [*PRIMARY*]...
     Create a new secondary zone *ZONE* with primaries *PRIMARY*. All *PRIMARY*\ s
     need to to be space-separated IP addresses with an optional port.
-change-secondary-zone-primary *ZONE* *PRIMARY* [*PRIMARY*]..
+change-secondary-zone-primary *ZONE* *PRIMARY* [*PRIMARY*]...
     Change the primaries for secondary zone *ZONE* to new primaries *PRIMARY*. All
     *PRIMARY*\ s need to to be space-separated IP addresses with an optional port.
 check-all-zones
@@ -186,7 +199,7 @@ clear-zone *ZONE*
     settings unchanged
 delete-rrset *ZONE* *NAME* *TYPE*
     Delete named RRSET from zone.
-delete-zone *ZONE*:
+delete-zone *ZONE*
     Delete the zone named *ZONE*.
 edit-zone *ZONE*
     Opens *ZONE* in zonefile format (regardless of backend it was loaded
@@ -208,9 +221,11 @@ increase-serial *ZONE*
 list-keys [*ZONE*]
     List DNSSEC information for all keys or for *ZONE*. --verbose or -v will
     also include the keys for disabled or empty zones.
-list-all-zones:
+list-all-zones
     List all active zone names. --verbose or -v will also include disabled
     or empty zones.
+list-member-zones *CATALOG*
+    List all members of catalog zone *CATALOG*"
 list-zone *ZONE*
     Show all records for *ZONE*.
 load-zone *ZONE* *FILE*
@@ -225,7 +240,7 @@ rectify-all-zones
     Calculates the 'ordername' and 'auth' fields for all zones so they
     comply with DNSSEC settings. Can be used to fix up migrated data.
     Can always safely be run, it does no harm.
-replace-rrset *ZONE* *NAME* *TYPE* [*TTL*] *CONTENT* [*CONTENT*..]
+replace-rrset *ZONE* *NAME* *TYPE* [*TTL*] *CONTENT* [*CONTENT*...]
     Replace existing *NAME* in zone *ZONE* with a new set.
 secure-zone *ZONE*
     Configures a zone called *ZONE* with reasonable DNSSEC settings. You
@@ -236,7 +251,13 @@ secure-all-zones [**increase-serial**]
     serial of those zones too. You should manually run 'pdnsutil
     rectify-all-zones' afterwards.
 set-kind *ZONE* *KIND*
-    Change the kind of *ZONE* to *KIND* (primary, secondary, native).
+    Change the kind of *ZONE* to *KIND* (primary, secondary, native, producer, consumer).
+set-options-json *ZONE* *JSON*
+    Change the options of *ZONE* to *JSON*
+set-option *ZONE* [*producer*|*consumer*] [*coo*|*unique*|*group*] *VALUE* [*VALUE* ...]
+    Set or remove an option for *ZONE*. Providing an empty value removes an option.
+set-catalog *ZONE* *CATALOG*
+    Change the catalog of *ZONE* to *CATALOG*. Setting *CATALOG* to an empty "" removes *ZONE* from the catalog it is in.
 set-account *ZONE* *ACCOUNT*
     Change the account (owner) of *ZONE* to *ACCOUNT*.
 add-meta *ZONE* *ATTRIBUTE* *VALUE* [*VALUE*]...
@@ -254,15 +275,15 @@ test-schema *ZONE*
     Test database schema, this creates the zone *ZONE*
 unset-presigned *ZONE*
     Disables presigned operation for *ZONE*.
-raw-lua-from-content *TYPE* *CONTENT*  
+raw-lua-from-content *TYPE* *CONTENT*
     Display record contents in a form suitable for dnsdist's `SpoofRawAction`.
-zonemd-verify-file *ZONE* *FILE*  
+zonemd-verify-file *ZONE* *FILE*
     Validate ZONEMD for *ZONE* read from *FILE*.
 
 DEBUGGING TOOLS
 ---------------
 
-backend-cmd *BACKEND* *CMD* [*CMD..*]
+backend-cmd *BACKEND* *CMD* [*CMD...*]
     Send a text command to a backend for execution. GSQL backends will
     take SQL commands, other backends may take different things. Be
     careful!
@@ -273,6 +294,10 @@ bench-db [*FILE*]
 
 OTHER TOOLS
 -----------
+b2b-migrate *OLD* *NEW*
+    Migrate data from one backend to another.
+    Needs ``launch=OLD,NEW`` in the configuration.
+
 ipencrypt *IP-ADDRESS* password
     Encrypt an IP address according to the 'ipcipher' standard
 

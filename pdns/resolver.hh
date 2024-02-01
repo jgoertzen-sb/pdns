@@ -44,13 +44,14 @@
 class ResolverException : public PDNSException
 {
 public:
-  ResolverException(const string &reason_) : PDNSException(reason_){}
+  ResolverException(const string& reason_) :
+    PDNSException(reason_) {}
 };
 
-// make an IPv4 or IPv6 query socket 
-int makeQuerySocket(const ComboAddress& local, bool udpOrTCP, bool nonLocalBind=false);
+// make an IPv4 or IPv6 query socket
+int makeQuerySocket(const ComboAddress& local, bool udpOrTCP, bool nonLocalBind = false);
 //! Resolver class. Can be used synchronously and asynchronously, over IPv4 and over IPv6 (simultaneously)
-class Resolver  : public boost::noncopyable
+class Resolver : public boost::noncopyable
 {
 public:
   Resolver();
@@ -58,26 +59,28 @@ public:
 
   typedef vector<DNSResourceRecord> res_t;
   //! synchronously resolve domain|type at IP, store result in result, rcode in ret
-  int resolve(const ComboAddress &ip, const DNSName &domain, int type, res_t* result, const ComboAddress& local);
+  int resolve(const ComboAddress& ip, const DNSName& domain, int type, res_t* result, const ComboAddress& local);
 
-  int resolve(const ComboAddress &ip, const DNSName &domain, int type, res_t* result);
+  int resolve(const ComboAddress& ip, const DNSName& domain, int type, res_t* result);
 
   //! only send out a resolution request
-  uint16_t sendResolve(const ComboAddress& remote, const ComboAddress& local, const DNSName &domain, int type, int *localsock, bool dnssecOk=false,
-    const DNSName& tsigkeyname=DNSName(), const DNSName& tsigalgorithm=DNSName(), const string& tsigsecret="");
+  uint16_t sendResolve(const ComboAddress& remote, const ComboAddress& local, const DNSName& domain, int type, int* localsock, bool dnssecOk = false,
+                       const DNSName& tsigkeyname = DNSName(), const DNSName& tsigalgorithm = DNSName(), const string& tsigsecret = "");
 
   //! see if we got a SOA response from our sendResolve
-  bool tryGetSOASerial(DNSName *theirDomain, ComboAddress* remote, uint32_t* theirSerial, uint32_t* theirInception, uint32_t* theirExpire, uint16_t* id);
-  
+  bool tryGetSOASerial(DNSName* theirDomain, ComboAddress* remote, uint32_t* theirSerial, uint32_t* theirInception, uint32_t* theirExpire, uint16_t* id);
+
   //! convenience function that calls resolve above
-  void getSoaSerial(const ComboAddress&, const DNSName &, uint32_t *);
-  
+  void getSoaSerial(const ComboAddress&, const DNSName&, uint32_t*);
+
 private:
   std::map<std::string, int> locals;
 };
 
-namespace pdns {
-  namespace resolver {
-    int parseResult(MOADNSParser& mdp, const DNSName& origQname, uint16_t origQtype, uint16_t id, Resolver::res_t* result);
-  } // namespace resolver
+namespace pdns
+{
+namespace resolver
+{
+  int parseResult(MOADNSParser& mdp, const DNSName& origQname, uint16_t origQtype, uint16_t id, Resolver::res_t* result);
+} // namespace resolver
 } // namespace pdns

@@ -61,6 +61,10 @@ Allow DNS updates from these IP ranges. Set to empty string to honour ``ALLOW-DN
 Allow AXFR NOTIFY from these IP ranges. Setting this to an empty string
 will drop all incoming notifies.
 
+.. note::
+  IPs allowed by this setting, still go through the normal NOTIFY processing as described in :ref:`secondary-operation`
+  The IP the NOTIFY is received from, still needs to be a nameserver for the secondary domain. Explicitly setting this parameter will not bypass those checks.
+
 .. _setting-allow-unsigned-autoprimary:
 
 ``allow-unsigned-autoprimary``
@@ -105,6 +109,10 @@ When notifying a zone, also notify these nameservers. Example:
 ``also-notify=192.0.2.1, 203.0.113.167``. The IP addresses listed in
 ``also-notify`` always receive a notification. Even if they do not match
 the list in :ref:`setting-only-notify`.
+
+You may specify an alternate port by appending :port. Example:
+``also-notify=192.0.2.1:5300``. If no port is specified, port 53
+is used.
 
 .. _setting-any-to-tcp:
 
@@ -269,6 +277,26 @@ Either don't ``chroot`` on these systems or set the 'Type' of the
 service to 'simple' instead of 'notify' (refer to the systemd
 documentation on how to modify unit-files).
 
+.. _setting-secondary-check-signature-freshness:
+
+``secondary-check-signature-freshness``
+---------------------------------------
+
+.. versionadded:: 4.7.0
+
+-  Boolean
+-  Default: yes
+
+Enabled by default, freshness checks for secondary zones will set the DO flag on SOA queries. PowerDNS
+can detect (signature) changes on the primary server without serial number bumps using the DNSSEC
+signatures in the SOA response.
+
+In some problematic scenarios, primary servers send truncated SOA responses. As a workaround, this setting
+can be turned off, and the DO flag as well as the signature checking will be disabled. To avoid additional
+drift, primary servers must then always increase the zone serial when it updates signatures.
+
+It is strongly recommended to keep this setting enabled (`yes`).
+
 .. _setting-config-dir:
 
 ``config-dir``
@@ -276,7 +304,7 @@ documentation on how to modify unit-files).
 
 -  Path
 
-Location of configuration directory (``pdns.conf``). Usually
+Location of configuration directory (the directory containing ``pdns.conf``). Usually
 ``/etc/powerdns``, but this depends on ``SYSCONFDIR`` during
 compile-time.
 
@@ -301,9 +329,14 @@ Name of this virtual configuration - will rename the binary image. See
 .. versionadded:: 4.4.0
 
 When this is set, PowerDNS assumes that any single zone lives in only one backend.
-This allows PowerDNS to send ANY lookups to its backends, instead of sometimes requesting the exact needed type.
+This allows PowerDNS to send ``ANY`` lookups to its backends, instead of sometimes requesting the exact needed type.
 This reduces the load on backends by retrieving all the types for a given name at once, adding all of them to the cache.
 It improves performance significantly for latency-sensitive backends, like SQL ones, where a round-trip takes serious time.
+
+.. warning::
+  This behaviour is only a meaningful optimization if the returned response to the ``ANY`` query can actually be cached,
+  which is not the case if it contains at least one record with a non-zero scope. For this reason ``consistent-backends``
+  should be disabled when at least one of the backends in use returns location-based records, like the GeoIP backend.
 
 .. note::
   Pre 4.5.0 the default was no.
@@ -337,6 +370,18 @@ The value of :ref:`metadata-api-rectify` if it is not set on the zone.
 .. note::
   Pre 4.2.0 the default was always no.
 
+.. _setting-default-catalog-zone:
+
+``default-catalog-zone``
+------------------------
+
+- String:
+- Default: empty
+
+.. versionadded:: 4.8.3
+
+When a primary zone is created via the API, and the request does not specify a catalog zone, the name given here will be used.
+
 .. _setting-default-ksk-algorithms:
 .. _setting-default-ksk-algorithm:
 
@@ -357,7 +402,9 @@ to enable DNSSEC. Must be one of:
 * ecdsa384 (ECDSA P-384 with SHA384)
 * ed25519
 * ed448
-* falcon (falcon 512)
+* falcon512
+* dilithium2
+* sphincs+-sha256-128s
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
@@ -490,7 +537,9 @@ to enable DNSSEC. Must be one of:
 * ecdsa384 (ECDSA P-384 with SHA384)
 * ed25519
 * ed448
-* falcon (falcon 512)
+* falcon512
+* dilithium2
+* sphincs+-sha256-128s
 
 .. note::
   Actual supported algorithms depend on the crypto-libraries
@@ -507,6 +556,16 @@ to enable DNSSEC. Must be one of:
 
 The default keysize for the ZSK generated with :doc:`pdnsutil secure-zone <dnssec/pdnsutil>`.
 Only relevant for algorithms with non-fixed keysizes (like RSA).
+
+.. _setting-delay-notifications:
+
+``delay-notifications``
+-----------------------
+
+-  Integer
+-  Default: 0 (no delay, send them directly)
+
+Configure a delay to send out notifications, no delay by default.
 
 .. _setting-direct-dnskey:
 
@@ -651,6 +710,17 @@ This setting MUST be 32 hexadecimal characters, as the siphash algorithm's key u
 
 Enables EDNS subnet processing, for backends that support it.
 
+.. _setting-enable-gss-tsig:
+
+``enable-gss-tsig``
+-------------------
+
+-  Boolean
+-  Default: no
+
+Enable accepting GSS-TSIG signed messages.
+In addition to this setting, see :doc:`tsig`.
+
 .. _setting-enable-lua-records:
 
 ``enable-lua-records``
@@ -685,7 +755,7 @@ If this is enabled, ALIAS records are expanded (synthesized to their
 A/AAAA).
 
 If this is disabled (the default), ALIAS records will not be expanded and
-the server will will return NODATA for A/AAAA queries for such names.
+the server will return NODATA for A/AAAA queries for such names.
 
 .. note::
   :ref:`setting-resolver` must also be set for ALIAS expansion to work!
@@ -919,8 +989,22 @@ Do not pass names like 'local0'!
 -  Integer
 -  Default: 4
 
-Amount of logging. Higher is more. Do not set below 3. Corresponds to "syslog" level values,
-e.g. error = 3, warning = 4, notice = 5, info = 6
+Amount of logging. The higher the number, the more lines logged.
+Corresponds to "syslog" level values (e.g. 0 = emergency, 1 = alert, 2 = critical, 3 = error, 4 = warning, 5 = notice, 6 = info, 7 = debug).
+Each level includes itself plus the lower levels before it.
+Not recommended to set this below 3.
+
+.. _setting-loglevel-show:
+
+``loglevel-show``
+-------------------
+
+-  Bool
+-  Default: no
+
+.. versionadded:: 4.9.0
+
+When enabled, log messages are formatted like structured logs, including their log level/priority: ``msg="Unable to launch, no backends configured for querying" prio="Error"``
 
 .. _setting-lua-axfr-script:
 
@@ -987,7 +1071,7 @@ Setting this to any value less than or equal to 0 will set no limit.
 
 .. deprecated:: 4.5.0
   Renamed to :ref:`setting-primary`.
- 
+
 -  Boolean
 -  Default: no
 
@@ -1238,8 +1322,11 @@ To notify all IP addresses apart from the 192.168.0.0/24 subnet use the followin
 ``outgoing-axfr-expand-alias``
 ------------------------------
 
--  Boolean
+-  One of ``no``, ``yes``, or ``ignore-errors``, String
 -  Default: no
+
+.. versionchanged:: 4.9.0
+  Option `ignore-errors` added.
 
 If this is enabled, ALIAS records are expanded (synthesized to their
 A/AAAA) during outgoing AXFR. This means slaves will not automatically
@@ -1248,6 +1335,12 @@ follow changes in those A/AAAA records unless you AXFR regularly!
 If this is disabled (the default), ALIAS records are sent verbatim
 during outgoing AXFR. Note that if your slaves do not support ALIAS,
 they will return NODATA for A/AAAA queries for such names.
+
+If the ALIAS target cannot be resolved during AXFR the AXFR will fail.
+To allow outgoing AXFR also if the ALIAS targets are broken set this
+setting to `ignore-errors`.
+Be warned, this will lead to inconsistent zones between Primary and
+Secondary name servers.
 
 .. _setting-overload-queue-length:
 
@@ -1662,6 +1755,8 @@ Turn on supermaster support. See :ref:`supermaster-operation`.
 - Boolean
 - Default: no
 
+.. versionadded:: 4.5.0
+
 Whether or not to enable IPv4 and IPv6 :ref:`autohints <svc-autohints>`.
 
 .. _setting-tcp-control-address:
@@ -1783,11 +1878,11 @@ Enable for testing PowerDNS upgrades, without changing stored records.
 Enable for upgrading record content on secondaries, or when using the API (see :doc:`upgrade notes <../upgrading>`).
 Disable after record contents have been upgraded.
 
-This option is supported by the bind and Generic SQL backends. 
+This option is supported by the bind and Generic SQL backends.
 
 .. note::
   When using a generic SQL backend, records with an unknown record type (see :doc:`../appendices/types`) can be identified with the following SQL query::
-  
+
       SELECT * from records where type like 'TYPE%';
 
 .. _setting-version-string:
@@ -1855,6 +1950,7 @@ Note that this option only applies to credentials stored in the configuration as
 ----------------------
 
 -  String, one of "none", "normal", "detailed"
+-  Default: normal
 
 The amount of logging the webserver must do. "none" means no useful webserver information will be logged.
 When set to "normal", the webserver will log a line per request that should be familiar::
@@ -1880,7 +1976,7 @@ When set to "detailed", all information about the request and response are logge
   [webserver] e235780e-a5cf-415e-9326-9d33383e739e   Content-Length: 49
   [webserver] e235780e-a5cf-415e-9326-9d33383e739e   Content-Type: text/html; charset=utf-8
   [webserver] e235780e-a5cf-415e-9326-9d33383e739e   Server: PowerDNS/0.0.15896.0.gaba8bab3ab
-  [webserver] e235780e-a5cf-415e-9326-9d33383e739e  Full body: 
+  [webserver] e235780e-a5cf-415e-9326-9d33383e739e  Full body:
   [webserver] e235780e-a5cf-415e-9326-9d33383e739e   <!html><title>Not Found</title><h1>Not Found</h1>
   [webserver] e235780e-a5cf-415e-9326-9d33383e739e 127.0.0.1:55376 "GET /api/v1/servers/localhost/bla HTTP/1.1" 404 196
 
@@ -1939,6 +2035,20 @@ If the webserver should print arguments.
 -  Default: yes
 
 If a PID file should be written.
+
+.. _setting-workaround-11804:
+
+``workaround-11804``
+--------------------
+
+-  Boolean
+-  Default: no
+
+Workaround for `issue #11804 (outgoing AXFR may try to overfill a chunk and fail) <https://github.com/PowerDNS/pdns/issues/11804>`_.
+
+Default of no implies the pre-4.8 behaviour of up to 100 RRs per AXFR chunk.
+
+If enabled, only a single RR will be put into each AXFR chunk, making some zones transferable when they were not.
 
 .. _setting-xfr-cycle-interval:
 

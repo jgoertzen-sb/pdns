@@ -27,16 +27,20 @@
 #include "misc.hh"
 #include "secpoll.hh"
 
-bool isReleaseVersion(const std::string &version) {
+bool isReleaseVersion(const std::string& version)
+{
   return std::count(version.begin(), version.end(), '.') == 2;
 }
 
-static void setSecPollToUnknownOnOK(int &secPollStatus) {
-  if(secPollStatus == 1) // it was ok, now it is unknown
+static void setSecPollToUnknownOnOK(int& secPollStatus)
+{
+  if (secPollStatus == 1) { // it was ok, now it is unknown
     secPollStatus = 0;
+  }
 }
 
-void processSecPoll(const int res, const std::vector<DNSRecord> &ret, int &secPollStatus, std::string &secPollMessage) {
+void processSecPoll(const int res, const std::vector<DNSRecord>& ret, int& secPollStatus, std::string& secPollMessage)
+{
   secPollMessage.clear();
   if (res != 0) { // not NOERROR
     setSecPollToUnknownOnOK(secPollStatus);
@@ -44,15 +48,16 @@ void processSecPoll(const int res, const std::vector<DNSRecord> &ret, int &secPo
   }
 
   if (ret.empty()) { // empty NOERROR... wat?
-    if(secPollStatus == 1) // it was ok, now it is unknown
+    if (secPollStatus == 1) { // it was ok, now it is unknown
       secPollStatus = 0;
+    }
     throw PDNSException("Had empty answer on NOERROR RCODE");
   }
 
   DNSRecord record;
-  for (auto const &r: ret) {
-    if (r.d_type == QType::TXT && r.d_place == DNSResourceRecord::Place::ANSWER) {
-      record = r;
+  for (auto const& records : ret) {
+    if (records.d_type == QType::TXT && records.d_place == DNSResourceRecord::Place::ANSWER) {
+      record = records;
       break;
     }
   }
@@ -73,7 +78,8 @@ void processSecPoll(const int res, const std::vector<DNSRecord> &ret, int &secPo
 
   try {
     secPollStatus = std::stoi(split.first);
-  } catch (const std::exception &e) {
+  }
+  catch (const std::exception& e) {
     setSecPollToUnknownOnOK(secPollStatus);
     throw PDNSException(std::string("Could not parse status number: ") + e.what());
   }

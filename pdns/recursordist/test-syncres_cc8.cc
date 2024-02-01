@@ -1,4 +1,7 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #include <boost/test/unit_test.hpp>
 
 #include "test-syncres_cc.hh"
@@ -15,14 +18,14 @@ BOOST_AUTO_TEST_CASE(test_nsec_denial_nowrap)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     No wrap test case:
     a.example.org. -> d.example.org. denies the existence of b.example.org.
    */
   addNSECRecordToLW(DNSName("a.example.org."), DNSName("d.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -37,7 +40,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_denial_nowrap)
   recordContents.clear();
   signatureContents.clear();
   addNSECRecordToLW(DNSName("example.org."), DNSName("+.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -64,14 +67,14 @@ BOOST_AUTO_TEST_CASE(test_nsec_denial_wrap_case_1)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     Wrap case 1 test case:
     z.example.org. -> b.example.org. denies the existence of a.example.org.
    */
   addNSECRecordToLW(DNSName("z.example.org."), DNSName("b.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -100,14 +103,14 @@ BOOST_AUTO_TEST_CASE(test_nsec_denial_wrap_case_2)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     Wrap case 2 test case:
     y.example.org. -> a.example.org. denies the existence of z.example.org.
    */
   addNSECRecordToLW(DNSName("y.example.org."), DNSName("a.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -136,14 +139,14 @@ BOOST_AUTO_TEST_CASE(test_nsec_denial_only_one_nsec)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     Only one NSEC in the whole zone test case:
     a.example.org. -> a.example.org. denies the existence of b.example.org.
    */
   addNSECRecordToLW(DNSName("a.example.org."), DNSName("a.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -172,14 +175,14 @@ BOOST_AUTO_TEST_CASE(test_nsec_root_nxd_denial)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     The RRSIG from "." denies the existence of anything between a. and c.,
     including b.
   */
   addNSECRecordToLW(DNSName("a."), DNSName("c."), {QType::NS}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -194,7 +197,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_root_nxd_denial)
   recordContents.clear();
   signatureContents.clear();
   addNSECRecordToLW(DNSName("."), DNSName("+"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -217,7 +220,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_ancestor_nxqtype_denial)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     The RRSIG from "." denies the existence of any type except NS at a.
@@ -227,7 +230,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_ancestor_nxqtype_denial)
     or a DS.
   */
   addNSECRecordToLW(DNSName("a."), DNSName("b."), {QType::NS}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -269,10 +272,10 @@ BOOST_AUTO_TEST_CASE(test_nsec_ds_denial_from_child)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSECRecordToLW(DNSName("example.org."), DNSName("a.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -284,10 +287,10 @@ BOOST_AUTO_TEST_CASE(test_nsec_ds_denial_from_child)
   denialMap[std::pair(DNSName("example.org."), QType::NSEC)] = pair;
 
   /* check that this NSEC from the child zone can deny a AAAA at the apex */
-  BOOST_CHECK_EQUAL(getDenial(denialMap, DNSName("example.org."), QType::AAAA, false, true, true), dState::NXQTYPE);
+  BOOST_CHECK_EQUAL(getDenial(denialMap, DNSName("example.org."), QType::AAAA, false, true, std::nullopt, true), dState::NXQTYPE);
 
   /* but not that the DS does not exist, since we need the parent for that */
-  BOOST_CHECK_EQUAL(getDenial(denialMap, DNSName("example.org."), QType::DS, false, true, true), dState::NODENIAL);
+  BOOST_CHECK_EQUAL(getDenial(denialMap, DNSName("example.org."), QType::DS, false, true, std::nullopt, true), dState::NODENIAL);
 }
 
 BOOST_AUTO_TEST_CASE(test_nsec_insecure_delegation_denial)
@@ -300,7 +303,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_insecure_delegation_denial)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
    * RFC 5155 section 8.9:
@@ -315,7 +318,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_insecure_delegation_denial)
     we correctly detect that it's not.
   */
   addNSECRecordToLW(DNSName("a."), DNSName("b."), {}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -342,7 +345,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_insecure_delegation_denial_soa)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
    * RFC 5155 section 8.9:
@@ -356,7 +359,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_insecure_delegation_denial_soa)
     NS has to be set since it is proving an insecure delegation, but SOA should NOT!
   */
   addNSECRecordToLW(DNSName("a."), DNSName("b."), {QType::NS, QType::SOA}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -382,10 +385,10 @@ BOOST_AUTO_TEST_CASE(test_nsec_nxqtype_cname)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSECRecordToLW(DNSName("a.powerdns.com."), DNSName("a.c.powerdns.com."), {QType::CNAME}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -411,10 +414,10 @@ BOOST_AUTO_TEST_CASE(test_nsec3_nxqtype_ds)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSEC3UnhashedRecordToLW(DNSName("powerdns.com."), DNSName("powerdns.com."), "whatever", {QType::A}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -441,10 +444,10 @@ BOOST_AUTO_TEST_CASE(test_nsec3_nxqtype_cname)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSEC3UnhashedRecordToLW(DNSName("a.powerdns.com."), DNSName("powerdns.com."), "whatever", {QType::CNAME}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -470,10 +473,10 @@ BOOST_AUTO_TEST_CASE(test_nsec_nxdomain_denial_missing_wildcard)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSECRecordToLW(DNSName("a.powerdns.com."), DNSName("d.powerdns.com"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -498,10 +501,10 @@ BOOST_AUTO_TEST_CASE(test_nsec3_nxdomain_denial_missing_wildcard)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSEC3NarrowRecordToLW(DNSName("a.powerdns.com."), DNSName("powerdns.com."), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records, 10);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -516,7 +519,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_nxdomain_denial_missing_wildcard)
   signatureContents.clear();
   records.clear();
   addNSEC3UnhashedRecordToLW(DNSName("powerdns.com."), DNSName("powerdns.com."), "whatever", {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records, 10);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -538,11 +541,11 @@ BOOST_AUTO_TEST_CASE(test_nsec_expanded_wildcard_proof)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /* proves that a.example.com does exist, and has been generated from a wildcard (see the RRSIG below) */
   addNSECRecordToLW(DNSName("a.example.org."), DNSName("d.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300, false, boost::none, DNSName("example.org."));
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -555,7 +558,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_expanded_wildcard_proof)
 
   /* This is an expanded wildcard proof, meaning that it does prove that the exact name
      does not exist so the wildcard can apply */
-  dState denialState = getDenial(denialMap, DNSName("a.example.org."), QType(0).getCode(), false, false, false, /* normally retrieved from the RRSIG's d_labels */ 2);
+  dState denialState = getDenial(denialMap, DNSName("a.example.org."), QType(0).getCode(), false, false, std::nullopt, false, /* normally retrieved from the RRSIG's d_labels */ 2);
   BOOST_CHECK_EQUAL(denialState, dState::NXDOMAIN);
 }
 
@@ -569,11 +572,11 @@ BOOST_AUTO_TEST_CASE(test_nsec_wildcard_with_cname)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /* proves that b.example.com does not exist */
   addNSECRecordToLW(DNSName("a.example.org."), DNSName("d.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -588,7 +591,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_wildcard_with_cname)
   recordContents.clear();
   signatureContents.clear();
   addNSECRecordToLW(DNSName("*.example.org."), DNSName("+.example.org"), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -608,7 +611,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_wildcard_with_cname)
   recordContents.clear();
   signatureContents.clear();
   addNSECRecordToLW(DNSName("*.example.org."), DNSName("+.example.org"), {QType::CNAME, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -635,11 +638,11 @@ BOOST_AUTO_TEST_CASE(test_nsec3_wildcard_with_cname)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /* proves that b.example.com does not exist */
   addNSEC3NarrowRecordToLW(DNSName("b.example.org"), DNSName("example.org."), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC3}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -654,7 +657,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_wildcard_with_cname)
   signatureContents.clear();
   records.clear();
   addNSEC3UnhashedRecordToLW(DNSName("example.org."), DNSName("example.org."), "whatever", {QType::A, QType::TXT, QType::RRSIG, QType::NSEC}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -667,7 +670,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_wildcard_with_cname)
   signatureContents.clear();
   records.clear();
   addNSEC3UnhashedRecordToLW(DNSName("*.example.org."), DNSName("example.org"), "whatever", {QType::A, QType::TXT, QType::RRSIG, QType::NSEC3}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -687,7 +690,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_wildcard_with_cname)
   signatureContents.clear();
   records.clear();
   addNSEC3UnhashedRecordToLW(DNSName("*.example.org."), DNSName("example.org"), "whatever", {QType::CNAME, QType::RRSIG, QType::NSEC3}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("example.org."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -713,10 +716,10 @@ BOOST_AUTO_TEST_CASE(test_nsec_ent_denial)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   addNSECRecordToLW(DNSName("a.powerdns.com."), DNSName("a.c.powerdns.com."), {QType::A}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -745,7 +748,7 @@ BOOST_AUTO_TEST_CASE(test_nsec_ent_denial)
   recordContents.clear();
   signatureContents.clear();
   addNSECRecordToLW(DNSName(").powerdns.com."), DNSName("+.powerdns.com."), {}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("powerdns.com."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
   records.clear();
@@ -772,7 +775,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ancestor_nxqtype_denial)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
     The RRSIG from "." denies the existence of any type except NS at a.
@@ -781,7 +784,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ancestor_nxqtype_denial)
     be used to deny anything except the whole name or a DS.
   */
   addNSEC3UnhashedRecordToLW(DNSName("a."), DNSName("."), "whatever", {QType::NS}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -813,7 +816,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ancestor_nxqtype_denial)
   signatureContents.clear();
   records.clear();
   addNSEC3NarrowRecordToLW(DNSName("sub.a."), DNSName("."), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC3}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -826,7 +829,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ancestor_nxqtype_denial)
   signatureContents.clear();
   records.clear();
   addNSEC3NarrowRecordToLW(DNSName("*.a."), DNSName("."), {QType::A, QType::TXT, QType::RRSIG, QType::NSEC3}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -852,11 +855,11 @@ BOOST_AUTO_TEST_CASE(test_nsec3_denial_too_many_iterations)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /* adding a NSEC3 with more iterations that we support */
   addNSEC3UnhashedRecordToLW(DNSName("a."), DNSName("."), "whatever", {QType::AAAA}, 600, records, g_maxNSEC3Iterations + 100);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -882,7 +885,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_insecure_delegation_denial)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
    * RFC 5155 section 8.9:
@@ -897,7 +900,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_insecure_delegation_denial)
     we correctly detect that it's not.
   */
   addNSEC3UnhashedRecordToLW(DNSName("a."), DNSName("."), "whatever", {}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -924,7 +927,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_insecure_delegation_denial_soa)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
    * RFC 5155 section 8.9:
@@ -938,7 +941,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_insecure_delegation_denial_soa)
     NS has to be set since it is proving an insecure delegation, but SOA should NOT!
   */
   addNSEC3UnhashedRecordToLW(DNSName("a."), DNSName("."), "whatever", {QType::NS, QType::SOA}, 600, records);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -964,14 +967,14 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ent_opt_out)
   vector<DNSRecord> records;
 
   sortedRecords_t recordContents;
-  vector<shared_ptr<RRSIGRecordContent>> signatureContents;
+  vector<shared_ptr<const RRSIGRecordContent>> signatureContents;
 
   /*
    * RFC 7129 section 5.1:
    * A recently discovered corner case (see RFC Errata ID 3441 [Err3441])
    * shows that not only those delegations remain insecure but also the
    * empty non-terminal space that is derived from those delegations.
-  */
+   */
   /*
     We have a NSEC3 proving that was.here does exist, and a second
     one proving that ent.was.here. does not,
@@ -979,7 +982,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ent_opt_out)
     a wildcard proof).
   */
   addNSEC3UnhashedRecordToLW(DNSName("was.here."), DNSName("."), "whatever", {}, 600, records, 10, true /* opt out */);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -995,7 +998,7 @@ BOOST_AUTO_TEST_CASE(test_nsec3_ent_opt_out)
   signatureContents.clear();
   records.clear();
   addNSEC3NarrowRecordToLW(DNSName("ent.was.here."), DNSName("."), {QType::RRSIG, QType::NSEC3}, 600, records, 10, true /* opt-out */);
-  recordContents.insert(records.at(0).d_content);
+  recordContents.insert(records.at(0).getContent());
   addRRSIG(keys, records, DNSName("."), 300);
   signatureContents.push_back(getRR<RRSIGRecordContent>(records.at(1)));
 
@@ -1028,7 +1031,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_negcache_validity)
   size_t queriesCount = 0;
   const time_t fixedNow = sr->getNow().tv_sec;
 
-  sr->setAsyncCallback([target, &queriesCount, keys, fixedNow](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     DNSName auth = domain;
@@ -1037,7 +1040,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_negcache_validity)
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
     }
-    else {
+    {
       setLWResult(res, RCode::NoError, true, false, true);
       addRecordToLW(res, domain, QType::SOA, "pdns-public-ns1.powerdns.com. pieter\\.lexis.powerdns.com. 2017032301 10800 3600 604800 3600", DNSResourceRecord::AUTHORITY, 3600);
       addRRSIG(keys, res->d_records, domain, 300);
@@ -1096,7 +1099,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_negcache_bogus_validity)
   size_t queriesCount = 0;
   const time_t fixedNow = sr->getNow().tv_sec;
 
-  sr->setAsyncCallback([&queriesCount, keys](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     DNSName auth = domain;
@@ -1105,7 +1108,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_negcache_bogus_validity)
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
     }
-    else {
+    {
       setLWResult(res, RCode::NoError, true, false, true);
       addRecordToLW(res, domain, QType::SOA, "pdns-public-ns1.powerdns.com. pieter\\.lexis.powerdns.com. 2017032301 10800 3600 604800 3600", DNSResourceRecord::AUTHORITY, 86400);
       addRRSIG(keys, res->d_records, domain, 86400);
@@ -1168,7 +1171,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_cache_validity)
   size_t queriesCount = 0;
   const time_t tnow = sr->getNow().tv_sec;
 
-  sr->setAsyncCallback([target, targetAddr, &queriesCount, keys, tnow](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     DNSName auth = domain;
@@ -1177,7 +1180,7 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_cache_validity)
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, auth, type, keys);
     }
-    else {
+    {
       setLWResult(res, RCode::NoError, true, false, true);
       addRecordToLW(res, domain, QType::A, targetAddr.toString(), DNSResourceRecord::ANSWER, 3600);
       addRRSIG(keys, res->d_records, domain, 1, false, boost::none, boost::none, tnow);
@@ -1197,8 +1200,8 @@ BOOST_AUTO_TEST_CASE(test_dnssec_rrsig_cache_validity)
   /* check that the entry has not been cached for longer than the RRSIG validity */
   const ComboAddress who;
   vector<DNSRecord> cached;
-  vector<std::shared_ptr<RRSIGRecordContent>> signatures;
-  BOOST_REQUIRE_EQUAL(g_recCache->get(tnow, target, QType(QType::A), true, &cached, who, 0, boost::none, &signatures), 1);
+  vector<std::shared_ptr<const RRSIGRecordContent>> signatures;
+  BOOST_REQUIRE_EQUAL(g_recCache->get(tnow, target, QType(QType::A), MemRecursorCache::RequireAuth, &cached, who, boost::none, &signatures), 1);
   BOOST_REQUIRE_EQUAL(cached.size(), 1U);
   BOOST_REQUIRE_EQUAL(signatures.size(), 1U);
   BOOST_CHECK_EQUAL((cached[0].d_ttl - tnow), 1);
@@ -1236,13 +1239,13 @@ BOOST_AUTO_TEST_CASE(test_dnssec_validation_from_cache_secure)
 
   size_t queriesCount = 0;
 
-  sr->setAsyncCallback([target, &queriesCount, keys](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, domain, type, keys, false);
     }
-    else {
+    {
       if (domain == target && type == QType::A) {
         setLWResult(res, 0, true, false, true);
         addRecordToLW(res, target, QType::A, "192.0.2.1");
@@ -1302,13 +1305,13 @@ BOOST_AUTO_TEST_CASE(test_dnssec_validation_from_cache_insecure)
 
   size_t queriesCount = 0;
 
-  sr->setAsyncCallback([target, &queriesCount, keys](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, domain, type, keys, false);
     }
-    else {
+    {
       if (domain == target && type == QType::A) {
         setLWResult(res, 0, true, false, true);
         addRecordToLW(res, target, QType::A, "192.0.2.1");
@@ -1368,13 +1371,13 @@ BOOST_AUTO_TEST_CASE(test_dnssec_validation_from_cache_bogus)
 
   size_t queriesCount = 0;
 
-  sr->setAsyncCallback([target, &queriesCount, keys](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, domain, type, keys, false);
     }
-    else {
+    {
       if (domain == target && type == QType::A) {
         setLWResult(res, 0, true, false, true);
         addRecordToLW(res, target, QType::A, "192.0.2.1", DNSResourceRecord::ANSWER, 86400);
@@ -1456,20 +1459,20 @@ BOOST_AUTO_TEST_CASE(test_dnssec_validation_from_cache_secure_any)
 
   size_t queriesCount = 0;
 
-  sr->setAsyncCallback([target, &queriesCount, keys](const ComboAddress& ip, const DNSName& domain, int type, bool doTCP, bool sendRDQuery, int EDNS0Level, struct timeval* now, boost::optional<Netmask>& srcmask, boost::optional<const ResolveContext&> context, LWResult* res, bool* chained) {
+  sr->setAsyncCallback([&](const ComboAddress& /* ip */, const DNSName& domain, int type, bool /* doTCP */, bool /* sendRDQuery */, int /* EDNS0Level */, struct timeval* /* now */, boost::optional<Netmask>& /* srcmask */, const ResolveContext& /* context */, LWResult* res, bool* /* chained */) {
     queriesCount++;
 
     if (type == QType::DS || type == QType::DNSKEY) {
       return genericDSAndDNSKEYHandler(res, domain, domain, type, keys, false);
     }
-    else {
+    {
       if (domain == target && type == QType::A) {
         setLWResult(res, 0, true, false, true);
         addRecordToLW(res, target, QType::A, "192.0.2.1");
         addRRSIG(keys, res->d_records, DNSName("."), 300);
         return LWResult::Result::Success;
       }
-      else if (domain == target && type == QType::AAAA) {
+      if (domain == target && type == QType::AAAA) {
         setLWResult(res, 0, true, false, true);
         addRecordToLW(res, target, QType::AAAA, "2001:db8::1");
         addRRSIG(keys, res->d_records, DNSName("."), 300);

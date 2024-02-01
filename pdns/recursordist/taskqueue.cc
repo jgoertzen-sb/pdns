@@ -22,19 +22,20 @@
 
 #include "taskqueue.hh"
 
-#include "logger.hh"
+#include "logging.hh"
 #include "syncres.hh"
 
 namespace pdns
 {
 
-void TaskQueue::push(ResolveTask&& task)
+bool TaskQueue::push(ResolveTask&& task)
 {
   // Insertion fails if it's already there, no problem since we're already scheduled
-  auto result = d_queue.insert(std::move(task));
-  if (result.second) {
+  auto result = d_queue.insert(std::move(task)).second;
+  if (result) {
     d_pushes++;
   }
+  return result;
 }
 
 ResolveTask TaskQueue::pop()
@@ -44,23 +45,35 @@ ResolveTask TaskQueue::pop()
   return ret;
 }
 
-bool ResolveTask::run(bool logErrors)
+bool ResolveTask::run(bool logErrors) const
 {
-  if (!d_func) {
-    g_log << Logger::Debug << "TaskQueue: null task for " << d_qname.toString() << '|' << QType(d_qtype).toString() << endl;
+  if (d_func == nullptr) {
+    auto log = g_slog->withName("taskq")->withValues("name", Logging::Loggable(d_qname), "qtype", Logging::Loggable(QType(d_qtype).toString()));
+    log->error(Logr::Debug, "null task");
     return false;
   }
-  struct timeval now;
+  struct timeval now
+  {
+  };
   Utility::gettimeofday(&now);
   if (d_deadline >= now.tv_sec) {
     d_func(now, logErrors, *this);
   }
   else {
     // Deadline passed
-    g_log << Logger::Debug << "TaskQueue: deadline for " << d_qname.toString() << '|' << QType(d_qtype).toString() << " passed" << endl;
+    auto log = g_slog->withName("taskq")->withValues("name", Logging::Loggable(d_qname), "qtype", Logging::Loggable(QType(d_qtype).toString()));
+    log->info(Logr::Debug, "deadline passed");
     return true;
   }
   return false;
 }
 
 } /* namespace pdns */
+
+namespace boost
+{
+size_t hash_value(const ComboAddress& address)
+{
+  return ComboAddress::addressOnlyHash()(address);
+}
+}

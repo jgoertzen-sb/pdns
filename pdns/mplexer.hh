@@ -42,7 +42,7 @@ public:
 };
 
 /** Very simple FD multiplexer, based on callbacks and boost::any parameters
-    As a special service, this parameter is kept around and can be modified, 
+    As a special service, this parameter is kept around and can be modified,
     allowing for state to be stored inside the multiplexer.
 
     It has some "interesting" semantics
@@ -73,13 +73,17 @@ public:
   FDMultiplexer() :
     d_inrun(false)
   {}
-  virtual ~FDMultiplexer()
-  {}
+  virtual ~FDMultiplexer() = default;
 
-  static FDMultiplexer* getMultiplexerSilent();
+  // The maximum number of events processed in a single run, not the maximum of watched descriptors
+  static constexpr unsigned int s_maxevents = 1024;
+  /* The maximum number of events processed in a single run will be capped to the
+     minimum value of maxEventsHint and s_maxevents, to reduce memory usage. */
+  static FDMultiplexer* getMultiplexerSilent(unsigned int maxEventsHint = s_maxevents);
 
   /* tv will be updated to 'now' before run returns */
-  /* timeout is in ms */
+  /* timeout is in ms, 0 will return immediately, -1 will block until at
+     least one descriptor is ready */
   /* returns 0 on timeout, -1 in case of error (but all implementations
      actually throw in that case) and the number of ready events otherwise.
      Note that We might have two events (read AND write) for the same descriptor */
@@ -101,7 +105,7 @@ public:
     }
 
     /* do the addition _after_ so the entry is not added if there is an error */
-    accountingAddFD(d_readCallbacks, fd, toDo, parameter, ttd);
+    accountingAddFD(d_readCallbacks, fd, std::move(toDo), parameter, ttd);
   }
 
   //! Add an fd to the write watch list - currently an fd can only be on one list at a time!
@@ -117,7 +121,7 @@ public:
     }
 
     /* do the addition _after_ so the entry is not added if there is an error */
-    accountingAddFD(d_writeCallbacks, fd, toDo, parameter, ttd);
+    accountingAddFD(d_writeCallbacks, fd, std::move(toDo), parameter, ttd);
   }
 
   //! Remove an fd from the read watch list. You can't call this function on an fd that is closed already!
@@ -180,14 +184,14 @@ public:
   {
     accountingRemoveFD(d_writeCallbacks, fd);
     this->alterFD(fd, EventKind::Write, EventKind::Read);
-    accountingAddFD(d_readCallbacks, fd, toDo, parameter, ttd);
+    accountingAddFD(d_readCallbacks, fd, std::move(toDo), parameter, ttd);
   }
 
   void alterFDToWrite(int fd, callbackfunc_t toDo, const funcparam_t& parameter = funcparam_t(), const struct timeval* ttd = nullptr)
   {
     accountingRemoveFD(d_readCallbacks, fd);
     this->alterFD(fd, EventKind::Read, EventKind::Write);
-    accountingAddFD(d_writeCallbacks, fd, toDo, parameter, ttd);
+    accountingAddFD(d_writeCallbacks, fd, std::move(toDo), parameter, ttd);
   }
 
   std::vector<std::pair<int, funcparam_t>> getTimeouts(const struct timeval& tv, bool writes = false)
@@ -206,7 +210,7 @@ public:
     return ret;
   }
 
-  typedef FDMultiplexer* getMultiplexer_t();
+  typedef FDMultiplexer* getMultiplexer_t(unsigned int);
   typedef std::multimap<int, getMultiplexer_t*> FDMultiplexermap_t;
 
   static FDMultiplexermap_t& getMultiplexerMap()
@@ -277,7 +281,7 @@ protected:
   {
     Callback cb;
     cb.d_fd = fd;
-    cb.d_callback = toDo;
+    cb.d_callback = std::move(toDo);
     cb.d_parameter = parameter;
     memset(&cb.d_ttd, 0, sizeof(cb.d_ttd));
     if (ttd) {

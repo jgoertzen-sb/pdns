@@ -44,7 +44,7 @@ public:
 
   std::vector<std::string> getKeys(const DNSQuestion& dq) override
   {
-    return getKeys(*dq.remote);
+    return getKeys(dq.ids.origRemote);
   }
 
   std::string toString() const override
@@ -75,7 +75,7 @@ public:
 
   std::vector<std::string> getKeys(const DNSQuestion& dq) override
   {
-    return getKeys(*dq.qname);
+    return getKeys(dq.ids.qname);
   }
 
   std::string toString() const override
@@ -101,7 +101,7 @@ public:
 
   std::vector<std::string> getKeys(const DNSQuestion& dq) override
   {
-    return getKeys(*dq.qname);
+    return getKeys(dq.ids.qname);
   }
 
   std::string toString() const override
@@ -126,9 +126,9 @@ public:
 
   std::vector<std::string> getKeys(const DNSQuestion& dq) override
   {
-    if (dq.qTag) {
-      const auto& it = dq.qTag->find(d_tag);
-      if (it != dq.qTag->end()) {
+    if (dq.ids.qTag) {
+      const auto& it = dq.ids.qTag->find(d_tag);
+      if (it != dq.ids.qTag->end()) {
         return { it->second };
       }
     }
@@ -175,7 +175,7 @@ public:
 class LMDBKVStore: public KeyValueStore
 {
 public:
-  LMDBKVStore(const std::string& fname, const std::string& dbName, bool noLock=false): d_env(fname.c_str(), noLock ? MDB_NOSUBDIR|MDB_RDONLY|MDB_NOLOCK : MDB_NOSUBDIR|MDB_RDONLY, 0600), d_dbi(d_env.openDB(dbName, 0)), d_fname(fname), d_dbName(dbName)
+  LMDBKVStore(const std::string& fname, const std::string& dbName, bool noLock=false): d_env(fname.c_str(), noLock ? MDB_NOSUBDIR|MDB_RDONLY|MDB_NOLOCK : MDB_NOSUBDIR|MDB_RDONLY, 0600, 0), d_dbi(d_env.openDB(dbName, 0)), d_fname(fname), d_dbName(dbName)
   {
   }
 

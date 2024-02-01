@@ -1,4 +1,7 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
@@ -16,17 +19,18 @@ size_t g_proxyProtocolMaximumSize = 512;
 
 BOOST_AUTO_TEST_SUITE(test_nameserver_cc)
 
-BOOST_AUTO_TEST_CASE(test_AddressIsUs4) {
+BOOST_AUTO_TEST_CASE(test_AddressIsUs4)
+{
   ComboAddress local1("127.0.0.1", 53);
   ComboAddress local2("127.0.0.2", 53);
   ComboAddress Remote("192.168.255.255", 53);
 
   g_localaddresses.push_back(ComboAddress("0.0.0.0", 53));
-    
+
   BOOST_CHECK_EQUAL(AddressIsUs(local1), true);
-//  BOOST_CHECK_EQUAL(AddressIsUs(local2), false);
+  //  BOOST_CHECK_EQUAL(AddressIsUs(local2), false);
   BOOST_CHECK_EQUAL(AddressIsUs(Remote), false);
-  
+
   g_localaddresses.clear();
   g_localaddresses.push_back(ComboAddress("192.168.255.255", 53));
   BOOST_CHECK_EQUAL(AddressIsUs(Remote), true);
@@ -34,18 +38,20 @@ BOOST_AUTO_TEST_CASE(test_AddressIsUs4) {
   BOOST_CHECK_EQUAL(AddressIsUs(Remote), false);
 }
 
-BOOST_AUTO_TEST_CASE(test_AddressIsUs6) {
+BOOST_AUTO_TEST_CASE(test_AddressIsUs6)
+{
   ComboAddress local1("127.0.0.1", 53);
   ComboAddress local2("127.0.0.2", 53);
   ComboAddress local3("::1", 53);
   ComboAddress Remote("192.168.255.255", 53);
-  
+
   g_localaddresses.clear();
   g_localaddresses.push_back(ComboAddress("::", 53));
-  
+
   BOOST_CHECK_EQUAL(AddressIsUs(local1), true);
-//  BOOST_CHECK_EQUAL(AddressIsUs(local2), false);
-  if(!getenv("PDNS_TEST_NO_IPV6")) BOOST_CHECK_EQUAL(AddressIsUs(local3), true);
+  //  BOOST_CHECK_EQUAL(AddressIsUs(local2), false);
+  if (!getenv("PDNS_TEST_NO_IPV6"))
+    BOOST_CHECK_EQUAL(AddressIsUs(local3), true);
   BOOST_CHECK_EQUAL(AddressIsUs(Remote), false);
   Remote.sin4.sin_port = 1;
   BOOST_CHECK_EQUAL(AddressIsUs(Remote), false);

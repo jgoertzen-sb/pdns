@@ -58,7 +58,7 @@ Options
                                        that is used on the server (set with **setKey()**). Note that this
                                        will leak the key into your shell's history and into the systems
                                        running process list. Only available when dnsdist is compiled with
-                                       libsodium support.
+                                       libsodium or libcrypto support.
 -e, --execute <command>                Connect to dnsdist and execute *command*.
 -h, --help                             Display a helpful message and exit.
 -l, --local <address>                  Bind to *address*, Supply as many addresses (using multiple
@@ -69,6 +69,7 @@ Options
                                        daemontools).
 --disable-syslog                       Disable logging to syslog. Use this when running inside a supervisor
                                        that handles logging (like systemd).
+--log-timestamps                       Prepend timestamps to messages logged to standard out.
 -u, --uid <uid>                        Change the process user to *uid* after binding sockets. *uid* can be
                                        a name or number.
 -g, --gid <gid>                        Change the process group to *gid* after binding sockets. *gid* Can

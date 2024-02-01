@@ -22,25 +22,30 @@
 #include <vector>
 #include "trusted-notification-proxy.hh"
 
-namespace pdns {
-  static NetmaskGroup g_trustedNotificationProxies;
+namespace pdns
+{
+static NetmaskGroup g_trustedNotificationProxies;
 
-  void parseTrustedNotificationProxy(const std::string &addresses) {
-    g_trustedNotificationProxies.clear();
-    std::vector<std::string> parts;
-    stringtok(parts, addresses, ",\t ");
-    for (auto const &a : parts) {
-      try {
-        g_trustedNotificationProxies.addMask(Netmask(a));
-      } catch (const PDNSException &e) {
-        throw PDNSException("Unable to add network " + a + " as a trusted-notification-proxy: " + e.reason);
-      } catch (const std::exception &e) {
-        throw PDNSException("Unable to add network " + a + " as a trusted-notification-proxy: " + e.what());
-      }
+void parseTrustedNotificationProxy(const std::string& addresses)
+{
+  g_trustedNotificationProxies.clear();
+  std::vector<std::string> parts;
+  stringtok(parts, addresses, ",\t ");
+  for (auto const& a : parts) {
+    try {
+      g_trustedNotificationProxies.addMask(Netmask(a));
+    }
+    catch (const PDNSException& e) {
+      throw PDNSException("Unable to add network " + a + " as a trusted-notification-proxy: " + e.reason);
+    }
+    catch (const std::exception& e) {
+      throw PDNSException("Unable to add network " + a + " as a trusted-notification-proxy: " + e.what());
     }
   }
+}
 
-  bool isAddressTrustedNotificationProxy(const ComboAddress &address) {
-    return g_trustedNotificationProxies.match(address);
-  }
+bool isAddressTrustedNotificationProxy(const ComboAddress& address)
+{
+  return g_trustedNotificationProxies.match(address);
+}
 } // namespace pdns

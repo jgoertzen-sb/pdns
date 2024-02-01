@@ -33,7 +33,7 @@ This ratio can be greater than 100% since additional queries could be needed to 
 217 outgoing tcp connections were done, there were 0 queries running at the moment and 9155 queries to authoritative servers saw timeouts.
 
 The packets cache had 4536 entries and 82% of queries were served from it.
-The workload of the the worker queries was 175728 and 169484 respectively.
+The workload of the worker queries was 175728 and 169484 respectively.
 Finally, measured in the last half hour, an average of 1 qps was performed.
 
 Multi-threading and metrics
@@ -170,7 +170,7 @@ number of answers synthesized from NSEC entries and wildcards by the NSEC3 aggre
 
 all-outqueries
 ^^^^^^^^^^^^^^
-counts the number of outgoing UDP queries since starting
+counts the number of outgoing queries since starting, this includes UDP, TCP, DoT queries both over IPv4 and IPv6
 
 answers-slow
 ^^^^^^^^^^^^
@@ -231,6 +231,13 @@ counts the number of queries answered by  auth6s within 100 milliseconds (4.0)
 auth6-answers100-1000
 ^^^^^^^^^^^^^^^^^^^^^
 counts the number of queries answered by auth6s within 1 second (4.0)
+
+auth-xxx-answers
+^^^^^^^^^^^^^^^^
+where ``xxx`` is an rcode name (``noerror``, ``formerr``, ``servfail``, ``nxdomain``, ``notimp``, ``refused``, ``yxdomain``, ``yxrrset``, ``nxrrset``, ``notauth``, ``rcode10``, ``rcode11``, ``rcode2``, ``rcode13``, ``rcode14``, ``rcode15``).
+Counts the rcodes returned by authoritative servers.
+The corresponding Prometheus metrics consist of multiple entries of the form ``pdns_recursor_auth_rcode_answers{rcode="xxx"}``.
+
 
 auth-zone-queries
 ^^^^^^^^^^^^^^^^^
@@ -330,7 +337,7 @@ number of queries received with the DO bit set
 
 dnssec-result-bogus
 ^^^^^^^^^^^^^^^^^^^
-number of DNSSEC validations that had the   Bogus state. Since 4.4.2 detailed counters are available, see below.
+number of responses sent, packet-cache hits excluded, that were in the DNSSEC Bogus state. Since 4.4.2 detailed counters are available, see below.
 Since 4.5.0, if :ref:`setting-x-dnssec-names` is set, a separate set of ``x-dnssec-result-...`` metrics become available, counting
 the DNSSEC validation results for names suffix-matching a name in ``x-dnssec-names``.
 
@@ -339,91 +346,91 @@ dnssec-result-bogus-no-valid-dnskey
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a valid DNSKEY could not be found.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a valid DNSKEY could not be found.
 
 dnssec-result-bogus-invalid-denial
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a valid denial of existence proof could not be found.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a valid denial of existence proof could not be found.
 
 dnssec-result-bogus-unable-to-get-dss
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a valid DS could not be retrieved.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a valid DS could not be retrieved.
 
 dnssec-result-bogus-unable-to-get-dnskeys
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a valid DNSKEY could not be retrieved.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a valid DNSKEY could not be retrieved.
 
 dnssec-result-bogus-self-signed-ds
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a DS record was signed by itself.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a DS record was signed by itself.
 
 dnssec-result-bogus-no-rrsig
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because required RRSIG records were not present in an answer.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because required RRSIG records were not present in an answer.
 
 dnssec-result-bogus-no-valid-rrsig
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because only invalid RRSIG records were present in an answer.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because only invalid RRSIG records were present in an answer.
 
 dnssec-result-bogus-missing-negative-indication
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a NODATA or NXDOMAIN answer lacked the required SOA and/or NSEC(3) records.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a NODATA or NXDOMAIN answer lacked the required SOA and/or NSEC(3) records.
 
 dnssec-result-bogus-signature-no-yet-valid
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because the signature inception time in the RRSIG was not yet valid.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because the signature inception time in the RRSIG was not yet valid.
 
 dnssec-result-bogus-signature-expired
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because the signature expired time in the RRSIG was in the past.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because the signature expired time in the RRSIG was in the past.
 
 dnssec-result-bogus-unsupported-dnskey-algo
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a DNSKEY RRset contained only unsupported DNSSEC algorithms.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a DNSKEY RRset contained only unsupported DNSSEC algorithms.
 
 dnssec-result-bogus-unsupported-ds-digest-type
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because a DS RRset contained only unsupported digest types.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because a DS RRset contained only unsupported digest types.
 
 dnssec-result-bogus-no-zone-key-bit-set
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because no DNSKEY with the Zone Key bit set was found.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because no DNSKEY with the Zone Key bit set was found.
 
 dnssec-result-bogus-revoked-dnskey
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because all DNSKEYs were revoked.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because all DNSKEYs were revoked.
 
 dnssec-result-bogus-invalid-dnskey-protocol
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. versionadded:: 4.4.2
 
-number of DNSSEC validations that had the Bogus state because all DNSKEYs had invalid protocols.
+number of responses sent, packet-cache hits excluded, that were in the Bogus state because all DNSKEYs had invalid protocols.
 
 dnssec-result-indeterminate
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -431,19 +438,19 @@ number of DNSSEC validations that   had the Indeterminate state
 
 dnssec-result-insecure
 ^^^^^^^^^^^^^^^^^^^^^^
-number of DNSSEC validations that had the   Insecure state
+number of responses sent, packet-cache hits excluded, that were in the Insecure state
 
 dnssec-result-nta
 ^^^^^^^^^^^^^^^^^
-number of DNSSEC validations that had the NTA   (negative trust anchor) state
+number of responses sent, packet-cache hits excluded, that were in the NTA (negative trust anchor) state
 
 dnssec-result-secure
 ^^^^^^^^^^^^^^^^^^^^
-number of DNSSEC validations that had the   Secure state
+number of responses sent, packet-cache hits excluded, that were in the Secure state
 
 dnssec-validations
 ^^^^^^^^^^^^^^^^^^
-number of DNSSEC validations performed
+number of responses sent, packet-cache hits excluded, for which a DNSSEC validation was requested by either the client or the configuration
 
 dont-outqueries
 ^^^^^^^^^^^^^^^
@@ -451,7 +458,7 @@ number of outgoing queries dropped because of   :ref:`setting-dont-query` settin
 
 dot-outqueries
 ^^^^^^^^^^^^^^
-counts the number of outgoing DoT queries since starting
+counts the number of outgoing DoT queries since starting, both using IPv4 and IPv6
 
 qname-min-fallback-success
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -506,11 +513,19 @@ counts the number of non-query packets received   on server sockets that should 
 
 ipv6-outqueries
 ^^^^^^^^^^^^^^^
-number of outgoing queries over IPv6
+number of outgoing queries over IPv6 using UDP, since version 5.0.0 also including TCP and DoT
 
 ipv6-questions
 ^^^^^^^^^^^^^^
-counts all end-user initiated queries with the RD   bit set, received over IPv6 UDP
+counts all client initiated queries using IPv6
+
+maintenance-usec
+^^^^^^^^^^^^^^^^
+time spent doing internal maintenance, including Lua maintenance
+
+maintenance-calls
+^^^^^^^^^^^^^^^^^
+number of times internal maintenance has been called, including Lua maintenance
 
 malloc-bytes
 ^^^^^^^^^^^^
@@ -535,6 +550,18 @@ shows the number of entries in the negative   answer cache
 no-packet-error
 ^^^^^^^^^^^^^^^
 number of erroneous received packets
+
+nod-events
+^^^^^^^^^^
+.. versionadded:: 4.9.0
+
+Count of NOD events
+
+udr-events
+^^^^^^^^^^
+.. versionadded:: 4.9.0
+
+Count of UDR events
 
 nod-lookups-dropped-oversize
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -733,7 +760,7 @@ counts the number of currently active TCP/IP clients
 
 tcp-outqueries
 ^^^^^^^^^^^^^^
-counts the number of outgoing TCP queries since   starting
+counts the number of outgoing TCP queries since starting, both using IPv4 and IPV6
 
 tcp-questions
 ^^^^^^^^^^^^^

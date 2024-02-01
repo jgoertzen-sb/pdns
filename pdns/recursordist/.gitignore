@@ -34,6 +34,7 @@
 /rec_control
 /pdns-recursor-*
 /recursor.conf-dist
+/recursor.yml-dist
 /ext/Makefile
 /ext/Makefile.in
 /dnsmessage.pb.cc
@@ -54,3 +55,6 @@ latex
 PowerDNS-Recursor.pdf
 /*.pb.cc
 /*.pb.h
+/.cache
+/.clang-tidy
+/recursor.yml

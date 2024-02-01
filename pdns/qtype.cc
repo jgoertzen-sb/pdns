@@ -84,7 +84,7 @@ const map<const string, uint16_t> QType::names = {
   {"EUI48", 108},
   {"EUI64", 109},
   {"TKEY", 249},
-  //      {"TSIG", 250},
+  {"TSIG", 250},
   {"IXFR", 251},
   {"AXFR", 252},
   {"MAILB", 253},
@@ -94,11 +94,14 @@ const map<const string, uint16_t> QType::names = {
   {"CAA", 257},
   {"DLV", 32769},
   {"ADDR", 65400},
+#if !defined(RECURSOR)
   {"ALIAS", 65401},
   {"LUA", 65402},
+#endif
 };
 
-static map<uint16_t, const string> swapElements(const map<const string, uint16_t>& names) {
+static map<uint16_t, const string> swapElements(const map<const string, uint16_t>& names)
+{
   map<uint16_t, const string> ret;
 
   for (const auto& n : names) {
@@ -109,7 +112,6 @@ static map<uint16_t, const string> swapElements(const map<const string, uint16_t
 
 const map<uint16_t, const string> QType::numbers = swapElements(names);
 
-
 bool QType::isSupportedType() const
 {
   return numbers.count(code) == 1;
@@ -117,13 +119,10 @@ bool QType::isSupportedType() const
 
 bool QType::isMetadataType() const
 {
-  if (code == QType::AXFR ||
-      code == QType::MAILA ||
-      code == QType::MAILB ||
-      code == QType::TSIG ||
-      code == QType::IXFR)
+  // rfc6895 section 3.1, note ANY is 255 and falls outside the range
+  if (code == QType::OPT || (code >= rfc6895MetaLowerBound && code <= rfc6895MetaUpperBound)) {
     return true;
-
+  }
   return false;
 }
 
@@ -133,10 +132,10 @@ const string QType::toString() const
   if (name != numbers.cend()) {
     return name->second;
   }
-  return "TYPE" + itoa(code);
+  return "TYPE" + std::to_string(code);
 }
 
-uint16_t QType::chartocode(const char *p)
+uint16_t QType::chartocode(const char* p)
 {
   string P = toUpper(p);
 
@@ -155,13 +154,13 @@ uint16_t QType::chartocode(const char *p)
   return 0;
 }
 
-QType &QType::operator=(const char *p)
+QType& QType::operator=(const char* p)
 {
   code = chartocode(p);
   return *this;
 }
 
-QType &QType::operator=(const string &s)
+QType& QType::operator=(const string& s)
 {
   code = chartocode(s.c_str());
   return *this;
@@ -178,7 +177,7 @@ const std::string QClass::toString() const
     return "NONE";
   case ANY:
     return "ANY";
-  default :
+  default:
     return "CLASS" + std::to_string(qclass);
   }
 }

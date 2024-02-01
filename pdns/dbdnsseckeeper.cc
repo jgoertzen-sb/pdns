@@ -58,7 +58,7 @@ bool DNSSECKeeper::doesDNSSEC()
   return d_keymetadb->doesDNSSEC();
 }
 
-bool DNSSECKeeper::isSecuredZone(const DNSName& zone, bool useCache) 
+bool DNSSECKeeper::isSecuredZone(const DNSName& zone, bool useCache)
 {
   if(isPresigned(zone, useCache))
     return true;
@@ -98,24 +98,25 @@ bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, in
         bits = 384;
       else if(algorithm == DNSSECKeeper::ED448)
         bits = 456;
-      else if(algorithm == DNSSECKeeper::FALCON)
+      else if(algorithm == DNSSECKeeper::FALCON512)
         bits = 10248;
+      else if(algorithm == DNSSECKeeper::DILITHIUM2)
+        bits = 20224;
+      else if(algorithm == DNSSECKeeper::SPHINCSSHA256128S)
+        bits = 512;
       else {
         throw runtime_error("Can not guess key size for algorithm "+std::to_string(algorithm));
       }
     }
   }
-  DNSSECPrivateKey dspk;
   shared_ptr<DNSCryptoKeyEngine> dpk(DNSCryptoKeyEngine::make(algorithm));
   try{
     dpk->create(bits);
-    cout << "pub: " << Base64Encode(dpk->getPublicKeyString()) << "\n";
   } catch (const std::runtime_error& error){
     throw runtime_error("The algorithm does not support the given bit size.");
   }
-  dspk.setKey(dpk);
-  dspk.d_algorithm = algorithm;
-  dspk.d_flags = setSEPBit ? 257 : 256;
+  DNSSECPrivateKey dspk;
+  dspk.setKey(dpk, setSEPBit ? 257 : 256, algorithm);
   return addKey(name, dspk, id, active, published) && clearKeyCache(name);
 }
 
@@ -148,7 +149,7 @@ void DNSSECKeeper::clearCaches(const DNSName& name)
 bool DNSSECKeeper::addKey(const DNSName& name, const DNSSECPrivateKey& dpk, int64_t& id, bool active, bool published)
 {
   DNSBackend::KeyData kd;
-  kd.flags = dpk.d_flags; // the dpk doesn't get stored, only they key part
+  kd.flags = dpk.getFlags(); // the dpk doesn't get stored, only they key part
   kd.active = active;
   kd.published = published;
   kd.content = dpk.getKey()->convertToISC();
@@ -164,21 +165,19 @@ static bool keyCompareByKindAndID(const DNSSECKeeper::keyset_t::value_type& a, c
 }
 
 DNSSECPrivateKey DNSSECKeeper::getKeyById(const DNSName& zname, unsigned int id)
-{  
+{
   vector<DNSBackend::KeyData> keys;
   d_keymetadb->getDomainKeys(zname, keys);
   for(const DNSBackend::KeyData& kd :  keys) {
-    if(kd.id != id) 
+    if(kd.id != id)
       continue;
-    
-    DNSSECPrivateKey dpk;
+
     DNSKEYRecordContent dkrc;
     auto key = shared_ptr<DNSCryptoKeyEngine>(DNSCryptoKeyEngine::makeFromISCString(dkrc, kd.content));
-    dpk.setKey(key);
-    dpk.d_flags = kd.flags;
-    dpk.d_algorithm = dkrc.d_algorithm;
-    
-    return dpk;    
+    DNSSECPrivateKey dpk;
+    dpk.setKey(key, kd.flags, dkrc.d_algorithm);
+
+    return dpk;
   }
   throw runtime_error("Can't find a key with id "+std::to_string(id)+" for zone '"+zname.toLogString()+"'");
 }
@@ -339,7 +338,7 @@ bool DNSSECKeeper::getNSEC3PARAM(const DNSName& zname, NSEC3PARAMRecordContent* 
   }
 
   static int maxNSEC3Iterations=::arg().asNum("max-nsec3-iterations");
-  if(ns3p) {
+  if(ns3p != nullptr) {
     *ns3p = NSEC3PARAMRecordContent(value);
     if (ns3p->d_iterations > maxNSEC3Iterations && !isPresigned(zname, useCache)) {
       ns3p->d_iterations = maxNSEC3Iterations;
@@ -350,7 +349,7 @@ bool DNSSECKeeper::getNSEC3PARAM(const DNSName& zname, NSEC3PARAMRecordContent* 
       ns3p->d_algorithm = 1;
     }
   }
-  if(narrow) {
+  if(narrow != nullptr) {
     if(useCache) {
       getFromMeta(zname, "NSEC3NARROW", value);
     }
@@ -403,10 +402,10 @@ bool DNSSECKeeper::setNSEC3PARAM(const DNSName& zname, const NSEC3PARAMRecordCon
   meta.push_back(descr);
   if (d_keymetadb->setDomainMetadata(zname, "NSEC3PARAM", meta)) {
     meta.clear();
-    
+
     if(narrow)
       meta.push_back("1");
-    
+
     return d_keymetadb->setDomainMetadata(zname, "NSEC3NARROW", meta) && clearMetaCache(zname);
   }
   return false;
@@ -540,6 +539,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getEntryPoints(const DNSName& zname)
 DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
 {
   static int ttl = ::arg().asNum("dnssec-key-cache-ttl");
+  // coverity[store_truncates_time_t]
   unsigned int now = time(nullptr);
 
   if(!((++s_ops) % 100000)) {
@@ -568,10 +568,10 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
   set<uint8_t> algoSEP, algoNoSEP;
   vector<uint8_t> algoHasSeparateKSK;
   for(const DNSBackend::KeyData &keydata : dbkeyset) {
-    DNSSECPrivateKey dpk;
     DNSKEYRecordContent dkrc;
     auto key = shared_ptr<DNSCryptoKeyEngine>(DNSCryptoKeyEngine::makeFromISCString(dkrc, keydata.content));
-    dpk.setKey(key);
+    DNSSECPrivateKey dpk;
+    dpk.setKey(key, dkrc.d_algorithm);
 
     if(keydata.active) {
       if(keydata.flags == 257)
@@ -585,13 +585,10 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
 
   for(DNSBackend::KeyData& kd : dbkeyset)
   {
-    DNSSECPrivateKey dpk;
     DNSKEYRecordContent dkrc;
     auto key = shared_ptr<DNSCryptoKeyEngine>(DNSCryptoKeyEngine::makeFromISCString(dkrc, kd.content));
-    dpk.setKey(key);
-
-    dpk.d_flags = kd.flags;
-    dpk.d_algorithm = dkrc.d_algorithm;
+    DNSSECPrivateKey dpk;
+    dpk.setKey(key, kd.flags, dkrc.d_algorithm);
 
     KeyMetaData kmd;
 
@@ -600,7 +597,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
     kmd.hasSEPBit = (kd.flags == 257);
     kmd.id = kd.id;
 
-    if (find(algoHasSeparateKSK.begin(), algoHasSeparateKSK.end(), dpk.d_algorithm) == algoHasSeparateKSK.end())
+    if (find(algoHasSeparateKSK.begin(), algoHasSeparateKSK.end(), dpk.getAlgorithm()) == algoHasSeparateKSK.end())
       kmd.keyType = CSK;
     else if(kmd.hasSEPBit)
       kmd.keyType = KSK;
@@ -624,7 +621,7 @@ DNSSECKeeper::keyset_t DNSSECKeeper::getKeys(const DNSName& zone, bool useCache)
   return retkeyset;
 }
 
-bool DNSSECKeeper::checkKeys(const DNSName& zone, vector<string>* errorMessages)
+bool DNSSECKeeper::checkKeys(const DNSName& zone, std::optional<std::reference_wrapper<std::vector<std::string>>> errorMessages)
 {
   vector<DNSBackend::KeyData> dbkeyset;
   d_keymetadb->getDomainKeys(zone, dbkeyset);
@@ -648,12 +645,11 @@ void DNSSECKeeper::getPreRRSIGs(UeberBackend& db, vector<DNSZoneRecord>& rrs, ui
   const auto rr = *rrs.rbegin();
 
   DNSZoneRecord dzr;
-  std::shared_ptr<RRSIGRecordContent> rrsig;
 
   db.lookup(QType(QType::RRSIG), !rr.wildcardname.empty() ? rr.wildcardname : rr.dr.d_name, rr.domain_id);
   while(db.get(dzr)) {
-    rrsig = getRR<RRSIGRecordContent>(dzr.dr);
-    if(rrsig->d_type == rr.dr.d_type) {
+    auto rrsig = getRR<RRSIGRecordContent>(dzr.dr);
+    if (rrsig->d_type == rr.dr.d_type) {
       if(!rr.wildcardname.empty()) {
         dzr.dr.d_name = rr.dr.d_name;
       }
@@ -668,9 +664,9 @@ void DNSSECKeeper::getPreRRSIGs(UeberBackend& db, vector<DNSZoneRecord>& rrs, ui
 bool DNSSECKeeper::TSIGGrantsAccess(const DNSName& zone, const DNSName& keyname)
 {
   vector<string> allowed;
-  
+
   d_keymetadb->getDomainMetadata(zone, "TSIG-ALLOW-AXFR", allowed);
-  
+
   for(const string& dbkey :  allowed) {
     if(DNSName(dbkey)==keyname)
       return true;
@@ -678,13 +674,13 @@ bool DNSSECKeeper::TSIGGrantsAccess(const DNSName& zone, const DNSName& keyname)
   return false;
 }
 
-bool DNSSECKeeper::getTSIGForAccess(const DNSName& zone, const ComboAddress& master, DNSName* keyname)
+bool DNSSECKeeper::getTSIGForAccess(const DNSName& zone, const ComboAddress& /* primary */, DNSName* keyname)
 {
   vector<string> keynames;
   d_keymetadb->getDomainMetadata(zone, "AXFR-MASTER-TSIG", keynames);
   keyname->trimToLabels(0);
-  
-  // XXX FIXME this should check for a specific master!
+
+  // XXX FIXME this should check for a specific primary!
   for(const string& dbkey :  keynames) {
     *keyname=DNSName(dbkey);
     return true;
@@ -692,7 +688,7 @@ bool DNSSECKeeper::getTSIGForAccess(const DNSName& zone, const ComboAddress& mas
   return false;
 }
 
-bool DNSSECKeeper::unSecureZone(const DNSName& zone, string& error, string& info) {
+bool DNSSECKeeper::unSecureZone(const DNSName& zone, string& error) {
   // Not calling isSecuredZone(), as it will return false for zones with zero
   // active keys.
   DNSSECKeeper::keyset_t keyset=getKeys(zone);
@@ -971,10 +967,10 @@ void DNSSECKeeper::cleanup()
 
   if(now.tv_sec - s_last_prune > (time_t)(30)) {
     {
-      pruneCollection<SequencedTag>(*this, (*s_metacache.write_lock()), s_maxEntries);
+      pruneCollection<SequencedTag>((*s_metacache.write_lock()), s_maxEntries);
     }
     {
-      pruneCollection<SequencedTag>(*this, (*s_keycache.write_lock()), s_maxEntries);
+      pruneCollection<SequencedTag>((*s_keycache.write_lock()), s_maxEntries);
     }
     s_last_prune = time(nullptr);
   }

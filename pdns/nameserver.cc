@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include "responsestats.hh"
 
-#include "common_startup.hh"
+#include "auth-main.hh"
 #include "dns.hh"
 #include "dnsbackend.hh"
 #include "dnspacket.hh"
@@ -47,7 +47,7 @@
 
 extern StatBag S;
 
-/** \mainpage 
+/** \mainpage
     PowerDNS is a very versatile nameserver that can answer questions from different backends. To implement your
     own backend, see the documentation for the DNSBackend class.
 
@@ -56,7 +56,7 @@ extern StatBag S;
 
     \section overview High level overview
 
-    The Distributor contains a configurable number of PacketHandler instances, each in its own thread, for connection pooling. 
+    The Distributor contains a configurable number of PacketHandler instances, each in its own thread, for connection pooling.
     PacketHandler instances are recycled of they let escape an PDNSException.
 
     The PacketHandler implements the RFC1034 algorithm and converts question packets into DNSBackend queries.
@@ -70,57 +70,57 @@ extern StatBag S;
 
     \section TCP TCP Operations
 
-    The TCP operation runs within a single thread called tcpreceiver(), that also queries the PacketHandler. 
+    The TCP operation runs within a single thread called tcpreceiver(), that also queries the PacketHandler.
 
     \section Cache Caching
- 
+
     On its own, this setup is not suitable for high performance operations. A single DNS query can turn into many DNSBackend questions,
     each taking many milliseconds to complete. This is why the qthread() first checks the PacketCache to see if an answer is known to a packet
     asking this question. If so, the entire Distributor is shunted, and the answer is sent back *directly*, within a few microseconds.
 
     \section misc Miscellaneous
-    Configuration details are available via the ArgvMap instance arg. Statistics are created by making calls to the StatBag object called S. 
+    Configuration details are available via the ArgvMap instance arg. Statistics are created by making calls to the StatBag object called S.
     These statistics are made available via the UeberBackend on the same socket that is used for dynamic module commands.
 
-    \section Main Main 
-    The main() of PowerDNS can be found in receiver.cc - start reading there for further insights into the operation of the nameserver
+    \section Main Main
+    The main() of PowerDNS can be found in auth-main.cc - start reading there for further insights into the operation of the nameserver
 */
 
 vector<ComboAddress> g_localaddresses; // not static, our unit tests need to poke this
 
 void UDPNameserver::bindAddresses()
 {
-  vector<string>locals;
-  stringtok(locals,::arg()["local-address"]," ,");
+  vector<string> locals;
+  stringtok(locals, ::arg()["local-address"], " ,");
 
   int one = 1;
 
-  if(locals.empty())
+  if (locals.empty())
     throw PDNSException("No local address specified");
 
   int s;
   // for(vector<string>::const_iterator i=locals.begin();i!=locals.end();++i) {
-  for (const auto &local : locals) {
+  for (const auto& local : locals) {
     ComboAddress locala(local, ::arg().asNum("local-port"));
 
     s = socket(locala.sin4.sin_family, SOCK_DGRAM, 0);
 
-    if(s < 0) {
-      if(errno == EAFNOSUPPORT) {
-        g_log<<Logger::Error<<"Binding "<<locala.toStringWithPort()<<": Address Family is not supported - skipping bind" << endl;
+    if (s < 0) {
+      if (errno == EAFNOSUPPORT) {
+        g_log << Logger::Error << "Binding " << locala.toStringWithPort() << ": Address Family is not supported - skipping bind" << endl;
         return;
       }
-      throw PDNSException("Unable to acquire a UDP socket: "+stringerror());
+      throw PDNSException("Unable to acquire a UDP socket: " + stringerror());
     }
 
     setCloseOnExec(s);
-    if(!setNonBlocking(s))
-      throw PDNSException("Unable to set UDP socket " + locala.toStringWithPort() + " to non-blocking: "+stringerror());
+    if (!setNonBlocking(s))
+      throw PDNSException("Unable to set UDP socket " + locala.toStringWithPort() + " to non-blocking: " + stringerror());
 
-    if(IsAnyAddress(locala)) {
+    if (IsAnyAddress(locala)) {
       (void)setsockopt(s, IPPROTO_IP, GEN_IP_PKTINFO, &one, sizeof(one));
       if (locala.isIPv6()) {
-        (void)setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one));      // if this fails, we report an error in tcpreceiver too
+        (void)setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &one, sizeof(one)); // if this fails, we report an error in tcpreceiver too
 #ifdef IPV6_RECVPKTINFO
         (void)setsockopt(s, IPPROTO_IPV6, IPV6_RECVPKTINFO, &one, sizeof(one));
 #endif
@@ -128,13 +128,13 @@ void UDPNameserver::bindAddresses()
     }
 
     if (!setSocketTimestamps(s))
-      g_log<<Logger::Warning<<"Unable to enable timestamp reporting for socket "<<locala.toStringWithPort()<<endl;
+      g_log << Logger::Warning << "Unable to enable timestamp reporting for socket " << locala.toStringWithPort() << endl;
 
     try {
       setSocketIgnorePMTU(s, locala.sin4.sin_family);
     }
-    catch(const std::exception& e) {
-      g_log<<Logger::Warning<<"Failed to set IP_MTU_DISCOVER on UDP server socket: "<<e.what()<<endl;
+    catch (const std::exception& e) {
+      g_log << Logger::Warning << "Failed to set IP_MTU_DISCOVER on UDP server socket: " << e.what() << endl;
     }
 
     if (d_can_reuseport) {
@@ -143,20 +143,21 @@ void UDPNameserver::bindAddresses()
       }
     }
 
-    if( ::arg().mustDo("non-local-bind") )
+    if (::arg().mustDo("non-local-bind"))
       Utility::setBindAny(locala.sin4.sin_family, s);
 
-    if( !d_additional_socket )
-        g_localaddresses.push_back(locala);
+    if (!d_additional_socket)
+      g_localaddresses.push_back(locala);
 
-    if(::bind(s, (sockaddr*)&locala, locala.getSocklen()) < 0) {
+    if (::bind(s, (sockaddr*)&locala, locala.getSocklen()) < 0) {
       int err = errno;
       close(s);
       if (err == EADDRNOTAVAIL && !::arg().mustDo("local-address-nonexist-fail")) {
-        g_log<<Logger::Error<<"Address " << locala << " does not exist on this server - skipping UDP bind" << endl;
+        g_log << Logger::Error << "Address " << locala << " does not exist on this server - skipping UDP bind" << endl;
         continue;
-      } else {
-        g_log<<Logger::Error<<"Unable to bind UDP socket to '"+locala.toStringWithPort()+"': "<<stringerror(err)<<endl;
+      }
+      else {
+        g_log << Logger::Error << "Unable to bind UDP socket to '" + locala.toStringWithPort() + "': " << stringerror(err) << endl;
         throw PDNSException("Unable to bind to UDP socket");
       }
     }
@@ -166,57 +167,57 @@ void UDPNameserver::bindAddresses()
     pfd.events = POLLIN;
     pfd.revents = 0;
     d_rfds.push_back(pfd);
-    g_log<<Logger::Error<<"UDP server bound to "<<locala.toStringWithPort()<<endl;
+    g_log << Logger::Error << "UDP server bound to " << locala.toStringWithPort() << endl;
   }
 }
 
 bool AddressIsUs(const ComboAddress& remote)
 {
-  for(const ComboAddress& us :  g_localaddresses) {
-    if(remote == us)
+  for (const ComboAddress& us : g_localaddresses) {
+    if (remote == us)
       return true;
-    if(IsAnyAddress(us)) {
+    if (IsAnyAddress(us)) {
       int s = socket(remote.sin4.sin_family, SOCK_DGRAM, 0);
-      if(s < 0) 
+      if (s < 0)
         continue;
 
-      if(connect(s, (struct sockaddr*)&remote, remote.getSocklen()) < 0) {
+      if (connect(s, (struct sockaddr*)&remote, remote.getSocklen()) < 0) {
         close(s);
         continue;
       }
-    
+
       ComboAddress actualLocal;
       actualLocal.sin4.sin_family = remote.sin4.sin_family;
       socklen_t socklen = actualLocal.getSocklen();
 
-      if(getsockname(s, (struct sockaddr*) &actualLocal, &socklen) < 0) {
+      if (getsockname(s, (struct sockaddr*)&actualLocal, &socklen) < 0) {
         close(s);
         continue;
       }
       close(s);
       actualLocal.sin4.sin_port = us.sin4.sin_port;
-      if(actualLocal == remote)
+      if (actualLocal == remote)
         return true;
     }
   }
   return false;
 }
 
-UDPNameserver::UDPNameserver( bool additional_socket )
+UDPNameserver::UDPNameserver(bool additional_socket)
 {
   d_can_reuseport = ::arg().mustDo("reuseport");
   // Are we the main socket (false) or a rebinding using SO_REUSEPORT ?
   d_additional_socket = additional_socket;
 
-  if(::arg()["local-address"].empty())
-    g_log<<Logger::Critical<<"PDNS is deaf and mute! Not listening on any interfaces"<<endl;    
+  if (::arg()["local-address"].empty())
+    g_log << Logger::Critical << "PDNS is deaf and mute! Not listening on any interfaces" << endl;
 
   bindAddresses();
 }
 
 void UDPNameserver::send(DNSPacket& p)
 {
-  const string& buffer=p.getString();
+  const string& buffer = p.getString();
   g_rs.submitResponse(p, true);
 
   struct msghdr msgh;
@@ -225,81 +226,81 @@ void UDPNameserver::send(DNSPacket& p)
 
   fillMSGHdr(&msgh, &iov, &cbuf, 0, (char*)buffer.c_str(), buffer.length(), &p.d_remote);
 
-  msgh.msg_control=nullptr;
-  if(p.d_anyLocal) {
+  msgh.msg_control = nullptr;
+  if (p.d_anyLocal) {
     addCMsgSrcAddr(&msgh, &cbuf, p.d_anyLocal.get_ptr(), 0);
   }
-  DLOG(g_log<<Logger::Notice<<"Sending a packet to "<< p.getRemote() <<" ("<< buffer.length()<<" octets)"<<endl);
-  if(buffer.length() > p.getMaxReplyLen()) {
-    g_log<<Logger::Error<<"Weird, trying to send a message that needs truncation, "<< buffer.length()<<" > "<<p.getMaxReplyLen()<<". Question was for "<<p.qdomain<<"|"<<p.qtype.toString()<<endl;
+  DLOG(g_log << Logger::Notice << "Sending a packet to " << p.getRemote() << " (" << buffer.length() << " octets)" << endl);
+  if (buffer.length() > p.getMaxReplyLen()) {
+    g_log << Logger::Error << "Weird, trying to send a message that needs truncation, " << buffer.length() << " > " << p.getMaxReplyLen() << ". Question was for " << p.qdomain << "|" << p.qtype.toString() << endl;
   }
-  if(sendmsg(p.getSocket(), &msgh, 0) < 0)
-    g_log<<Logger::Error<<"Error sending reply with sendmsg (socket="<<p.getSocket()<<", dest="<<p.d_remote.toStringWithPort()<<"): "<<stringerror()<<endl;
+  if (sendmsg(p.getSocket(), &msgh, 0) < 0)
+    g_log << Logger::Error << "Error sending reply with sendmsg (socket=" << p.getSocket() << ", dest=" << p.d_remote.toStringWithPort() << "): " << stringerror() << endl;
 }
 
 bool UDPNameserver::receive(DNSPacket& packet, std::string& buffer)
 {
   ComboAddress remote;
   extern StatBag S;
-  ssize_t len=-1;
-  Utility::sock_t sock=-1;
+  ssize_t len = -1;
+  Utility::sock_t sock = -1;
 
   struct msghdr msgh;
   struct iovec iov;
   cmsgbuf_aligned cbuf;
 
-  remote.sin6.sin6_family=AF_INET6; // make sure it is big enough
+  remote.sin6.sin6_family = AF_INET6; // make sure it is big enough
   fillMSGHdr(&msgh, &iov, &cbuf, sizeof(cbuf), &buffer.at(0), buffer.size(), &remote);
-  
-  int err;
-  vector<struct pollfd> rfds= d_rfds;
 
-  for(auto &pfd :  rfds) {
+  int err;
+  vector<struct pollfd> rfds = d_rfds;
+
+  for (auto& pfd : rfds) {
     pfd.events = POLLIN;
     pfd.revents = 0;
   }
-    
-  retry:;
-  
+
+retry:;
+
   err = poll(&rfds[0], rfds.size(), -1);
-  if(err < 0) {
-    if(errno==EINTR)
+  if (err < 0) {
+    if (errno == EINTR)
       goto retry;
     unixDie("Unable to poll for new UDP events");
   }
-    
-  for(auto &pfd :  rfds) {
-    if(pfd.revents & POLLIN) {
-      sock=pfd.fd;        
-      if((len=recvmsg(sock, &msgh, 0)) < 0 ) {
-        if(errno != EAGAIN)
-          g_log<<Logger::Error<<"recvfrom gave error, ignoring: "<<stringerror()<<endl;
+
+  for (auto& pfd : rfds) {
+    if (pfd.revents & POLLIN) {
+      sock = pfd.fd;
+      if ((len = recvmsg(sock, &msgh, 0)) < 0) {
+        if (errno != EAGAIN)
+          g_log << Logger::Error << "recvfrom gave error, ignoring: " << stringerror() << endl;
         return false;
       }
       break;
     }
   }
-  if(sock==-1)
+  if (sock == -1)
     throw PDNSException("poll betrayed us! (should not happen)");
-  
-  DLOG(g_log<<"Received a packet " << len <<" bytes long from "<< remote.toString()<<endl);
+
+  DLOG(g_log << "Received a packet " << len << " bytes long from " << remote.toString() << endl);
 
   BOOST_STATIC_ASSERT(offsetof(sockaddr_in, sin_port) == offsetof(sockaddr_in6, sin6_port));
 
-  if(remote.sin4.sin_port == 0) // would generate error on responding. sin4 also works for ipv6
+  if (remote.sin4.sin_port == 0) // would generate error on responding. sin4 also works for ipv6
     return false;
-  
+
   packet.setSocket(sock);
   packet.setRemote(&remote);
 
   ComboAddress dest;
-  if(HarvestDestinationAddress(&msgh, &dest)) {
-//    cerr<<"Setting d_anyLocal to '"<<dest.toString()<<"'"<<endl;
+  if (HarvestDestinationAddress(&msgh, &dest)) {
+    //    cerr<<"Setting d_anyLocal to '"<<dest.toString()<<"'"<<endl;
     packet.d_anyLocal = dest;
-  }            
+  }
 
   struct timeval recvtv;
-  if(HarvestTimestamp(&msgh, &recvtv)) {
+  if (HarvestTimestamp(&msgh, &recvtv)) {
     packet.d_dt.setTimeval(recvtv);
   }
   else
@@ -312,7 +313,7 @@ bool UDPNameserver::receive(DNSPacket& packet, std::string& buffer)
 
     buffer.resize(len);
     ssize_t used = parseProxyHeader(buffer, proxyProto, psource, pdestination, tcp, ppvalues);
-    if (used <= 0 || (size_t) used > g_proxyProtocolMaximumSize || (len - used) > DNSPacket::s_udpTruncationThreshold) {
+    if (used <= 0 || (size_t)used > g_proxyProtocolMaximumSize || (len - used) > DNSPacket::s_udpTruncationThreshold) {
       S.inc("corrupt-packets");
       S.ringAccount("remotes-corrupt", packet.d_remote);
       return false;
@@ -325,12 +326,12 @@ bool UDPNameserver::receive(DNSPacket& packet, std::string& buffer)
     packet.d_inner_remote.reset();
   }
 
-  if(packet.parse(&buffer.at(0), (size_t) len)<0) {
+  if (packet.parse(&buffer.at(0), (size_t)len) < 0) {
     S.inc("corrupt-packets");
     S.ringAccount("remotes-corrupt", packet.getInnerRemote());
 
     return false; // unable to parse
   }
-  
+
   return true;
 }

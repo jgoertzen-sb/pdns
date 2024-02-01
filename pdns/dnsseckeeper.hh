@@ -54,7 +54,9 @@ public:
     ECDSA384=14,
     ED25519=15,
     ED448=16,
-    FALCON=17
+    FALCON512=17,
+    DILITHIUM2=18,
+    SPHINCSSHA256128S=19
   };
 
   enum dsdigestalgorithm_t : uint8_t {
@@ -112,7 +114,9 @@ public:
     if (pdns_iequals(algorithm, "ecdsap384sha384")) return ECDSA384;
     if (pdns_iequals(algorithm, "ed25519")) return ED25519;
     if (pdns_iequals(algorithm, "ed448")) return ED448;
-    if (pdns_iequals(algorithm, "falcon")) return FALCON;
+    if (pdns_iequals(algorithm, "falcon512")) return FALCON512;
+    if (pdns_iequals(algorithm, "dilithium2")) return DILITHIUM2;
+    if (pdns_iequals(algorithm, "sphincs+-sha256-128s")) return SPHINCSSHA256128S;
     if (pdns_iequals(algorithm, "indirect")) return 252;
     if (pdns_iequals(algorithm, "privatedns")) return 253;
     if (pdns_iequals(algorithm, "privateoid")) return 254;
@@ -155,8 +159,12 @@ public:
         return "ED25519";
       case ED448:
         return "ED448";
-      case FALCON:
-        return "falcon";
+      case FALCON512:
+        return "falcon512";
+      case DILITHIUM2:
+        return "dilithium2";
+      case SPHINCSSHA256128S:
+        return "sphincs+-sha256-128s";
       case 252:
         return "INDIRECT";
       case 253:
@@ -175,13 +183,13 @@ private:
 public:
   DNSSECKeeper() : d_keymetadb( new UeberBackend("key-only")), d_ourDB(true)
   {
-    
+
   }
-  
+
   DNSSECKeeper(UeberBackend* db) : d_keymetadb(db), d_ourDB(false)
   {
   }
-  
+
   ~DNSSECKeeper()
   {
     if(d_ourDB)
@@ -206,9 +214,9 @@ public:
   bool deactivateKey(const DNSName& zname, unsigned int id);
   bool publishKey(const DNSName& zname, unsigned int id);
   bool unpublishKey(const DNSName& zname, unsigned int id);
-  bool checkKeys(const DNSName& zname, vector<string>* errorMessages = nullptr);
+  bool checkKeys(const DNSName& zname, std::optional<std::reference_wrapper<std::vector<std::string>>> errorMessages);
 
-  bool getNSEC3PARAM(const DNSName& zname, NSEC3PARAMRecordContent* n3p=0, bool* narrow=0, bool useCache=true);
+  bool getNSEC3PARAM(const DNSName& zname, NSEC3PARAMRecordContent* n3p=nullptr, bool* narrow=nullptr, bool useCache=true);
   bool checkNSEC3PARAM(const NSEC3PARAMRecordContent& ns3p, string& msg);
   bool setNSEC3PARAM(const DNSName& zname, const NSEC3PARAMRecordContent& n3p, const bool& narrow=false);
   bool unsetNSEC3PARAM(const DNSName& zname);
@@ -224,22 +232,22 @@ public:
   bool unsetPublishCDS(const DNSName& zname);
 
   bool TSIGGrantsAccess(const DNSName& zone, const DNSName& keyname);
-  bool getTSIGForAccess(const DNSName& zone, const ComboAddress& master, DNSName* keyname);
-  
+  bool getTSIGForAccess(const DNSName& zone, const ComboAddress& primary, DNSName* keyname);
+
   void startTransaction(const DNSName& zone, int zone_id)
   {
     (*d_keymetadb->backends.begin())->startTransaction(zone, zone_id);
   }
-  
+
   void commitTransaction()
   {
     (*d_keymetadb->backends.begin())->commitTransaction();
   }
-  
+
   void getFromMetaOrDefault(const DNSName& zname, const std::string& key, std::string& value, const std::string& defaultvalue);
   bool getFromMeta(const DNSName& zname, const std::string& key, std::string& value);
   void getSoaEdit(const DNSName& zname, std::string& value, bool useCache=true);
-  bool unSecureZone(const DNSName& zone, std::string& error, std::string& info);
+  bool unSecureZone(const DNSName& zone, std::string& error);
   bool rectifyZone(const DNSName& zone, std::string& error, std::string& info, bool doTransaction);
 
   static void setMaxEntries(size_t maxEntries);
@@ -254,33 +262,33 @@ private:
   struct KeyCacheEntry
   {
     typedef vector<DNSSECKeeper::keymeta_t> keys_t;
-  
-    uint32_t getTTD() const
+
+    uint32_t isStale(time_t now) const
     {
-      return d_ttd;
+      return d_ttd < now;
     }
-  
+
     DNSName d_domain;
     mutable keys_t d_keys;
     unsigned int d_ttd;
   };
-  
+
   struct METACacheEntry
   {
-    time_t getTTD() const
+    time_t isStale(time_t now) const
     {
-      return d_ttd;
+      return d_ttd < now;
     }
 
     DNSName d_domain;
     mutable METAValues d_value;
     time_t d_ttd;
   };
-  
+
   struct KeyCacheTag{};
   struct CompositeTag{};
   struct SequencedTag{};
-  
+
   typedef multi_index_container<
     KeyCacheEntry,
     indexed_by<

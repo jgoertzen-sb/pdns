@@ -39,7 +39,7 @@ vector<string> TinyDNSBackend::getLocations()
     return ret;
   }
 
-  //TODO: We do not have IPv6 support.
+  // TODO: We do not have IPv6 support.
   Netmask remote = d_dnspacket->getRealRemote();
   if (remote.getBits() != 32) {
     return ret;
@@ -66,7 +66,7 @@ vector<string> TinyDNSBackend::getLocations()
       throw PDNSException(e.what());
     }
 
-    //Biggest item wins, so when we find something, we can jump out.
+    // Biggest item wins, so when we find something, we can jump out.
     if (ret.size() > 0) {
       break;
     }
@@ -88,9 +88,9 @@ TinyDNSBackend::TinyDNSBackend(const string& suffix)
   d_isWildcardQuery = false;
 }
 
-void TinyDNSBackend::getUpdatedMasters(vector<DomainInfo>* retDomains)
+void TinyDNSBackend::getUpdatedPrimaries(vector<DomainInfo>& retDomains, std::unordered_set<DNSName>& /* catalogs */, CatalogHashMap& /* catalogHashes */)
 {
-  auto domainInfo = s_domainInfo.lock(); //TODO: We could actually lock less if we do it per suffix.
+  auto domainInfo = s_domainInfo.lock(); // TODO: We could actually lock less if we do it per suffix.
   if (!domainInfo->count(d_suffix)) {
     TDI_t tmp;
     domainInfo->emplace(d_suffix, tmp);
@@ -120,13 +120,13 @@ void TinyDNSBackend::getUpdatedMasters(vector<DomainInfo>* retDomains)
 
       di->id = s_lastId;
       if (di->notified_serial > 0) {
-        retDomains->push_back(*di);
+        retDomains.push_back(*di);
       }
     }
     else {
       if (itByZone->notified_serial < di->serial) {
         di->id = itByZone->id;
-        retDomains->push_back(*di);
+        retDomains.push_back(*di);
       }
     }
   }
@@ -151,7 +151,7 @@ void TinyDNSBackend::setNotified(uint32_t id, uint32_t serial)
   (*domainInfo)[d_suffix] = *domains;
 }
 
-void TinyDNSBackend::getAllDomains(vector<DomainInfo>* domains, bool getSerial, bool include_disabled)
+void TinyDNSBackend::getAllDomains(vector<DomainInfo>* domains, bool getSerial, bool /* include_disabled */)
 {
   d_isAxfr = true;
   d_isGetDomains = true;
@@ -172,10 +172,10 @@ void TinyDNSBackend::getAllDomains(vector<DomainInfo>* domains, bool getSerial, 
   while (get(rr)) {
     if (rr.qtype.getCode() == QType::SOA && dupcheck.insert(rr.qname).second) {
       DomainInfo di;
-      di.id = -1; //TODO: Check if this is ok.
+      di.id = -1; // TODO: Check if this is ok.
       di.backend = this;
       di.zone = rr.qname;
-      di.kind = DomainInfo::Master;
+      di.kind = DomainInfo::Primary;
       di.last_check = time(0);
 
       if (getSerial) {
@@ -195,7 +195,7 @@ void TinyDNSBackend::getAllDomains(vector<DomainInfo>* domains, bool getSerial, 
   }
 }
 
-bool TinyDNSBackend::list(const DNSName& target, int domain_id, bool include_disabled)
+bool TinyDNSBackend::list(const DNSName& target, int /* domain_id */, bool /* include_disabled */)
 {
   d_isAxfr = true;
   d_isGetDomains = false;
@@ -211,7 +211,7 @@ bool TinyDNSBackend::list(const DNSName& target, int domain_id, bool include_dis
   return d_cdbReader->searchSuffix(key);
 }
 
-void TinyDNSBackend::lookup(const QType& qtype, const DNSName& qdomain, int zoneId, DNSPacket* pkt_p)
+void TinyDNSBackend::lookup(const QType& qtype, const DNSName& qdomain, int /* zoneId */, DNSPacket* pkt_p)
 {
   d_isAxfr = false;
   d_isGetDomains = false;
@@ -250,8 +250,8 @@ bool TinyDNSBackend::get(DNSResourceRecord& rr)
     string val = record.second;
     string key = record.first;
 
-    //DLOG(g_log<<Logger::Debug<<"[GET] Key: "<<makeHexDump(key)<<endl);
-    //DLOG(g_log<<Logger::Debug<<"[GET] Val: "<<makeHexDump(val)<<endl);
+    // DLOG(g_log<<Logger::Debug<<"[GET] Key: "<<makeHexDump(key)<<endl);
+    // DLOG(g_log<<Logger::Debug<<"[GET] Val: "<<makeHexDump(val)<<endl);
     if (key[0] == '\000' && key[1] == '\045') { // skip locations
       continue;
     }
@@ -340,7 +340,7 @@ bool TinyDNSBackend::get(DNSResourceRecord& rr)
         dr.d_type = rr.qtype.getCode();
         dr.d_clen = val.size() - pr.getPosition();
 
-        auto drc = DNSRecordContent::mastermake(dr, pr);
+        auto drc = DNSRecordContent::make(dr, pr);
         rr.content = drc->getZoneRepresentation();
         DLOG(cerr << "CONTENT: " << rr.content << endl);
       }
@@ -374,7 +374,7 @@ public:
 
   void declareArguments(const string& suffix = "") override
   {
-    declare(suffix, "notify-on-startup", "Tell the TinyDNSBackend to notify all the slave nameservers on startup. Default is no.", "no");
+    declare(suffix, "notify-on-startup", "Tell the TinyDNSBackend to notify all the secondary nameservers on startup. Default is no.", "no");
     declare(suffix, "dbfile", "Location of the cdb data file", "data.cdb");
     declare(suffix, "tai-adjust", "This adjusts the TAI value if timestamps are used. These seconds will be added to the start point (1970) and will allow you to adjust for leap seconds. The default is 11.", "11");
     declare(suffix, "locations", "Enable or Disable location support in the backend. Changing the value to 'no' will make the backend ignore the locations. This then returns all records!", "yes");

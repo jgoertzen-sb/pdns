@@ -1,4 +1,7 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -8,7 +11,8 @@
 
 BOOST_AUTO_TEST_SUITE(test_dnsparser_hh)
 
-BOOST_AUTO_TEST_CASE(test_type_lowercase) {
+BOOST_AUTO_TEST_CASE(test_type_lowercase)
+{
   std::string lc("type12345");
   std::string uc("TYPE12345");
 

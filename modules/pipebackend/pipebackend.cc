@@ -53,9 +53,7 @@ CoWrapper::CoWrapper(const string& command, int timeout, int abiVersion)
   // I think
 }
 
-CoWrapper::~CoWrapper()
-{
-}
+CoWrapper::~CoWrapper() = default;
 
 void CoWrapper::launch()
 {
@@ -66,7 +64,7 @@ void CoWrapper::launch()
     throw ArgException("pipe-command is not specified");
 
   if (isUnixSocket(d_command)) {
-    d_cp = std::make_unique<UnixRemote>(d_command, d_timeout);
+    d_cp = std::make_unique<UnixRemote>(d_command);
   }
   else {
     auto coprocess = std::make_unique<CoProcess>(d_command, d_timeout);
@@ -197,7 +195,7 @@ void PipeBackend::lookup(const QType& qtype, const DNSName& qname, int zoneId, D
   d_qname = qname;
 }
 
-bool PipeBackend::list(const DNSName& target, int inZoneId, bool include_disabled)
+bool PipeBackend::list(const DNSName& target, int inZoneId, bool /* include_disabled */)
 {
   try {
     launch();
@@ -216,7 +214,7 @@ bool PipeBackend::list(const DNSName& target, int inZoneId, bool include_disable
   catch (PDNSException& ae) {
     g_log << Logger::Error << kBackendId << " Error from coprocess: " << ae.reason << endl;
   }
-  d_qname = DNSName(itoa(inZoneId)); // why do we store a number here??
+  d_qname = DNSName(std::to_string(inZoneId)); // why do we store a number here??
   return true;
 }
 
@@ -315,8 +313,8 @@ bool PipeBackend::get(DNSResourceRecord& r)
         }
         r.qname = DNSName(parts[1 + extraFields]);
         r.qtype = parts[3 + extraFields];
-        r.ttl = pdns_stou(parts[4 + extraFields]);
-        r.domain_id = std::stoi(parts[5 + extraFields]);
+        pdns::checked_stoi_into(r.ttl, parts[4 + extraFields]);
+        pdns::checked_stoi_into(r.domain_id, parts[5 + extraFields]);
 
         if (r.qtype.getCode() != QType::MX && r.qtype.getCode() != QType::SRV) {
           r.content.clear();

@@ -21,7 +21,10 @@
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
@@ -37,13 +40,13 @@
 
 BOOST_AUTO_TEST_SUITE(test_tsig)
 
-static vector<uint8_t> generateTSIGQuery(const DNSName& qname, const DNSName& tsigName, const DNSName& tsigAlgo, const string& tsigSecret, uint16_t fudge=300, time_t tsigTime=time(nullptr))
+static vector<uint8_t> generateTSIGQuery(const DNSName& qname, const DNSName& tsigName, const DNSName& tsigAlgo, const string& tsigSecret, uint16_t fudge = 300, time_t tsigTime = time(nullptr))
 {
   vector<uint8_t> packet;
   DNSPacketWriter pw(packet, qname, QType::A);
-  pw.getHeader()->qr=0;
-  pw.getHeader()->rd=0;
-  pw.getHeader()->id=42;
+  pw.getHeader()->qr = 0;
+  pw.getHeader()->rd = 0;
+  pw.getHeader()->id = 42;
   pw.startRecord(qname, QType::A);
   pw.xfr32BitInt(0x01020304);
   pw.addOpt(512, 0, 0);
@@ -68,7 +71,7 @@ static vector<uint8_t> generateTSIGQuery(const DNSName& qname, const DNSName& ts
   return packet;
 }
 
-static void checkTSIG(const DNSName& tsigName, const DNSName& tsigAlgo, const string& tsigSecret, const vector<uint8_t>& packet, const string* overrideMac=nullptr, uint16_t* overrideExtendedRCode=nullptr, uint16_t* overrideOrigID=nullptr)
+static void checkTSIG(const DNSName& tsigName, const DNSName& tsigAlgo, const string& tsigSecret, const vector<uint8_t>& packet, const string* overrideMac = nullptr, uint16_t* overrideExtendedRCode = nullptr, uint16_t* overrideOrigID = nullptr)
 {
   string packetStr(reinterpret_cast<const char*>(packet.data()), packet.size());
   MOADNSParser mdp(true, packetStr);
@@ -78,14 +81,14 @@ static void checkTSIG(const DNSName& tsigName, const DNSName& tsigAlgo, const st
   DNSName keyName;
   TSIGRecordContent trc;
 
-  for(const auto& answer: mdp.d_answers) {
-    if(answer.first.d_type == QType::TSIG) {
+  for (const auto& answer : mdp.d_answers) {
+    if (answer.first.d_type == QType::TSIG) {
       BOOST_CHECK_EQUAL(answer.first.d_place, DNSResourceRecord::ADDITIONAL);
       BOOST_CHECK_EQUAL(answer.first.d_class, QClass::ANY);
       BOOST_CHECK_EQUAL(answer.first.d_ttl, 0U);
       BOOST_CHECK_EQUAL(tsigFound, false);
 
-      shared_ptr<TSIGRecordContent> rectrc = getRR<TSIGRecordContent>(answer.first);
+      auto rectrc = getRR<TSIGRecordContent>(answer.first);
       if (rectrc) {
         trc = *rectrc;
         theirMac = rectrc->d_mac;
@@ -116,7 +119,8 @@ static void checkTSIG(const DNSName& tsigName, const DNSName& tsigAlgo, const st
   BOOST_CHECK(validateTSIG(packetStr, mdp.getTSIGPos(), tt, trc, "", theirMac, false));
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_valid) {
+BOOST_AUTO_TEST_CASE(test_TSIG_valid)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -124,10 +128,11 @@ BOOST_AUTO_TEST_CASE(test_TSIG_valid) {
 
   vector<uint8_t> packet = generateTSIGQuery(qname, tsigName, tsigAlgo, tsigSecret);
 
-  checkTSIG(tsigName, tsigAlgo, tsigSecret, packet);}
+  checkTSIG(tsigName, tsigAlgo, tsigSecret, packet);
+}
 
-
-BOOST_AUTO_TEST_CASE(test_TSIG_different_case_algo) {
+BOOST_AUTO_TEST_CASE(test_TSIG_different_case_algo)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -138,7 +143,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_different_case_algo) {
   checkTSIG(tsigName, tsigAlgo.makeLowerCase(), tsigSecret, packet);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_different_name_same_algo) {
+BOOST_AUTO_TEST_CASE(test_TSIG_different_name_same_algo)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -149,7 +155,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_different_name_same_algo) {
   checkTSIG(tsigName, DNSName("hmac-md5."), tsigSecret, packet);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_bad_key_name) {
+BOOST_AUTO_TEST_CASE(test_TSIG_bad_key_name)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -160,7 +167,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_bad_key_name) {
   BOOST_CHECK_THROW(checkTSIG(DNSName("another.tsig.key.name"), tsigAlgo, tsigSecret, packet), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_bad_algo) {
+BOOST_AUTO_TEST_CASE(test_TSIG_bad_algo)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -171,7 +179,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_bad_algo) {
   BOOST_CHECK_THROW(checkTSIG(tsigName, DNSName("hmac-sha512."), tsigSecret, packet), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_bad_secret) {
+BOOST_AUTO_TEST_CASE(test_TSIG_bad_secret)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -182,7 +191,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_bad_secret) {
   BOOST_CHECK_THROW(checkTSIG(tsigName, tsigAlgo, "bad secret", packet), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_bad_ercode) {
+BOOST_AUTO_TEST_CASE(test_TSIG_bad_ercode)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -194,7 +204,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_bad_ercode) {
   BOOST_CHECK_THROW(checkTSIG(tsigName, tsigAlgo, tsigSecret, packet, nullptr, &badERcode), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_bad_origID) {
+BOOST_AUTO_TEST_CASE(test_TSIG_bad_origID)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -206,7 +217,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_bad_origID) {
   BOOST_CHECK_THROW(checkTSIG(tsigName, tsigAlgo, tsigSecret, packet, nullptr, nullptr, &badOrigID), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_bad_mac) {
+BOOST_AUTO_TEST_CASE(test_TSIG_bad_mac)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -218,7 +230,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_bad_mac) {
   BOOST_CHECK_THROW(checkTSIG(tsigName, tsigAlgo, tsigSecret, packet, &badMac), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_signature_expired) {
+BOOST_AUTO_TEST_CASE(test_TSIG_signature_expired)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");
@@ -229,7 +242,8 @@ BOOST_AUTO_TEST_CASE(test_TSIG_signature_expired) {
   BOOST_CHECK_THROW(checkTSIG(tsigName, tsigAlgo, tsigSecret, packet), std::runtime_error);
 }
 
-BOOST_AUTO_TEST_CASE(test_TSIG_signature_too_far_in_the_future) {
+BOOST_AUTO_TEST_CASE(test_TSIG_signature_too_far_in_the_future)
+{
   DNSName tsigName("tsig.name");
   DNSName tsigAlgo("HMAC-MD5.SIG-ALG.REG.INT");
   DNSName qname("test.valid.tsig");

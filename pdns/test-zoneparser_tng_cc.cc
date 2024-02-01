@@ -1,5 +1,9 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -16,12 +20,13 @@
 
 BOOST_AUTO_TEST_SUITE(test_zoneparser_tng_cc)
 
-BOOST_AUTO_TEST_CASE(test_tng_record_types) {
+BOOST_AUTO_TEST_CASE(test_tng_record_types)
+{
   reportAllTypes();
 
   std::ostringstream pathbuf;
   const char* p = std::getenv("SRCDIR");
-  if(!p)
+  if (!p)
     p = ".";
   pathbuf << p << "/../regression-tests/zones/unit.test";
   ZoneParserTNG zp(pathbuf.str(), DNSName("unit.test"));
@@ -29,13 +34,13 @@ BOOST_AUTO_TEST_CASE(test_tng_record_types) {
 
   ifstream ifs(pathbuf.str());
 
-  while(zp.get(rr)) {
+  while (zp.get(rr)) {
     // make sure these concur.
     std::string host, type, data;
     unsigned int ttl;
     std::getline(ifs, host, ' ');
     std::getline(ifs, type, ' ');
-    ttl = pdns_stou(type);
+    pdns::checked_stoi_into(ttl, type);
     std::getline(ifs, type, ' ');
     std::getline(ifs, type, ' ');
     std::getline(ifs, data, '\n');
@@ -46,18 +51,19 @@ BOOST_AUTO_TEST_CASE(test_tng_record_types) {
     if (rr.qtype == QType::SOA)
       continue; // FIXME400 remove trailing dots from data
     if (*(rr.content.rbegin()) != '.' && *(data.rbegin()) == '.')
-      BOOST_CHECK_EQUAL(rr.content, std::string(data.begin(),data.end()-1));
+      BOOST_CHECK_EQUAL(rr.content, std::string(data.begin(), data.end() - 1));
     else
       BOOST_CHECK_EQUAL(rr.content, data);
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_tng_record_generate) {
+BOOST_AUTO_TEST_CASE(test_tng_record_generate)
+{
   reportAllTypes();
 
   std::ostringstream pathbuf;
   const char* p = std::getenv("SRCDIR");
-  if(!p)
+  if (!p)
     p = ".";
   pathbuf << p << "/../regression-tests/zones/unit2.test";
 
@@ -82,10 +88,9 @@ BOOST_AUTO_TEST_CASE(test_tng_record_generate) {
       "13.16.0016.000012.00000014.unit2.test.",
       "14.17.0017.000013.00000015.unit2.test.",
       "15.20.0018.000014.00000016.unit2.test.",
-      "16.21.0019.000015.00000017.unit2.test."
-    };
+      "16.21.0019.000015.00000017.unit2.test."};
 
-    for (auto const & exp : expected) {
+    for (auto const& exp : expected) {
       DNSResourceRecord rr;
       zp.get(rr);
       BOOST_CHECK_EQUAL(rr.qname.toString(), exp);
@@ -106,7 +111,7 @@ BOOST_AUTO_TEST_CASE(test_tng_record_generate) {
       "4.05.0007.000009.0000000b.unit2.test.",
     };
 
-    for (auto const & exp : expected) {
+    for (auto const& exp : expected) {
       DNSResourceRecord rr;
       zp.get(rr);
       BOOST_CHECK_EQUAL(rr.qname.toString(), exp);
@@ -129,7 +134,7 @@ BOOST_AUTO_TEST_CASE(test_tng_record_generate) {
       "4294967294.unit2.test.",
     };
 
-    for (auto const & exp : expected) {
+    for (auto const& exp : expected) {
       DNSResourceRecord rr;
       zp.get(rr);
       BOOST_CHECK_EQUAL(rr.qname.toString(), exp);
@@ -214,7 +219,8 @@ BOOST_AUTO_TEST_CASE(test_tng_record_generate) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_tng_upgrade) {
+BOOST_AUTO_TEST_CASE(test_tng_upgrade)
+{
   reportAllTypes();
 
   ZoneParserTNG zp(std::vector<std::string>({"foo.test. 86400 IN TYPE1 \\# 4 c0000304"}), DNSName("test"), true);

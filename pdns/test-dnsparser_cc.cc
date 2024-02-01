@@ -1,4 +1,7 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
@@ -11,7 +14,8 @@
 
 BOOST_AUTO_TEST_SUITE(test_dnsparser_cc)
 
-BOOST_AUTO_TEST_CASE(test_editDNSPacketTTL) {
+BOOST_AUTO_TEST_CASE(test_editDNSPacketTTL)
+{
 
   auto generatePacket = [](uint32_t ttl) {
     DNSName name("powerdns.com.");
@@ -54,15 +58,14 @@ BOOST_AUTO_TEST_CASE(test_editDNSPacketTTL) {
 
   size_t called = 0;
   editDNSPacketTTL(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size(), [&called](uint8_t section, uint16_t class_, uint16_t type, uint32_t ttl) {
+    called++;
 
-      called++;
-
-      /* only updates the TTL of IN/A, in answer, with an existing ttl of 42 */
-      if (section == 1 && class_ == QClass::IN && type == QType::A && ttl == 42) {
-        return 84;
-      }
-      return 0;
-    });
+    /* only updates the TTL of IN/A, in answer, with an existing ttl of 42 */
+    if (section == 1 && class_ == QClass::IN && type == QType::A && ttl == 42) {
+      return 84;
+    }
+    return 0;
+  });
 
   /* check that we have been for all records */
   BOOST_CHECK_EQUAL(called, 5U);
@@ -76,23 +79,23 @@ BOOST_AUTO_TEST_CASE(test_editDNSPacketTTL) {
   /* now call it with a truncated packet, missing the last TTL and rdata,
      we should only be called 4 times but everything else should be fine. */
   called = 0;
-  editDNSPacketTTL(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size() - sizeof(uint32_t) - /* rdata length */ sizeof (uint16_t) - /* IPv4 payload in rdata */ 4, [&called](uint8_t section, uint16_t class_, uint16_t type, uint32_t ttl) {
+  editDNSPacketTTL(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size() - sizeof(uint32_t) - /* rdata length */ sizeof(uint16_t) - /* IPv4 payload in rdata */ 4, [&called](uint8_t section, uint16_t class_, uint16_t type, uint32_t ttl) {
+    called++;
 
-      called++;
-
-      /* only updates the TTL of IN/A, in answer, with an existing ttl of 42 */
-      if (section == 1 && class_ == QClass::IN && type == QType::A && ttl == 42) {
-        return 84;
-      }
-      return 0;
-    });
+    /* only updates the TTL of IN/A, in answer, with an existing ttl of 42 */
+    if (section == 1 && class_ == QClass::IN && type == QType::A && ttl == 42) {
+      return 84;
+    }
+    return 0;
+  });
 
   /* check that we have been for all records */
   BOOST_CHECK_EQUAL(called, 4U);
   BOOST_CHECK(firstPacket == expectedAlteredPacket);
 }
 
-BOOST_AUTO_TEST_CASE(test_ageDNSPacket) {
+BOOST_AUTO_TEST_CASE(test_ageDNSPacket)
+{
 
   auto generatePacket = [](uint32_t ttl) {
     DNSName name("powerdns.com.");
@@ -117,7 +120,8 @@ BOOST_AUTO_TEST_CASE(test_ageDNSPacket) {
   auto firstPacket = generatePacket(3600);
   auto expectedAlteredPacket = generatePacket(1800);
 
-  ageDNSPacket(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size(), 1800);
+  dnsheader_aligned dh_aligned(firstPacket.data());
+  ageDNSPacket(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size(), 1800, dh_aligned);
 
   BOOST_REQUIRE_EQUAL(firstPacket.size(), expectedAlteredPacket.size());
   for (size_t idx = 0; idx < firstPacket.size(); idx++) {
@@ -127,14 +131,14 @@ BOOST_AUTO_TEST_CASE(test_ageDNSPacket) {
 
   /* now call it with a truncated packet, missing the last TTL and rdata,
      the packet should not be altered. */
-  ageDNSPacket(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size() - sizeof(uint32_t) - /* rdata length */ sizeof (uint16_t) - /* IPv4 payload in rdata */ 4 - /* size of OPT record */ 11, 900);
+  ageDNSPacket(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size() - sizeof(uint32_t) - /* rdata length */ sizeof(uint16_t) - /* IPv4 payload in rdata */ 4 - /* size of OPT record */ 11, 900, dh_aligned);
 
   BOOST_CHECK(firstPacket == expectedAlteredPacket);
 
   /* now remove more than the remaining TTL. We expect ageDNSPacket
      to cap this at zero and not cause an unsigned underflow into
      the 2^32-1 neighbourhood */
-  ageDNSPacket(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size(), 1801);
+  ageDNSPacket(reinterpret_cast<char*>(firstPacket.data()), firstPacket.size(), 1801, dh_aligned);
 
   uint32_t ttl = 0;
 
@@ -146,7 +150,8 @@ BOOST_AUTO_TEST_CASE(test_ageDNSPacket) {
   BOOST_CHECK(firstPacket == expectedAlteredPacket);
 }
 
-BOOST_AUTO_TEST_CASE(test_getDNSPacketMinTTL) {
+BOOST_AUTO_TEST_CASE(test_getDNSPacketMinTTL)
+{
 
   const DNSName name("powerdns.com.");
   const ComboAddress v4("1.2.3.4");
@@ -341,13 +346,14 @@ BOOST_AUTO_TEST_CASE(test_getDNSPacketMinTTL) {
     pwR.commit();
 
     bool seenAuthSOA = false;
-    auto result = getDNSPacketMinTTL(reinterpret_cast<char*>(packet.data()), packet.size() - sizeof(uint32_t) - /* rdata length */ sizeof (uint16_t) - /* IPv4 payload in rdata */ 4, &seenAuthSOA);
+    auto result = getDNSPacketMinTTL(reinterpret_cast<char*>(packet.data()), packet.size() - sizeof(uint32_t) - /* rdata length */ sizeof(uint16_t) - /* IPv4 payload in rdata */ 4, &seenAuthSOA);
     BOOST_CHECK_EQUAL(result, 255U);
     BOOST_CHECK_EQUAL(seenAuthSOA, true);
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_getDNSPacketLength) {
+BOOST_AUTO_TEST_CASE(test_getDNSPacketLength)
+{
 
   const DNSName name("powerdns.com.");
   const ComboAddress v4("1.2.3.4");
@@ -437,14 +443,14 @@ BOOST_AUTO_TEST_CASE(test_getDNSPacketLength) {
     pwR.addOpt(4096, 0, 0);
     pwR.commit();
 
-    size_t fakeSize = packet.size()-1;
+    size_t fakeSize = packet.size() - 1;
     auto result = getDNSPacketLength(reinterpret_cast<char*>(packet.data()), fakeSize);
     BOOST_CHECK_EQUAL(result, fakeSize);
   }
-
 }
 
-BOOST_AUTO_TEST_CASE(test_getRecordsOfTypeCount) {
+BOOST_AUTO_TEST_CASE(test_getRecordsOfTypeCount)
+{
   const DNSName name("powerdns.com.");
   const ComboAddress v4("1.2.3.4");
   const ComboAddress v6("2001:db8::1");
@@ -469,21 +475,21 @@ BOOST_AUTO_TEST_CASE(test_getRecordsOfTypeCount) {
     pwR.addOpt(4096, 0, 0);
     pwR.commit();
 
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 0, QType::A), 1);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 0, QType::SOA), 0);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::A), 1);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::SOA), 0);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 2, QType::A), 0);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 2, QType::SOA), 1);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 1);
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::SOA), 0);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 0, QType::A), 1);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 0, QType::SOA), 0);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::A), 1);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::SOA), 0);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 2, QType::A), 0);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 2, QType::SOA), 1);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 1);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::SOA), 0);
 
-     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 4, QType::SOA), 0);
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 4, QType::SOA), 0);
   }
-
 }
 
-BOOST_AUTO_TEST_CASE(test_clearDNSPacketRecordTypes) {
+BOOST_AUTO_TEST_CASE(test_clearDNSPacketRecordTypes)
+{
   {
     auto generatePacket = []() {
       const DNSName name("powerdns.com.");
@@ -519,7 +525,7 @@ BOOST_AUTO_TEST_CASE(test_clearDNSPacketRecordTypes) {
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::AAAA), 1);
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 1);
 
-    std::set<QType> toremove{QType::AAAA};
+    std::unordered_set<QType> toremove{QType::AAAA};
     clearDNSPacketRecordTypes(packet, toremove);
 
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::A), 1);
@@ -546,10 +552,10 @@ BOOST_AUTO_TEST_CASE(test_clearDNSPacketRecordTypes) {
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::AAAA), 0);
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 0);
   }
-
 }
 
-BOOST_AUTO_TEST_CASE(test_clearDNSPacketUnsafeRecordTypes) {
+BOOST_AUTO_TEST_CASE(test_clearDNSPacketUnsafeRecordTypes)
+{
   {
     auto generatePacket = []() {
       const DNSName name("powerdns.com.");
@@ -591,7 +597,7 @@ BOOST_AUTO_TEST_CASE(test_clearDNSPacketUnsafeRecordTypes) {
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 1);
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::MX), 1);
 
-    std::set<QType> toremove{QType::AAAA};
+    std::unordered_set<QType> toremove{QType::AAAA};
     clearDNSPacketRecordTypes(packet, toremove);
 
     // nothing should have been removed as an "unsafe" MX RR is in the packet
@@ -606,10 +612,9 @@ BOOST_AUTO_TEST_CASE(test_clearDNSPacketUnsafeRecordTypes) {
     // MX is unsafe, but we asked to remove it
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::A), 1);
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 1, QType::AAAA), 0);
-    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 1); 
+    BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::A), 1);
     BOOST_CHECK_EQUAL(getRecordsOfTypeCount(reinterpret_cast<char*>(packet.data()), packet.size(), 3, QType::MX), 0);
   }
-
 }
 
 BOOST_AUTO_TEST_SUITE_END()

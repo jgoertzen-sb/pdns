@@ -29,8 +29,7 @@
 
 struct QuestionIdentifier
 {
-  QuestionIdentifier() 
-  {}
+  QuestionIdentifier() = default;
 
   bool operator<(const QuestionIdentifier& rhs) const
   {
@@ -69,8 +68,8 @@ struct QuestionIdentifier
   ComboAddress d_source, d_dest;
 
   DNSName d_qname;
-  uint16_t d_qtype;
-  uint16_t d_id;
+  uint16_t d_qtype{0};
+  uint16_t d_id{0};
 };
 
 inline ostream& operator<<(ostream &s, const QuestionIdentifier& qi) 

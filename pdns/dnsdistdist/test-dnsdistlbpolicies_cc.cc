@@ -1,5 +1,8 @@
 
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #include <boost/test/unit_test.hpp>
@@ -20,7 +23,6 @@ DNSDistSNMPAgent* g_snmpAgent{nullptr};
 
 #if BENCH_POLICIES
 bool g_verbose{true};
-bool g_syslog{true};
 #include "dnsdist-rings.hh"
 Rings g_rings;
 GlobalStateHolder<NetmaskTree<DynBlock>> g_dynblockNMG;
@@ -33,36 +35,11 @@ std::vector<std::unique_ptr<ClientState>> g_frontends;
 /* add stub implementations, we don't want to include the corresponding object files
    and their dependencies */
 
-#ifdef HAVE_DNS_OVER_HTTPS
-std::unordered_map<std::string, std::string> DOHUnit::getHTTPHeaders() const
+// NOLINTNEXTLINE(readability-convert-member-functions-to-static): this is a stub, the real one is not that simple..
+bool TLSFrontend::setupTLS()
 {
-  return {};
+  return true;
 }
-
-std::string DOHUnit::getHTTPPath() const
-{
-  return "";
-}
-
-std::string DOHUnit::getHTTPHost() const
-{
-  return "";
-}
-
-std::string DOHUnit::getHTTPScheme() const
-{
-  return "";
-}
-
-std::string DOHUnit::getHTTPQueryString() const
-{
-  return "";
-}
-
-void DOHUnit::setHTTPResponse(uint16_t statusCode, PacketBuffer&& body_, const std::string& contentType_)
-{
-}
-#endif /* HAVE_DNS_OVER_HTTPS */
 
 std::string DNSQuestion::getTrailingData() const
 {
@@ -88,22 +65,32 @@ DNSAction::Action SpoofAction::operator()(DNSQuestion* dq, std::string* ruleresu
   return DNSAction::Action::None;
 }
 
+bool setupDoTProtocolNegotiation(std::shared_ptr<TLSCtx>&)
+{
+  return true;
+}
+
+void responderThread(std::shared_ptr<DownstreamState> dss)
+{
+}
+
 string g_outputBuffer;
+std::atomic<bool> g_configurationDone{false};
 
 static DNSQuestion getDQ(const DNSName* providedName = nullptr)
 {
   static const DNSName qname("powerdns.com.");
-  static const ComboAddress lc("127.0.0.1:53");
-  static const ComboAddress rem("192.0.2.1:42");
-  static struct timespec queryRealTime;
   static PacketBuffer packet(sizeof(dnsheader));
+  static InternalQueryState ids;
+  ids.origDest = ComboAddress("127.0.0.1:53");
+  ids.origRemote = ComboAddress("192.0.2.1:42");
+  ids.qname = providedName ? *providedName : qname;
+  ids.qtype = QType::A;
+  ids.qclass = QClass::IN;
+  ids.protocol = dnsdist::Protocol::DoUDP;
+  ids.queryRealTime.start();
 
-  uint16_t qtype = QType::A;
-  uint16_t qclass = QClass::IN;
-  auto proto = dnsdist::Protocol::DoUDP;
-  gettime(&queryRealTime, true);
-
-  DNSQuestion dq(providedName ? providedName : &qname, qtype, qclass, &lc, &rem, packet, proto, &queryRealTime);
+  DNSQuestion dq(ids, packet);
   return dq;
 }
 
@@ -194,10 +181,10 @@ BOOST_AUTO_TEST_CASE(test_firstAvailableWithOrderAndQPS) {
   servers.push_back({ 2, std::make_shared<DownstreamState>(ComboAddress("192.0.2.2:53")) });
   /* Second server has a higher order, so most queries should be routed to the first (remember that
      we need to keep them ordered!).
-     However the first server has a QPS limit at 10 qps, so any query above that should be routed 
+     However the first server has a QPS limit at 10 qps, so any query above that should be routed
      to the second server. */
-  servers.at(0).second->order = 1;
-  servers.at(1).second->order = 2;
+  servers.at(0).second->d_config.order = 1;
+  servers.at(1).second->d_config.order = 2;
   servers.at(0).second->qps = QPSLimiter(qpsLimit, qpsLimit);
   /* mark the servers as 'up' */
   servers.at(0).second->setUp();
@@ -357,16 +344,16 @@ BOOST_AUTO_TEST_CASE(test_wrandom) {
   /* reset */
   for (auto& entry : serversMap) {
     entry.second = 0;
-    BOOST_CHECK_EQUAL(entry.first->weight, 1);
+    BOOST_CHECK_EQUAL(entry.first->d_config.d_weight, 1);
   }
 
   /* reset */
   for (auto& entry : serversMap) {
     entry.second = 0;
-    BOOST_CHECK_EQUAL(entry.first->weight, 1);
+    BOOST_CHECK_EQUAL(entry.first->d_config.d_weight, 1);
   }
   /* change the weight of the last server to 100, default is 1 */
-  servers.at(servers.size()-1).second->weight = 100;
+  servers.at(servers.size()-1).second->d_config.d_weight = 100;
 
   for (size_t idx = 0; idx < 1000; idx++) {
     auto server = pol.getSelectedBackend(servers, dq);
@@ -378,12 +365,12 @@ BOOST_AUTO_TEST_CASE(test_wrandom) {
   uint64_t totalW = 0;
   for (const auto& entry : serversMap) {
     total += entry.second;
-    totalW += entry.first->weight;
+    totalW += entry.first->d_config.d_weight;
   }
   BOOST_CHECK_EQUAL(total, 1000U);
   auto last = servers.at(servers.size()-1).second;
   const auto got = serversMap[last];
-  float expected = (1000 * 1.0 * last->weight) / totalW;
+  float expected = (1000 * 1.0 * last->d_config.d_weight) / totalW;
   BOOST_CHECK_GT(got, expected / 2);
   BOOST_CHECK_LT(got, expected * 2);
 }
@@ -425,7 +412,7 @@ BOOST_AUTO_TEST_CASE(test_whashed) {
   /* reset */
   for (auto& entry : serversMap) {
     entry.second = 0;
-    BOOST_CHECK_EQUAL(entry.first->weight, 1);
+    BOOST_CHECK_EQUAL(entry.first->d_config.d_weight, 1);
   }
 
   /* request 1000 times the same name, we should go to the same server every time */
@@ -440,7 +427,7 @@ BOOST_AUTO_TEST_CASE(test_whashed) {
   /* reset */
   for (auto& entry : serversMap) {
     entry.second = 0;
-    BOOST_CHECK_EQUAL(entry.first->weight, 1);
+    BOOST_CHECK_EQUAL(entry.first->d_config.d_weight, 1);
   }
   /* change the weight of the last server to 100, default is 1 */
   servers.at(servers.size()-1).second->setWeight(100);
@@ -456,12 +443,12 @@ BOOST_AUTO_TEST_CASE(test_whashed) {
   uint64_t totalW = 0;
   for (const auto& entry : serversMap) {
     total += entry.second;
-    totalW += entry.first->weight;
+    totalW += entry.first->d_config.d_weight;
   }
   BOOST_CHECK_EQUAL(total, names.size());
   auto last = servers.at(servers.size()-1).second;
   const auto got = serversMap[last];
-  float expected = (names.size() * 1.0 * last->weight) / totalW;
+  float expected = (names.size() * 1.0 * last->d_config.d_weight) / totalW;
   BOOST_CHECK_GT(got, expected / 2);
   BOOST_CHECK_LT(got, expected * 2);
 }
@@ -510,7 +497,7 @@ BOOST_AUTO_TEST_CASE(test_chashed) {
   /* reset */
   for (auto& entry : serversMap) {
     entry.second = 0;
-    BOOST_CHECK_EQUAL(entry.first->weight, 1000);
+    BOOST_CHECK_EQUAL(entry.first->d_config.d_weight, 1000);
   }
 
   /* request 1000 times the same name, we should go to the same server every time */
@@ -525,7 +512,7 @@ BOOST_AUTO_TEST_CASE(test_chashed) {
   /* reset */
   for (auto& entry : serversMap) {
     entry.second = 0;
-    BOOST_CHECK_EQUAL(entry.first->weight, 1000);
+    BOOST_CHECK_EQUAL(entry.first->d_config.d_weight, 1000);
   }
   /* change the weight of the last server to 100000, others stay at 1000 */
   servers.at(servers.size()-1).second->setWeight(100000);
@@ -541,12 +528,12 @@ BOOST_AUTO_TEST_CASE(test_chashed) {
   uint64_t totalW = 0;
   for (const auto& entry : serversMap) {
     total += entry.second;
-    totalW += entry.first->weight;
+    totalW += entry.first->d_config.d_weight;
   }
   BOOST_CHECK_EQUAL(total, names.size());
   auto last = servers.at(servers.size()-1).second;
   const auto got = serversMap[last];
-  float expected = (names.size() * 1.0 * last->weight) / totalW;
+  float expected = (names.size() * 1.0 * last->d_config.d_weight) / totalW;
   BOOST_CHECK_GT(got, expected / 2);
   BOOST_CHECK_LT(got, expected * 2);
 

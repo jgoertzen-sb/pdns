@@ -6,20 +6,31 @@ The *opensslsigner.cc* shall be changed to support new algorithms.
 The constructor (line 846) must be changed to support the particular data of the new algorithm.
 An example can be found down belox (this is only meant as inspiration):
 ```
-#ifdef HAVE_LIBCRYPTO_FALCON
-    if(d_algorithm == 17) {
+#ifdef HAVE_LIBCRYPTO_PQC
+    if(d_algorithm == DNSSECKeeper::FALCON512) {
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 690;
-      d_id = NID_falcon512;
+      d_algname = "falcon512";
+    } else if {
+      d_priv_len = 2528;
+      d_pub_len = 1312;
+      d_sig_len = 2420;
+      d_algname = "dilithium2";
+    } else if {
+      d_priv_len = 64;
+      d_pub_len = 43;
+      d_sig_len = 7856;
+      d_algname = "sphincssha2128ssimple";
     }
+
 #endif
-#ifdef HAVE_LIBCRYPTO_X
+#ifdef HAVE_LIBCRYPTO_PQC
     if(d_algorithm == ALGO_ID) {
       d_priv_len = Y;
       d_pub_len = Z;
       d_sig_len = Y;
-      d_id = NID_ALGO;
+      d_algname = ALGNAME;
     }
 #endif
     if (d_priv_len == 0) {
@@ -58,19 +69,10 @@ To be sure the algorithm is supported in the installation, change the *m4/pdns_c
 ```
 Also change the IF conditional at the end of the file to take extending algorithm into account.
 ```
-AS_IF([test "$libcrypto_falcon" = "yes" -o "$libcrypto_x" = "yes"], [
+AS_IF([test "$libcrypto_pqc" = "yes" -o "$libcrypto_x" = "yes"], [
     AC_DEFINE([HAVE_LIBCRYPTO_PQC], [1], [define to 1 if OpenSSL PQC support is available.])
   ], [ : ])
 ```
-
-In the *configure.ac*, you can extend the message notice to display the new algorithm. Therefore add an AS_IF conditional, for example after the falcon block on line 407, like follows:
-```
-AS_IF([test "x$libcrypto_X" = "xyes"],
-  [AC_MSG_NOTICE([x: yes])],
-  [AC_MSG_NOTICE([x: no])]
-)
-```
-
 
 ## Changes to the version file
 In order to list the algorithm in the features, edit *version.cc* to add the new algorithm as follows:
@@ -83,14 +85,14 @@ In order to list the algorithm in the features, edit *version.cc* to add the new
 ## Changes to pdnsutil
 In order to support the new algorithm in pdnsutil, you have to edit *pdnsutil.cc* on line 2306 to add the new algorithm:
 ```
-#if defined(HAVE_LIBCRYPTO_X
-    cout<<"|x";
+#if defined(HAVE_LIBCRYPTO_PQC
+    cout<<"|ALGNAME";
 #endif
 ```
 also change the file on line 2706 and 3256 to add the following:
 ```
-#if defined(HAVE_LIBCRYPTO_X)
-      cerr << "|x;
+#if defined(HAVE_LIBCRYPTO_PQC)
+      cerr << "|ALGNAME;
 #endif
 ```
 

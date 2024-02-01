@@ -1,4 +1,7 @@
+#ifndef BOOST_TEST_DYN_LINK
 #define BOOST_TEST_DYN_LINK
+#endif
+
 #define BOOST_TEST_NO_MAIN
 
 #ifdef HAVE_CONFIG_H
@@ -24,7 +27,8 @@ class SimpleBackend : public DNSBackend
 public:
   struct SimpleDNSRecord
   {
-    SimpleDNSRecord(const DNSName& name, uint16_t type, const std::string& content, uint32_t ttl): d_content(content), d_name(name), d_ttl(ttl), d_type(type)
+    SimpleDNSRecord(const DNSName& name, uint16_t type, const std::string& content, uint32_t ttl) :
+      d_content(content), d_name(name), d_ttl(ttl), d_type(type)
     {
     }
 
@@ -38,21 +42,19 @@ public:
 
   typedef multi_index_container<
     SimpleDNSRecord,
-    indexed_by <
+    indexed_by<
       ordered_non_unique<tag<OrderedNameTypeTag>,
                          composite_key<
                            SimpleDNSRecord,
                            member<SimpleDNSRecord, DNSName, &SimpleDNSRecord::d_name>,
-                           member<SimpleDNSRecord, uint16_t, &SimpleDNSRecord::d_type>
-                           >,
-                         composite_key_compare<CanonDNSNameCompare, std::less<uint16_t> >
-                         >
-      >
-    > RecordStorage;
+                           member<SimpleDNSRecord, uint16_t, &SimpleDNSRecord::d_type>>,
+                         composite_key_compare<CanonDNSNameCompare, std::less<uint16_t>>>>>
+    RecordStorage;
 
   struct SimpleDNSZone
   {
-    SimpleDNSZone(const DNSName& name, uint64_t id): d_records(std::make_shared<RecordStorage>()), d_name(name), d_id(id)
+    SimpleDNSZone(const DNSName& name, uint64_t id) :
+      d_records(std::make_shared<RecordStorage>()), d_name(name), d_id(id)
     {
     }
     std::shared_ptr<RecordStorage> d_records;
@@ -60,20 +62,24 @@ public:
     uint64_t d_id;
   };
 
-  struct HashedNameTag {};
-  struct IDTag {};
+  struct HashedNameTag
+  {
+  };
+  struct IDTag
+  {
+  };
 
   typedef multi_index_container<
     SimpleDNSZone,
-    indexed_by <
-      ordered_unique<tag<IDTag>, member<SimpleDNSZone, uint64_t, &SimpleDNSZone::d_id> >,
-      hashed_unique<tag<HashedNameTag>, member<SimpleDNSZone, DNSName, &SimpleDNSZone::d_name> >
-      >
-    > ZoneStorage;
+    indexed_by<
+      ordered_unique<tag<IDTag>, member<SimpleDNSZone, uint64_t, &SimpleDNSZone::d_id>>,
+      hashed_unique<tag<HashedNameTag>, member<SimpleDNSZone, DNSName, &SimpleDNSZone::d_name>>>>
+    ZoneStorage;
 
   struct SimpleMetaData
   {
-    SimpleMetaData(const DNSName& name, const std::string& kind, const std::vector<std::string>& values): d_name(name), d_kind(kind), d_values(values)
+    SimpleMetaData(const DNSName& name, const std::string& kind, const std::vector<std::string>& values) :
+      d_name(name), d_kind(kind), d_values(values)
     {
     }
 
@@ -82,24 +88,24 @@ public:
     std::vector<std::string> d_values;
   };
 
-  struct OrderedNameKindTag {};
+  struct OrderedNameKindTag
+  {
+  };
 
   typedef multi_index_container<
     SimpleMetaData,
-    indexed_by <
+    indexed_by<
       ordered_unique<tag<OrderedNameKindTag>,
                      composite_key<
                        SimpleMetaData,
                        member<SimpleMetaData, DNSName, &SimpleMetaData::d_name>,
-                       member<SimpleMetaData, std::string, &SimpleMetaData::d_kind>
-                       >,
-                     composite_key_compare<CanonDNSNameCompare, std::less<std::string> >
-                     >
-      >
-    > MetaDataStorage;
+                       member<SimpleMetaData, std::string, &SimpleMetaData::d_kind>>,
+                     composite_key_compare<CanonDNSNameCompare, std::less<std::string>>>>>
+    MetaDataStorage;
 
   // Initialize our backend ID from the suffix, skipping the '-' that DNSBackend adds there
-  SimpleBackend(const std::string& suffix): d_suffix(suffix), d_backendId(pdns_stou(suffix.substr(1)))
+  SimpleBackend(const std::string& suffix) :
+    d_suffix(suffix), d_backendId(pdns::checked_stoi<decltype(d_backendId)>(suffix.substr(1)))
   {
   }
 
@@ -130,7 +136,7 @@ public:
     return true;
   }
 
-  void lookup(const QType& qtype, const DNSName& qdomain, int zoneId = -1, DNSPacket *pkt_p = nullptr) override
+  void lookup(const QType& qtype, const DNSName& qdomain, int zoneId = -1, DNSPacket* pkt_p = nullptr) override
   {
     d_currentScopeMask = 0;
     findZone(qdomain, zoneId, d_records, d_currentZone);
@@ -152,7 +158,7 @@ public:
         d_end = range.second;
       }
       else {
-        auto range = idx.equal_range(std::make_tuple(qdomain, qtype.getCode()));
+        auto range = idx.equal_range(std::tuple(qdomain, qtype.getCode()));
         d_iter = range.first;
         d_end = range.second;
       }
@@ -183,7 +189,7 @@ public:
     return true;
   }
 
-  bool list(const DNSName& target, int zoneId, bool include_disabled = false) override
+  bool list(const DNSName& target, int zoneId, bool /* include_disabled */ = false) override
   {
     findZone(target, zoneId, d_records, d_currentZone);
 
@@ -199,7 +205,7 @@ public:
   bool getDomainMetadata(const DNSName& name, const std::string& kind, std::vector<std::string>& meta) override
   {
     const auto& idx = boost::multi_index::get<OrderedNameKindTag>(s_metadata.at(d_backendId));
-    auto it = idx.find(std::make_tuple(name, kind));
+    auto it = idx.find(std::tuple(name, kind));
     if (it == idx.end()) {
       /* funnily enough, we are expected to return true even though we might not know that zone */
       return true;
@@ -212,7 +218,7 @@ public:
   bool setDomainMetadata(const DNSName& name, const std::string& kind, const std::vector<std::string>& meta) override
   {
     auto& idx = boost::multi_index::get<OrderedNameKindTag>(s_metadata.at(d_backendId));
-    auto it = idx.find(std::make_tuple(name, kind));
+    auto it = idx.find(std::tuple(name, kind));
     if (it == idx.end()) {
       s_metadata.at(d_backendId).insert(SimpleMetaData(name, kind, meta));
       return true;
@@ -238,7 +244,8 @@ protected:
 class SimpleBackendBestAuth : public SimpleBackend
 {
 public:
-  SimpleBackendBestAuth(const std::string& suffix): SimpleBackend(suffix)
+  SimpleBackendBestAuth(const std::string& suffix) :
+    SimpleBackend(suffix)
   {
   }
 
@@ -257,7 +264,7 @@ public:
       }
 
       auto& idx = records->get<OrderedNameTypeTag>();
-      auto range = idx.equal_range(std::make_tuple(best, QType::SOA));
+      auto range = idx.equal_range(std::tuple(best, QType::SOA));
       if (range.first == range.second) {
         return false;
       }
@@ -278,16 +285,17 @@ public:
 class SimpleBackendNoMeta : public SimpleBackend
 {
 public:
-  SimpleBackendNoMeta(const std::string& suffix): SimpleBackend(suffix)
+  SimpleBackendNoMeta(const std::string& suffix) :
+    SimpleBackend(suffix)
   {
   }
 
-  bool getDomainMetadata(const DNSName& name, const std::string& kind, std::vector<std::string>& meta) override
+  bool getDomainMetadata(const DNSName& /* name */, const std::string& /* kind */, std::vector<std::string>& /* meta */) override
   {
     return false;
   }
 
-  bool setDomainMetadata(const DNSName& name, const std::string& kind, const std::vector<std::string>& meta) override
+  bool setDomainMetadata(const DNSName& /* name */, const std::string& /* kind */, const std::vector<std::string>& /* meta */) override
   {
     return false;
   }
@@ -299,11 +307,12 @@ std::unordered_map<uint64_t, SimpleBackend::MetaDataStorage> SimpleBackend::s_me
 class SimpleBackendFactory : public BackendFactory
 {
 public:
-  SimpleBackendFactory(): BackendFactory("SimpleBackend")
+  SimpleBackendFactory() :
+    BackendFactory("SimpleBackend")
   {
   }
 
-  DNSBackend *make(const string& suffix="") override
+  DNSBackend* make(const string& suffix = "") override
   {
     return new SimpleBackend(suffix);
   }
@@ -312,11 +321,12 @@ public:
 class SimpleBackendBestAuthFactory : public BackendFactory
 {
 public:
-  SimpleBackendBestAuthFactory(): BackendFactory("SimpleBackendBestAuth")
+  SimpleBackendBestAuthFactory() :
+    BackendFactory("SimpleBackendBestAuth")
   {
   }
 
-  DNSBackend *make(const string& suffix="") override
+  DNSBackend* make(const string& suffix = "") override
   {
     return new SimpleBackendBestAuth(suffix);
   }
@@ -325,22 +335,25 @@ public:
 class SimpleBackendNoMetaFactory : public BackendFactory
 {
 public:
-  SimpleBackendNoMetaFactory(): BackendFactory("SimpleBackendNoMeta")
+  SimpleBackendNoMetaFactory() :
+    BackendFactory("SimpleBackendNoMeta")
   {
   }
 
-  DNSBackend *make(const string& suffix="") override
+  DNSBackend* make(const string& suffix = "") override
   {
     return new SimpleBackendNoMeta(suffix);
   }
 };
 
-struct UeberBackendSetupArgFixture {
-  UeberBackendSetupArgFixture() {
+struct UeberBackendSetupArgFixture
+{
+  UeberBackendSetupArgFixture()
+  {
     extern AuthQueryCache QC;
-    ::arg().set("query-cache-ttl")="0";
-    ::arg().set("negquery-cache-ttl")="0";
-    ::arg().set("consistent-backends")="no";
+    ::arg().set("query-cache-ttl") = "0";
+    ::arg().set("negquery-cache-ttl") = "0";
+    ::arg().set("consistent-backends") = "no";
     QC.purge();
     g_zoneCache.setRefreshInterval(0);
     g_zoneCache.clear();
@@ -356,8 +369,8 @@ static void testWithoutThenWithAuthCache(std::function<void(UeberBackend& ub)> f
 
   {
     /* disable the cache */
-    ::arg().set("query-cache-ttl")="0";
-    ::arg().set("negquery-cache-ttl")="0";
+    ::arg().set("query-cache-ttl") = "0";
+    ::arg().set("negquery-cache-ttl") = "0";
     QC.purge();
     QC.setMaxEntries(0);
     /* keep zone cache disabled */
@@ -370,8 +383,8 @@ static void testWithoutThenWithAuthCache(std::function<void(UeberBackend& ub)> f
 
   {
     /* enable the cache */
-    ::arg().set("query-cache-ttl")="20";
-    ::arg().set("negquery-cache-ttl")="60";
+    ::arg().set("query-cache-ttl") = "20";
+    ::arg().set("negquery-cache-ttl") = "60";
     QC.purge();
     QC.setMaxEntries(100000);
     /* keep zone cache disabled */
@@ -395,8 +408,8 @@ static void testWithoutThenWithZoneCache(std::function<void(UeberBackend& ub)> f
     g_zoneCache.setRefreshInterval(0);
     g_zoneCache.clear();
     /* keep auth caches disabled */
-    ::arg().set("query-cache-ttl")="0";
-    ::arg().set("negquery-cache-ttl")="0";
+    ::arg().set("query-cache-ttl") = "0";
+    ::arg().set("negquery-cache-ttl") = "0";
     QC.purge();
     QC.setMaxEntries(0);
 
@@ -430,8 +443,7 @@ static std::vector<DNSZoneRecord> getRecords(UeberBackend& ub, const DNSName& na
   ub.lookup(QType(qtype), name, zoneId, const_cast<DNSPacket*>(pkt));
 
   DNSZoneRecord dzr;
-  while (ub.get(dzr))
-  {
+  while (ub.get(dzr)) {
     result.push_back(std::move(dzr));
   }
 
@@ -442,18 +454,15 @@ static void checkRecordExists(const std::vector<DNSZoneRecord>& records, const D
 {
   BOOST_REQUIRE_GE(records.size(), 1U);
   for (const auto& record : records) {
-    if (record.domain_id == zoneId &&
-        record.dr.d_type == type &&
-        record.dr.d_name == name &&
-        record.auth == auth &&
-        record.scopeMask == scopeMask) {
+    if (record.domain_id == zoneId && record.dr.d_type == type && record.dr.d_name == name && record.auth == auth && record.scopeMask == scopeMask) {
       return;
     }
   }
   BOOST_CHECK_MESSAGE(false, "Record " + name.toString() + "/" + QType(type).toString() + " - " + std::to_string(zoneId) + " not found");
 }
 
-BOOST_AUTO_TEST_CASE(test_simple) {
+BOOST_AUTO_TEST_CASE(test_simple)
+{
 
   try {
     SimpleBackend::SimpleDNSZone zoneA(DNSName("powerdns.com."), 1);
@@ -468,96 +477,96 @@ BOOST_AUTO_TEST_CASE(test_simple) {
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      // test SOA with unknown zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-    }
+      {
+        // test SOA with unknown zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+      }
 
-    {
-      // test ANY with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 2U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test ANY with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 2U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test AAAA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test AAAA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test NODATA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test NODATA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 2U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test ANY with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 2U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test AAAA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test AAAA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test NODATA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test NODATA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with wrong zone id
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 65535, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test ANY with wrong zone id
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 65535, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test a DNS packet is correctly passed and that the corresponding scope is passed back
-      DNSPacket pkt(true);
-      ComboAddress remote("192.0.2.1");
-      pkt.setRemote(&remote);
-      auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
-      // and that we don't get the same result for a different client
-      remote = ComboAddress("198.51.100.1");
-      pkt.setRemote(&remote);
-      records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
-    }
-
+      {
+        // test a DNS packet is correctly passed and that the corresponding scope is passed back
+        DNSPacket pkt(true);
+        ComboAddress remote("192.0.2.1");
+        pkt.setRemote(&remote);
+        auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
+        // and that we don't get the same result for a different client
+        remote = ComboAddress("198.51.100.1");
+        pkt.setRemote(&remote);
+        records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
+      }
     };
     testWithoutThenWithAuthCache(testFunction);
     testWithoutThenWithZoneCache(testFunction);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_multi_backends_separate_zones) {
+BOOST_AUTO_TEST_CASE(test_multi_backends_separate_zones)
+{
   // one zone in backend 1, a second zone in backend 2
   // no overlap
 
@@ -581,130 +590,130 @@ BOOST_AUTO_TEST_CASE(test_multi_backends_separate_zones) {
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      // test SOA with unknown zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+      {
+        // test SOA with unknown zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.org."), QType::SOA, 2, 0, true);
-    }
+        records = getRecords(ub, DNSName("powerdns.org."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.org."), QType::SOA, 2, 0, true);
+      }
 
-    {
-      // test ANY with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 2U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      {
+        // test ANY with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 2U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::ANY, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 2U);
-      checkRecordExists(records, DNSName("powerdns.org."), QType::SOA, 2, 0, true);
-      checkRecordExists(records, DNSName("powerdns.org."), QType::AAAA, 2, 0, true);
-    }
+        records = getRecords(ub, DNSName("powerdns.org."), QType::ANY, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 2U);
+        checkRecordExists(records, DNSName("powerdns.org."), QType::SOA, 2, 0, true);
+        checkRecordExists(records, DNSName("powerdns.org."), QType::AAAA, 2, 0, true);
+      }
 
-    {
-      // test AAAA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      {
+        // test AAAA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::AAAA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.org."), QType::AAAA, 2, 0, true);
-    }
+        records = getRecords(ub, DNSName("powerdns.org."), QType::AAAA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.org."), QType::AAAA, 2, 0, true);
+      }
 
-    {
-      // test NODATA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      {
+        // test NODATA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::PTR, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+        records = getRecords(ub, DNSName("powerdns.org."), QType::PTR, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 2U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      {
+        // test ANY with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 2U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::ANY, 2, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 2U);
-      checkRecordExists(records, DNSName("powerdns.org."), QType::SOA, 2, 0, true);
-      checkRecordExists(records, DNSName("powerdns.org."), QType::AAAA, 2, 0, true);
-    }
+        records = getRecords(ub, DNSName("powerdns.org."), QType::ANY, 2, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 2U);
+        checkRecordExists(records, DNSName("powerdns.org."), QType::SOA, 2, 0, true);
+        checkRecordExists(records, DNSName("powerdns.org."), QType::AAAA, 2, 0, true);
+      }
 
-    {
-      // test AAAA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      {
+        // test AAAA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
 
-      records = getRecords(ub, DNSName("www.powerdns.org."), QType::AAAA, 2, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("www.powerdns.org."), QType::AAAA, 2, 0, true);
-    }
+        records = getRecords(ub, DNSName("www.powerdns.org."), QType::AAAA, 2, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("www.powerdns.org."), QType::AAAA, 2, 0, true);
+      }
 
-    {
-      // test NODATA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      {
+        // test NODATA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::PTR, 2, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+        records = getRecords(ub, DNSName("powerdns.org."), QType::PTR, 2, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with wrong zone id
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 2, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      {
+        // test ANY with wrong zone id
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 2, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
 
-      records = getRecords(ub, DNSName("powerdns.org."), QType::ANY, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
+        records = getRecords(ub, DNSName("powerdns.org."), QType::ANY, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
 
-      records = getRecords(ub, DNSName("not-powerdns.com."), QType::ANY, 65535, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+        records = getRecords(ub, DNSName("not-powerdns.com."), QType::ANY, 65535, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test a DNS packet is correctly passed and that the corresponding scope is passed back
-      DNSPacket pkt(true);
-      ComboAddress remote("192.0.2.1");
-      pkt.setRemote(&remote);
-      auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
-      // and that we don't get the same result for a different client
-      remote = ComboAddress("198.51.100.1");
-      pkt.setRemote(&remote);
-      records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
-    }
-
+      {
+        // test a DNS packet is correctly passed and that the corresponding scope is passed back
+        DNSPacket pkt(true);
+        ComboAddress remote("192.0.2.1");
+        pkt.setRemote(&remote);
+        auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
+        // and that we don't get the same result for a different client
+        remote = ComboAddress("198.51.100.1");
+        pkt.setRemote(&remote);
+        records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
+      }
     };
     testWithoutThenWithAuthCache(testFunction);
     testWithoutThenWithZoneCache(testFunction);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_multi_backends_overlay) {
+BOOST_AUTO_TEST_CASE(test_multi_backends_overlay)
+{
   // one backend holds the SOA, NS and one A
   // a second backend holds another A and AAAA
   try {
@@ -726,111 +735,111 @@ BOOST_AUTO_TEST_CASE(test_multi_backends_overlay) {
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      // test SOA with unknown zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-    }
+      {
+        // test SOA with unknown zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+      }
 
-    {
-      // test ANY with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
-      // /!\ only 3 records are returned since we don't allow spreading the same name over several backends
-      BOOST_REQUIRE_EQUAL(records.size(), 3U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
-      //checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test ANY with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
+        // /!\ only 3 records are returned since we don't allow spreading the same name over several backends
+        BOOST_REQUIRE_EQUAL(records.size(), 3U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
+        // checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test AAAA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
-      // /!\ the AAAA will be found on an exact search, but not on an ANY one
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test AAAA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
+        // /!\ the AAAA will be found on an exact search, but not on an ANY one
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test NODATA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test NODATA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
-      // /!\ only 3 records are returned since we don't allow spreading the same name over several backends
-      BOOST_REQUIRE_EQUAL(records.size(), 3U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
-      //checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test ANY with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
+        // /!\ only 3 records are returned since we don't allow spreading the same name over several backends
+        BOOST_REQUIRE_EQUAL(records.size(), 3U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
+        // checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test AAAA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
-      // /!\ the AAAA will be found on an exact search, but not on an ANY one
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test AAAA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
+        // /!\ the AAAA will be found on an exact search, but not on an ANY one
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test www - A with zone id set (only in the second backend)
-      auto records = getRecords(ub, DNSName("www.powerdns.com."), QType::A, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("www.powerdns.com."), QType::A, 1, 0, true);
-    }
+      {
+        // test www - A with zone id set (only in the second backend)
+        auto records = getRecords(ub, DNSName("www.powerdns.com."), QType::A, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("www.powerdns.com."), QType::A, 1, 0, true);
+      }
 
-    {
-      // test NODATA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test NODATA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with wrong zone id
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 2, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test ANY with wrong zone id
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 2, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test a DNS packet is correctly passed and that the corresponding scope is passed back
-      DNSPacket pkt(true);
-      ComboAddress remote("192.0.2.1");
-      pkt.setRemote(&remote);
-      auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
-      // and that we don't get the same result for a different client
-      remote = ComboAddress("198.51.100.1");
-      pkt.setRemote(&remote);
-      records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
-    }
-
+      {
+        // test a DNS packet is correctly passed and that the corresponding scope is passed back
+        DNSPacket pkt(true);
+        ComboAddress remote("192.0.2.1");
+        pkt.setRemote(&remote);
+        auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
+        // and that we don't get the same result for a different client
+        remote = ComboAddress("198.51.100.1");
+        pkt.setRemote(&remote);
+        records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
+      }
     };
     testWithoutThenWithAuthCache(testFunction);
     testWithoutThenWithZoneCache(testFunction);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_multi_backends_overlay_name) {
+BOOST_AUTO_TEST_CASE(test_multi_backends_overlay_name)
+{
   // one backend holds the apex with SOA, NS and one A
   // a second backend holds others names
   try {
@@ -853,107 +862,107 @@ BOOST_AUTO_TEST_CASE(test_multi_backends_overlay_name) {
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      // test SOA with unknown zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-    }
+      {
+        // test SOA with unknown zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+      }
 
-    {
-      // test ANY with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 5U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test ANY with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 5U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test AAAA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test AAAA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test NODATA with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test NODATA with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 5U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test ANY with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 5U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::A, 1, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test AAAA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
-    }
+      {
+        // test AAAA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::AAAA, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 1, 0, true);
+      }
 
-    {
-      // test www - A with zone id set (only in the second backend)
-      auto records = getRecords(ub, DNSName("www.powerdns.com."), QType::A, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("www.powerdns.com."), QType::A, 1, 0, true);
-    }
+      {
+        // test www - A with zone id set (only in the second backend)
+        auto records = getRecords(ub, DNSName("www.powerdns.com."), QType::A, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("www.powerdns.com."), QType::A, 1, 0, true);
+      }
 
-    {
-      // test NODATA with zone id set
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test NODATA with zone id set
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::PTR, 1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test ANY with wrong zone id
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 2, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 0U);
-    }
+      {
+        // test ANY with wrong zone id
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, 2, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 0U);
+      }
 
-    {
-      // test a DNS packet is correctly passed and that the corresponding scope is passed back
-      DNSPacket pkt(true);
-      ComboAddress remote("192.0.2.1");
-      pkt.setRemote(&remote);
-      auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
-      // and that we don't get the same result for a different client
-      remote = ComboAddress("198.51.100.1");
-      pkt.setRemote(&remote);
-      records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
-    }
-
+      {
+        // test a DNS packet is correctly passed and that the corresponding scope is passed back
+        DNSPacket pkt(true);
+        ComboAddress remote("192.0.2.1");
+        pkt.setRemote(&remote);
+        auto records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 32, true);
+        // and that we don't get the same result for a different client
+        remote = ComboAddress("198.51.100.1");
+        pkt.setRemote(&remote);
+        records = getRecords(ub, DNSName("geo.powerdns.com."), QType::ANY, 1, &pkt);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("geo.powerdns.com."), QType::A, 1, 24, true);
+      }
     };
     testWithoutThenWithAuthCache(testFunction);
     testWithoutThenWithZoneCache(testFunction);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_child_zone) {
+BOOST_AUTO_TEST_CASE(test_child_zone)
+{
   // Backend 1 holds zone A "com" while backend 2 holds zone B "powerdns.com"
   // Check that DS queries are correctly handled
 
@@ -977,61 +986,61 @@ BOOST_AUTO_TEST_CASE(test_child_zone) {
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      // test SOA with unknown zone id == -1
-      auto records = getRecords(ub, DNSName("com."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("com."), QType::SOA, 1, 0, true);
+      {
+        // test SOA with unknown zone id == -1
+        auto records = getRecords(ub, DNSName("com."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("com."), QType::SOA, 1, 0, true);
 
-      records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 1U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 2, 0, true);
-    }
+        records = getRecords(ub, DNSName("powerdns.com."), QType::SOA, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 1U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 2, 0, true);
+      }
 
-    {
-      // test ANY with zone id == -1
-      auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
-      BOOST_REQUIRE_EQUAL(records.size(), 3U);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 2, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 2, 0, true);
-      checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 2, 0, true);
-    }
+      {
+        // test ANY with zone id == -1
+        auto records = getRecords(ub, DNSName("powerdns.com."), QType::ANY, -1, nullptr);
+        BOOST_REQUIRE_EQUAL(records.size(), 3U);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::SOA, 2, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::NS, 2, 0, true);
+        checkRecordExists(records, DNSName("powerdns.com."), QType::AAAA, 2, 0, true);
+      }
 
-    {
-      // test getAuth() for DS
-      SOAData sd;
-      BOOST_REQUIRE(ub.getAuth(DNSName("powerdns.com."), QType::DS, &sd));
-      BOOST_CHECK_EQUAL(sd.qname.toString(), "com.");
-      BOOST_CHECK_EQUAL(sd.domain_id, 1);
-    }
+      {
+        // test getAuth() for DS
+        SOAData sd;
+        BOOST_REQUIRE(ub.getAuth(DNSName("powerdns.com."), QType::DS, &sd));
+        BOOST_CHECK_EQUAL(sd.qname.toString(), "com.");
+        BOOST_CHECK_EQUAL(sd.domain_id, 1);
+      }
 
-    {
-      // test getAuth() for A
-      SOAData sd;
-      BOOST_REQUIRE(ub.getAuth(DNSName("powerdns.com."), QType::A, &sd));
-      BOOST_CHECK_EQUAL(sd.qname.toString(), "powerdns.com.");
-      BOOST_CHECK_EQUAL(sd.domain_id, 2);
-    }
-
+      {
+        // test getAuth() for A
+        SOAData sd;
+        BOOST_REQUIRE(ub.getAuth(DNSName("powerdns.com."), QType::A, &sd));
+        BOOST_CHECK_EQUAL(sd.qname.toString(), "powerdns.com.");
+        BOOST_CHECK_EQUAL(sd.domain_id, 2);
+      }
     };
     testWithoutThenWithAuthCache(testFunction);
     testWithoutThenWithZoneCache(testFunction);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_multi_backends_best_soa) {
+BOOST_AUTO_TEST_CASE(test_multi_backends_best_soa)
+{
   // several backends, one returns the best SOA it has right away
   // while the others do simple lookups
 
@@ -1051,40 +1060,42 @@ BOOST_AUTO_TEST_CASE(test_multi_backends_best_soa) {
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      auto sbba = dynamic_cast<SimpleBackendBestAuth*>(ub.backends.at(0));
-      BOOST_REQUIRE(sbba != nullptr);
-      sbba->d_authLookupCount = 0;
+      {
+        auto* sbba = dynamic_cast<SimpleBackendBestAuth*>(ub.backends.at(0).get());
+        BOOST_REQUIRE(sbba != nullptr);
 
-      // test getAuth()
-      SOAData sd;
-      BOOST_REQUIRE(ub.getAuth(DNSName("2.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa."), QType::PTR, &sd));
-      BOOST_CHECK_EQUAL(sd.qname.toString(), "d.0.1.0.0.2.ip6.arpa.");
-      BOOST_CHECK_EQUAL(sd.domain_id, 1);
+        // NOLINTNEXTLINE (clang-analyzer-core.NullDereference): Not sure.
+        sbba->d_authLookupCount = 0;
 
-      // check that at most one auth lookup occurred to this backend (O with caching enabled)
-      BOOST_CHECK_LE(sbba->d_authLookupCount, 1U);
-    }
+        // test getAuth()
+        SOAData sd;
+        BOOST_REQUIRE(ub.getAuth(DNSName("2.4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa."), QType::PTR, &sd));
+        BOOST_CHECK_EQUAL(sd.qname.toString(), "d.0.1.0.0.2.ip6.arpa.");
+        BOOST_CHECK_EQUAL(sd.domain_id, 1);
 
+        // check that at most one auth lookup occurred to this backend (O with caching enabled)
+        BOOST_CHECK_LE(sbba->d_authLookupCount, 1U);
+      }
     };
     testWithoutThenWithAuthCache(testFunction);
     testWithoutThenWithZoneCache(testFunction);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_multi_backends_metadata) {
+BOOST_AUTO_TEST_CASE(test_multi_backends_metadata)
+{
   // we have metadata stored in the first and second backend.
   // We can read from the first backend but not from the second, since the first will return "true" even though it has nothing
   // Updating will insert into the first backend, leaving the first one untouched
@@ -1096,7 +1107,7 @@ BOOST_AUTO_TEST_CASE(test_multi_backends_metadata) {
     zoneA.d_records->insert(SimpleBackend::SimpleDNSRecord(DNSName("www.powerdns.com."), QType::A, "192.168.0.1", 60));
     zoneA.d_records->insert(SimpleBackend::SimpleDNSRecord(DNSName("geo.powerdns.com."), QType::A, "192.168.0.42", 60));
     SimpleBackend::s_zones[1].insert(zoneA);
-    SimpleBackend::s_metadata[1].insert(SimpleBackend::SimpleMetaData(DNSName("powerdns.com."), "test-data-a", { "value1", "value2"}));
+    SimpleBackend::s_metadata[1].insert(SimpleBackend::SimpleMetaData(DNSName("powerdns.com."), "test-data-a", {"value1", "value2"}));
 
     SimpleBackend::SimpleDNSZone zoneB(DNSName("powerdns.org."), 2);
     zoneB.d_records->insert(SimpleBackend::SimpleDNSRecord(DNSName("powerdns.org."), QType::SOA, "ns1.powerdns.org. powerdns.org. 3 600 600 3600000 604800", 3600));
@@ -1104,80 +1115,79 @@ BOOST_AUTO_TEST_CASE(test_multi_backends_metadata) {
     zoneB.d_records->insert(SimpleBackend::SimpleDNSRecord(DNSName("www.powerdns.org."), QType::AAAA, "2001:db8::2", 60));
     zoneB.d_records->insert(SimpleBackend::SimpleDNSRecord(DNSName("geo.powerdns.org."), QType::AAAA, "2001:db8::42", 60));
     SimpleBackend::s_zones[2].insert(zoneB);
-    SimpleBackend::s_metadata[2].insert(SimpleBackend::SimpleMetaData(DNSName("powerdns.org."), "test-data-b", { "value1", "value2"}));
+    SimpleBackend::s_metadata[2].insert(SimpleBackend::SimpleMetaData(DNSName("powerdns.org."), "test-data-b", {"value1", "value2"}));
 
     BackendMakers().report(new SimpleBackendFactory());
     BackendMakers().launch("SimpleBackend:1, SimpleBackend:2");
     UeberBackend::go();
 
     auto testFunction = [](UeberBackend& ub) -> void {
-    {
-      // check the initial values
-      std::vector<std::string> values;
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.com."), "test-data-a", values));
-      BOOST_REQUIRE_EQUAL(values.size(), 2U);
-      BOOST_CHECK_EQUAL(values.at(0), "value1");
-      BOOST_CHECK_EQUAL(values.at(1), "value2");
-      values.clear();
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.com."), "test-data-b", values));
-      BOOST_CHECK_EQUAL(values.size(), 0U);
-      values.clear();
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-a", values));
-      BOOST_CHECK_EQUAL(values.size(), 0U);
-      values.clear();
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-b", values));
-      BOOST_CHECK_EQUAL(values.size(), 0U);
-    }
+      {
+        // check the initial values
+        std::vector<std::string> values;
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.com."), "test-data-a", values));
+        BOOST_REQUIRE_EQUAL(values.size(), 2U);
+        BOOST_CHECK_EQUAL(values.at(0), "value1");
+        BOOST_CHECK_EQUAL(values.at(1), "value2");
+        values.clear();
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.com."), "test-data-b", values));
+        BOOST_CHECK_EQUAL(values.size(), 0U);
+        values.clear();
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-a", values));
+        BOOST_CHECK_EQUAL(values.size(), 0U);
+        values.clear();
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-b", values));
+        BOOST_CHECK_EQUAL(values.size(), 0U);
+      }
 
-    {
-      // update the values
-      BOOST_CHECK(ub.setDomainMetadata(DNSName("powerdns.com."), "test-data-a", { "value3" }));
-      BOOST_CHECK(ub.setDomainMetadata(DNSName("powerdns.org."), "test-data-a", { "value4" }));
-      BOOST_CHECK(ub.setDomainMetadata(DNSName("powerdns.org."), "test-data-b", { "value5" }));
-    }
+      {
+        // update the values
+        BOOST_CHECK(ub.setDomainMetadata(DNSName("powerdns.com."), "test-data-a", std::vector<std::string>({"value3"})));
+        BOOST_CHECK(ub.setDomainMetadata(DNSName("powerdns.org."), "test-data-a", std::vector<std::string>({"value4"})));
+        BOOST_CHECK(ub.setDomainMetadata(DNSName("powerdns.org."), "test-data-b", std::vector<std::string>({"value5"})));
+      }
 
-    // check the updated values
-    {
-      std::vector<std::string> values;
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.com."), "test-data-a", values));
-      BOOST_REQUIRE_EQUAL(values.size(), 1U);
-      BOOST_CHECK_EQUAL(values.at(0), "value3");
-      values.clear();
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-a", values));
-      BOOST_REQUIRE_EQUAL(values.size(), 1U);
-      BOOST_CHECK_EQUAL(values.at(0), "value4");
-      values.clear();
-      BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-b", values));
-      BOOST_REQUIRE_EQUAL(values.size(), 1U);
-      BOOST_CHECK_EQUAL(values.at(0), "value5");
-    }
+      // check the updated values
+      {
+        std::vector<std::string> values;
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.com."), "test-data-a", values));
+        BOOST_REQUIRE_EQUAL(values.size(), 1U);
+        BOOST_CHECK_EQUAL(values.at(0), "value3");
+        values.clear();
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-a", values));
+        BOOST_REQUIRE_EQUAL(values.size(), 1U);
+        BOOST_CHECK_EQUAL(values.at(0), "value4");
+        values.clear();
+        BOOST_CHECK(ub.getDomainMetadata(DNSName("powerdns.org."), "test-data-b", values));
+        BOOST_REQUIRE_EQUAL(values.size(), 1U);
+        BOOST_CHECK_EQUAL(values.at(0), "value5");
+      }
 
-    {
-      // check that it has not been updated in the second backend
-      const auto& it = SimpleBackend::s_metadata[2].find(std::make_tuple(DNSName("powerdns.org."), "test-data-b"));
-      BOOST_REQUIRE(it != SimpleBackend::s_metadata[2].end());
-      BOOST_REQUIRE_EQUAL(it->d_values.size(), 2U);
-      BOOST_CHECK_EQUAL(it->d_values.at(0), "value1");
-      BOOST_CHECK_EQUAL(it->d_values.at(1), "value2");
-    }
+      {
+        // check that it has not been updated in the second backend
+        const auto& it = SimpleBackend::s_metadata[2].find(std::tuple(DNSName("powerdns.org."), "test-data-b"));
+        BOOST_REQUIRE(it != SimpleBackend::s_metadata[2].end());
+        BOOST_REQUIRE_EQUAL(it->d_values.size(), 2U);
+        BOOST_CHECK_EQUAL(it->d_values.at(0), "value1");
+        BOOST_CHECK_EQUAL(it->d_values.at(1), "value2");
+      }
     };
 
     UeberBackend ub;
     testFunction(ub);
   }
-  catch(const PDNSException& e) {
-    cerr<<e.reason<<endl;
+  catch (const PDNSException& e) {
+    cerr << e.reason << endl;
     throw;
   }
-  catch(const std::exception& e) {
-    cerr<<e.what()<<endl;
+  catch (const std::exception& e) {
+    cerr << e.what() << endl;
     throw;
   }
-  catch(...) {
-    cerr<<"An unexpected error occurred.."<<endl;
+  catch (...) {
+    cerr << "An unexpected error occurred.." << endl;
     throw;
   }
 }
-
 
 BOOST_AUTO_TEST_SUITE_END();

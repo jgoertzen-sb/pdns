@@ -21,3 +21,5 @@ These chapters contain information on the advanced features of dnsdist
    ocsp-stapling
    tls-sessions-management
    internal-design
+   asynchronous-processing
+   xsk

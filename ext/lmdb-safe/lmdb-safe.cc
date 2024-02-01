@@ -6,6 +6,10 @@
 #include <string.h>
 #include <map>
 
+#ifndef DNSDIST
+#include "../../pdns/gettime.hh"
+#endif
+
 using std::string;
 using std::runtime_error;
 using std::tuple;
@@ -16,22 +20,78 @@ static string MDBError(int rc)
   return mdb_strerror(rc);
 }
 
-MDBDbi::MDBDbi(MDB_env* env, MDB_txn* txn, const string_view dbname, int flags)
+#ifndef DNSDIST
+
+namespace LMDBLS {
+  // this also returns a pointer to the string's data. Do not hold on to it too long!
+  const LSheader* LSassertFixedHeaderSize(std::string_view val) {
+    // cerr<<"val.size()="<<val.size()<<endl;
+    if (val.size() < LS_MIN_HEADER_SIZE) {
+      throw std::runtime_error("LSheader too short");
+    }
+
+    return reinterpret_cast<const LSheader*>(val.data());
+  }
+
+  size_t LScheckHeaderAndGetSize(std::string_view val, size_t datasize) {
+    const LSheader* lsh = LSassertFixedHeaderSize(val);
+
+    if (lsh->d_version != 0) {
+      throw std::runtime_error("LSheader has wrong version (not zero)");
+    }
+
+    size_t headersize = LS_MIN_HEADER_SIZE;
+
+    unsigned char* tmp = (unsigned char*)val.data();
+    uint16_t numextra = (tmp[LS_NUMEXTRA_OFFSET] << 8) + tmp[LS_NUMEXTRA_OFFSET+1];
+
+    headersize += numextra * LS_BLOCK_SIZE;
+
+    if (val.size() < headersize) {
+      throw std::runtime_error("LSheader too short for promised extra data");
+    }
+
+    if (datasize && val.size() < (headersize+datasize)) {
+      throw std::runtime_error("Trailing data after LSheader has wrong size");
+    }
+
+    return headersize;
+  }
+
+  size_t LScheckHeaderAndGetSize(const MDBOutVal *val, size_t datasize) {
+    return LScheckHeaderAndGetSize(val->getNoStripHeader<string_view>(), datasize);
+  }
+
+  bool LSisDeleted(std::string_view val) {
+    const LSheader* lsh = LSassertFixedHeaderSize(val);
+
+    return (lsh->d_flags & LS_FLAG_DELETED) != 0;
+  }
+
+  uint64_t LSgetTimestamp(std::string_view val) {
+    const LSheader* lsh = LSassertFixedHeaderSize(val);
+
+    return lsh->getTimestamp();
+  }
+  bool s_flag_deleted{false};
+}
+
+#endif /* #ifndef DNSDIST */
+
+MDBDbi::MDBDbi(MDB_env* /* env */, MDB_txn* txn, const string_view dbname, int flags) : d_dbi(-1)
 {
   // A transaction that uses this function must finish (either commit or abort) before any other transaction in the process may use this function.
-  
+
   int rc = mdb_dbi_open(txn, dbname.empty() ? 0 : &dbname[0], flags, &d_dbi);
   if(rc)
     throw std::runtime_error("Unable to open named database: " + MDBError(rc));
-  
+
   // Database names are keys in the unnamed database, and may be read but not written.
 }
 
-MDBEnv::MDBEnv(const char* fname, int flags, int mode)
+MDBEnv::MDBEnv(const char* fname, int flags, int mode, uint64_t mapsizeMB)
 {
   mdb_env_create(&d_env);
-  uint64_t mapsizeMB = (sizeof(long)==4) ? 100 : 16000;
-  // on 32 bit platforms, there is just no room for more
   if(mdb_env_set_mapsize(d_env, mapsizeMB * 1048576))
     throw std::runtime_error("setting map size");
     /*
@@ -90,24 +150,24 @@ int MDBEnv::getROTX()
 }
 
 
-std::shared_ptr<MDBEnv> getMDBEnv(const char* fname, int flags, int mode)
+std::shared_ptr<MDBEnv> getMDBEnv(const char* fname, int flags, int mode, uint64_t mapsizeMB)
 {
   struct Value
   {
     weak_ptr<MDBEnv> wp;
     int flags;
   };
-  
+
   static std::map<tuple<dev_t, ino_t>, Value> s_envs;
   static std::mutex mut;
-  
+
   struct stat statbuf;
   if(stat(fname, &statbuf)) {
     if(errno != ENOENT)
       throw std::runtime_error("Unable to stat prospective mdb database: "+string(strerror(errno)));
     else {
       std::lock_guard<std::mutex> l(mut);
-      auto fresh = std::make_shared<MDBEnv>(fname, flags, mode);
+      auto fresh = std::make_shared<MDBEnv>(fname, flags, mode, mapsizeMB);
       if(stat(fname, &statbuf))
         throw std::runtime_error("Unable to stat prospective mdb database: "+string(strerror(errno)));
       auto key = std::tie(statbuf.st_dev, statbuf.st_ino);
@@ -132,9 +192,9 @@ std::shared_ptr<MDBEnv> getMDBEnv(const char* fname, int flags, int mode)
     }
   }
 
-  auto fresh = std::make_shared<MDBEnv>(fname, flags, mode);
+  auto fresh = std::make_shared<MDBEnv>(fname, flags, mode, mapsizeMB);
   s_envs[key] = {fresh, flags};
-  
+
   return fresh;
 }
 
@@ -147,7 +207,7 @@ MDBDbi MDBEnv::openDB(const string_view dbname, int flags)
     This function must not be called from multiple concurrent transactions in the same process. A transaction that uses this function must finish (either commit or abort) before any other transaction in the process may use this function.
   */
   std::lock_guard<std::mutex> l(d_openmut);
-  
+
   if(!(envflags & MDB_RDONLY)) {
     auto rwt = getRWTransaction();
     MDBDbi ret = rwt->openDB(dbname, flags);
@@ -157,7 +217,7 @@ MDBDbi MDBEnv::openDB(const string_view dbname, int flags)
 
   MDBDbi ret;
   {
-    auto rwt = getROTransaction(); 
+    auto rwt = getROTransaction();
     ret = rwt->openDB(dbname, flags);
   }
   return ret;
@@ -186,6 +246,13 @@ MDB_txn *MDBRWTransactionImpl::openRWTransaction(MDBEnv *env, MDB_txn *parent, i
 MDBRWTransactionImpl::MDBRWTransactionImpl(MDBEnv* parent, int flags):
   MDBRWTransactionImpl(parent, openRWTransaction(parent, nullptr, flags))
 {
+#ifndef DNSDIST
+  struct timespec tp;
+
+  gettime(&tp, true);
+
+  d_txtime = tp.tv_sec * (1000 * 1000 * 1000) + tp.tv_nsec;
+#endif
 }
 
 MDBRWTransactionImpl::~MDBRWTransactionImpl()
@@ -232,7 +299,7 @@ MDB_txn *MDBROTransactionImpl::openROTransaction(MDBEnv *env, MDB_txn *parent, i
 {
   if(env->getRWTX())
     throw std::runtime_error("Duplicate RO transaction");
-  
+
   /*
     A transaction and its cursors must only be used by a single thread, and a thread may only have a single transaction at a time. If MDB_NOTLS is in use, this does not apply to read-only transactions. */
   MDB_txn *result = nullptr;
@@ -264,7 +331,7 @@ MDBROTransactionImpl::MDBROTransactionImpl(MDBEnv *parent, int flags):
 MDBROTransactionImpl::~MDBROTransactionImpl()
 {
   // this is safe because C++ will not call overrides of virtual methods in destructors.
-  commit();
+  MDBROTransactionImpl::commit();
 }
 
 void MDBROTransactionImpl::abort()
@@ -303,9 +370,10 @@ MDBRWCursor MDBRWTransactionImpl::getRWCursor(const MDBDbi& dbi)
   MDB_cursor *cursor;
   int rc= mdb_cursor_open(d_txn, dbi, &cursor);
   if(rc) {
-    throw std::runtime_error("Error creating RO cursor: "+std::string(mdb_strerror(rc)));
+    throw std::runtime_error("Error creating RW cursor: "+std::string(mdb_strerror(rc)));
   }
-  return MDBRWCursor(d_rw_cursors, cursor);
+
+  return MDBRWCursor(d_rw_cursors, cursor, d_txn, d_txtime);
 }
 
 MDBRWCursor MDBRWTransactionImpl::getCursor(const MDBDbi &dbi)

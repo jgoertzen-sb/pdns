@@ -29,7 +29,9 @@ for more information):
 -  ECDSA (algorithm 13 and 14)
 -  ed25519 (algorithm 15)
 -  ed448 (algorithm 16)
--  falcon (algorithm 17)
+-  falcon512 (algorithm 17)
+-  dilithium2 (algorithm 18)
+-  sphincs+-sha256-128s (algorithm 19)
 
 For the DS records, these `digest
 types <http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml#ds-rr-types-1>`__
