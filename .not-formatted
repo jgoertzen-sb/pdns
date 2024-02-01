@@ -128,11 +128,6 @@
 ./pdns/ednsoptions.cc
 ./pdns/ednsoptions.hh
 ./pdns/ednspadding.cc
-<<<<<<< HEAD
-./pdns/ednssubnet.cc
-./pdns/ednssubnet.hh
-=======
->>>>>>> upstream/master
 ./pdns/fstrm_logger.cc
 ./pdns/fstrm_logger.hh
 ./pdns/gettime.cc
@@ -214,11 +209,6 @@
 ./pdns/sillyrecords.cc
 ./pdns/snmp-agent.cc
 ./pdns/snmp-agent.hh
-<<<<<<< HEAD
-./pdns/sodcrypto.cc
-./pdns/sodcrypto.hh
-=======
->>>>>>> upstream/master
 ./pdns/sortlist.cc
 ./pdns/sortlist.hh
 ./pdns/speedtest.cc
