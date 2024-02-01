@@ -14,6 +14,7 @@ Adiscon
 Afek
 afl
 afnic
+AFSDB
 AFYER
 agentx
 agentxperms
@@ -155,6 +156,7 @@ Bremler
 brendangregg
 Briley
 Broens
+Broer
 Bromwich
 Brownworth
 Brynjar
@@ -258,6 +260,7 @@ cryptoshop
 css
 csum
 csv
+CSYNC
 ctime
 ctor
 ctx
@@ -388,6 +391,7 @@ dport
 drafiei
 Draschl
 droprate
+DSRECORD
 dst
 DTS
 Dufberg
@@ -598,6 +602,7 @@ hidesoadetails
 hidettl
 highlighttable
 Hiljanen
+HINFO
 hitrate
 hkraal
 hll
@@ -1044,6 +1049,7 @@ oldname
 openapi
 openbsd
 opendbx
+OPENPGPKEY
 openports
 opensc
 openssl
@@ -1269,6 +1275,7 @@ resynchronise
 retransfering
 reuseport
 rfc
+RHEL
 Rietz
 Rijsdijk
 ringbuffer
@@ -1382,6 +1389,7 @@ slapindex
 slaveness
 SLES
 smartcard
+SMIMEA
 smn
 Smurthwaite
 Snarked
@@ -1423,6 +1431,7 @@ src
 srcname
 Srule
 srv
+SSHFP
 ssi
 SSLKEYLOGFILE
 sslmode
@@ -1528,6 +1537,7 @@ tinydns
 tinydnsbackend
 tisr
 tls
+TLSA
 tmp
 tmpfs
 toc
@@ -1673,6 +1683,7 @@ Wojas
 workaround
 Worldnic
 would've
+Wouter
 wpad
 wproduction
 wrandom
