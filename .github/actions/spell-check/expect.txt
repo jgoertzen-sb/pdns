@@ -187,6 +187,7 @@ Houtworm
 IPSECKEY
 IPbackend
 ISPs
+ISPs
 Imhard
 Inno
 Jakub
@@ -352,7 +353,9 @@ Qlim
 RBL
 README
 RFCs
+RFCs
 RPATH
+RRtypes
 RRtypes
 RSP
 Recursordoc
@@ -381,6 +384,7 @@ SPF
 SPHINXBUILD
 SPHINXOPTS
 SPHINXPROJ
+SQLs
 SQLs
 SRecord
 SSLKEYLOGFILE
@@ -447,6 +451,7 @@ Tuinder
 Tuomi
 Tushuizen
 Tuxis
+UIDs
 UIDs
 UMEM
 UNPRIV
@@ -580,7 +585,9 @@ backend
 backgrounding
 backport
 backported
+backported
 backtick
+backticks
 backticks
 backtraces
 badips
@@ -658,6 +665,7 @@ chdir
 chopoff
 chroot
 chrooted
+chrooted
 chrooting
 clientanswers
 closesocket
@@ -666,9 +674,11 @@ cmouse
 cmsg
 cmsghdr
 cmsgs
+cmsgs
 cname
 cnamechainresolution
 cnamerecord
+cnames
 cnames
 cnf
 cnn
@@ -712,6 +722,7 @@ crowley
 crv
 cryptokey
 cryptokeys
+cryptokeys
 cryptopp
 cryptoshop
 css
@@ -741,6 +752,7 @@ dbr
 dcobject
 ddns
 ddo
+ddos
 ddos
 deactivatedomainkey
 debian
@@ -912,6 +924,7 @@ freesans
 freetds
 freshports
 frontend
+frontends
 frontends
 fstrm
 fullname
@@ -1116,6 +1129,7 @@ lauch
 ldap
 ldapbackend
 ldaps
+ldaps
 ldflags
 ldif
 ldns
@@ -1178,6 +1192,7 @@ lochiiconnectivity
 logfile
 loglevel
 loglevels
+loglevels
 logmessage
 lordievader
 loweralpha
@@ -1196,6 +1211,7 @@ luawrapper
 malcrafted
 malloc
 mallocs
+mallocs
 malware
 manpage
 mapasync
@@ -1212,6 +1228,7 @@ memlock
 menuselection
 metadata
 metadatabase
+metadatas
 metadatas
 metainformation
 metricnames
@@ -1283,6 +1300,7 @@ netinet
 netmask
 netmaskgroup
 netmasks
+netmasks
 netsnmp
 newcontent
 nftables
@@ -1343,6 +1361,7 @@ offsite
 oftc
 oldname
 openapi
+openapis
 openapis
 openbsd
 opendbx
@@ -1543,6 +1562,7 @@ requery
 resolv
 respawn
 respawned
+respawned
 respawning
 respout
 respsizes
@@ -1667,6 +1687,7 @@ sourceforge
 sourceware
 spam
 spams
+spams
 sphincs
 sphinxcontrib
 sphinxjsondomain
@@ -1731,6 +1752,7 @@ sys
 sysadmin
 syscall
 syscalls
+syscalls
 sysctl
 syslog
 systemcall
@@ -1738,6 +1760,7 @@ systemctl
 systemd
 sysv
 tarball
+tarballs
 tarballs
 taskqueue
 tbhandler
@@ -1786,6 +1809,7 @@ toc
 toctree
 todo
 todos
+todos
 toint
 tokenuser
 tostring
@@ -1803,6 +1827,7 @@ tsigname
 tsigsecret
 tstamp
 ttl
+ttls
 ttls
 tunables
 tylerneylon
@@ -1891,6 +1916,7 @@ wireformat
 wirelength
 wmem
 workaround
+workarounds
 workarounds
 would've
 wouter
