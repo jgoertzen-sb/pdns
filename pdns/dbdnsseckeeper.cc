@@ -86,24 +86,24 @@ bool DNSSECKeeper::isPresigned(const DNSName& name, bool useCache)
 }
 
 
-bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, int64_t& id, int bits, bool active, bool published)
+bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, int64_t& id, int key_param, bool active, bool published)
 {
-  if(!bits) {
+  if(!key_param) {
     if(algorithm <= 10)
-      throw runtime_error("Creating an algorithm " +std::to_string(algorithm)+" ("+algorithm2name(algorithm)+") key requires the size (in bits) to be passed.");
+      throw runtime_error("Creating an algorithm " +std::to_string(algorithm)+" ("+algorithm2name(algorithm)+") key requires the size (in bits) to be passed via key_param.");
     else {
       if(algorithm == DNSSECKeeper::ECCGOST || algorithm == DNSSECKeeper::ECDSA256 || algorithm == DNSSECKeeper::ED25519)
-        bits = 256;
+        key_param = 256;
       else if(algorithm == DNSSECKeeper::ECDSA384)
-        bits = 384;
+        key_param = 384;
       else if(algorithm == DNSSECKeeper::ED448)
-        bits = 456;
+        key_param = 456;
       else if(algorithm == DNSSECKeeper::FALCON512)
-        bits = 10248;
+        key_param = 10248;
       else if(algorithm == DNSSECKeeper::DILITHIUM2)
-        bits = 20224;
+        key_param = 20224;
       else if(algorithm == DNSSECKeeper::SPHINCSSHA256128S)
-        bits = 512;
+        key_param = 512;
       else {
         throw runtime_error("Can not guess key size for algorithm "+std::to_string(algorithm));
       }
@@ -111,9 +111,9 @@ bool DNSSECKeeper::addKey(const DNSName& name, bool setSEPBit, int algorithm, in
   }
   shared_ptr<DNSCryptoKeyEngine> dpk(DNSCryptoKeyEngine::make(algorithm));
   try{
-    dpk->create(bits);
+    dpk->create(key_param);
   } catch (const std::runtime_error& error){
-    throw runtime_error("The algorithm does not support the given bit size.");
+    throw runtime_error("The algorithm does not support the given key parameter.");
   }
   DNSSECPrivateKey dspk;
   dspk.setKey(dpk, setSEPBit ? 257 : 256, algorithm);

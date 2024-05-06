@@ -15,24 +15,28 @@ RUN apt-get install -y --no-install-recommends \
     # original requirements
     cmake gcc libtool libssl-dev make ninja-build git \
     # added by us
-    astyle python3-pytest python3-pytest-xdist unzip xsltproc doxygen \
+    astyle python3-pytest python3-pytest-xdist unzip xsltproc doxygen libluajit-5.1-dev liblua5.3-dev \
     graphviz apt-transport-https ca-certificates build-essential systemd
     
 
 WORKDIR /source/
+
+RUN apt remove openssl libssl-dev -y
 RUN git clone --branch openssl-3.2.0 https://github.com/openssl/openssl.git openssl-source/
-RUN git clone https://github.com/open-quantum-safe/liboqs.git
-RUN mkdir liboqs/build/
-RUN cd liboqs/build/ && cmake -GNinja ..
-RUN cd liboqs/build/ && ninja
-RUN cd liboqs/build/ && ninja install
 RUN cd openssl-source/ && ./Configure -lm no-docs --libdir=lib
 RUN cd openssl-source/ && make
 RUN cd openssl-source/ && make install
+RUN git clone --branch stateful-sigs https://github.com/open-quantum-safe/liboqs.git
+RUN mkdir liboqs/build/
+RUN cd liboqs/build/ && cmake -GNinja -DOQS_ENABLE_SIG_STFL_XMSS=ON -DOQS_EXPERIMENTAL_ENABLE_SIG_STFL_KEY_SIG_GEN=ON ..
+RUN cd liboqs/build/ && ninja
+RUN cd liboqs/build/ && ninja install
 RUN git clone https://github.com/open-quantum-safe/oqs-provider.git
-ENV LD_LIBRARY_PATH=/usr/local/lib
-RUN cd oqs-provider/ && cmake -S . -B _build && cmake --build _build && ctest --test-dir _build && cmake --install _build
-
+#ENV LD_LIBRARY_PATH=/usr/local/lib
+RUN cd oqs-provider/ && cmake -S . -B _build
+RUN cd oqs-provider/ && cmake --build _build
+RUN cd oqs-provider/ && ctest --test-dir _build
+RUN cd oqs-provider/ && cmake --install _build --config DebPack
 ENV NO_LUA_JIT="s390x arm64"
 
 # Reusable layer for base update
@@ -55,9 +59,6 @@ COPY m4 /source/m4
 COPY ext /source/ext
 COPY .git /source/.git
 # COPY builder/helpers/set-configure-ac-version.sh /usr/local/bin
-
-COPY builder-support/helpers/install_rust.sh /source/install_rust.sh
-RUN /source/install_rust.sh
 
 COPY builder-support/helpers/install_rust.sh /source/install_rust.sh
 RUN /source/install_rust.sh

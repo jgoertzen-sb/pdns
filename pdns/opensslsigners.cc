@@ -1773,7 +1773,7 @@ public:
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 666;
-      d_algname = "falcon512";
+      d_algname = "falconpadded512";
     }
     else if (d_algorithm == DNSSECKeeper::DILITHIUM2) {
       d_priv_len = 2528;
