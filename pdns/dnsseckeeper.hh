@@ -188,11 +188,11 @@ public:
   static int setupParam(string &algorithm, int param)
   {
     if (algorithm.rfind("xmssmt", 0) == 0) {
-      param = xmssmtPdnsName2Param(algorithm);
+      param = xmssmt_pdnsname_to_param(algorithm);
       algorithm = "xmssmt";
     }
     else if (algorithm.rfind("xmss", 0) == 0) {
-      param = xmssPdnsName2Param(algorithm);
+      param = xmss_pdnsname_to_param(algorithm);
       algorithm = "xmss";
     }
     return param;

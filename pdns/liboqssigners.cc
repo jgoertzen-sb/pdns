@@ -107,7 +107,7 @@ const char *alg_xmss_oqsname[] = {
   NULL,
 };
 
-unsigned int xmssPdnsName2Param(const std::string &algorithm) {
+unsigned int xmss_pdnsname_to_param(const std::string &algorithm) {
   int param;
   if (pdns_iequals(algorithm, "xmss-sha256-h10"))
     param = XMSS_SHA256_H10_oid;
@@ -138,18 +138,18 @@ unsigned int xmssPdnsName2Param(const std::string &algorithm) {
   return param;
 }
 
-static std::string xmssoid2oqsname(unsigned int oid) {
+static std::string xmss_oid_to_oqsname(unsigned int oid) {
   for (int i = 0; alg_xmss_oid[i] != 0; i++) {
     if (alg_xmss_oid[i] == oid) {
         return alg_xmss_oqsname[i];
     }
   }
-  return std::string("");
+  throw runtime_error("unable to find xmss oqsname for oid: " + std::to_string(oid));
 }
 
 #define XMSS_OID_LEN 4
 
-static unsigned int xmsskey2oid(const std::string &key) {
+static unsigned int xmss_key_to_oid(const std::string &key) {
   const unsigned char* raw_key = reinterpret_cast<const unsigned char*>(key.c_str());
   const size_t raw_key_len = key.length();
   unsigned int oid = 0;
@@ -219,7 +219,7 @@ const char *alg_xmssmt_oqsname[] = {
   NULL,
 };
 
-unsigned int xmssmtPdnsName2Param(const std::string &algorithm) {
+unsigned int xmssmt_pdnsname_to_param(const std::string &algorithm) {
   int param;
   if (pdns_iequals(algorithm, "xmssmt-sha256-h20-2"))
     param = XMSSMT_SHA256_H20_2_oid;
@@ -258,19 +258,19 @@ unsigned int xmssmtPdnsName2Param(const std::string &algorithm) {
   return param;
 }
 
-static std::string xmssmtoid2oqsname(unsigned int oid) {
+static std::string xmssmt_oid_to_oqsname(unsigned int oid) {
   for (int i = 0; alg_xmssmt_oid[i] != 0; i++) {
     if (alg_xmssmt_oid[i] == oid) {
         return alg_xmssmt_oqsname[i];
     }
   }
-  return std::string("");
+  throw runtime_error("unable to find xmssmt oqsname for oid: " + std::to_string(oid));
 }
 
 #define XMSS_OID_LEN 4
 
-static unsigned int xmssmtkey2oid(const std::string &key) {
-  return xmsskey2oid(key);
+static unsigned int xmssmt_key_to_oid(const std::string &key) {
+  return xmss_key_to_oid(key);
 }
 
 
@@ -327,7 +327,7 @@ private:
 bool LiboqsStflDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const
 {
   (void)errorMessages;
-  return (d_stflprivkey ? true : false);
+  return (d_stflprivkey && !d_stflpubkey.empty() && d_stflctx);
 }
 
 void LiboqsStflDNSCryptoKeyEngine::create(unsigned int oid)
@@ -337,12 +337,9 @@ void LiboqsStflDNSCryptoKeyEngine::create(unsigned int oid)
   }
   std::string xmss_name;
   if (d_is_xmssmt)
-    xmss_name = xmssmtoid2oqsname(oid);
+    xmss_name = xmssmt_oid_to_oqsname(oid);
   else
-    xmss_name = xmssoid2oqsname(oid);
-  if (xmss_name == "") {
-    throw runtime_error(getName() + " Failed to get xmss_name from oid");
-  }
+    xmss_name = xmss_oid_to_oqsname(oid);
   auto ctx = std::unique_ptr<OQS_SIG_STFL, void(*)(OQS_SIG_STFL*)>(OQS_SIG_STFL_new(xmss_name.c_str()), OQS_SIG_STFL_free);
   if (!ctx) {
     throw runtime_error(getName() + " OQS_SIG_STFL initialisation failed");
@@ -363,7 +360,7 @@ void LiboqsStflDNSCryptoKeyEngine::create(unsigned int oid)
   OQS_SIG_STFL_SECRET_KEY_SET_lock(priv_key.get(), lock_sk);
   OQS_SIG_STFL_SECRET_KEY_SET_unlock(priv_key.get(), unlock_sk);
   if (pthread_mutex_init(&d_keylock, NULL) != 0) {
-    throw runtime_error(getName() + " failed to initalize keylock");
+    throw runtime_error(getName() + " failed to initialize keylock");
   }
   OQS_SIG_STFL_SECRET_KEY_SET_mutex(priv_key.get(), &d_keylock);
   OQS_SIG_STFL_SECRET_KEY_SET_store_cb(priv_key.get(), save_sk, NULL);
@@ -470,17 +467,14 @@ void LiboqsStflDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map
   
   unsigned int oid;
   if (d_is_xmssmt)
-    oid = xmssmtkey2oid(pub_key);
+    oid = xmssmt_key_to_oid(pub_key);
   else
-    oid = xmsskey2oid(pub_key);
+    oid = xmss_key_to_oid(pub_key);
   std::string xmss_name;
   if (d_is_xmssmt)
-    xmss_name = xmssmtoid2oqsname(oid);
+    xmss_name = xmssmt_oid_to_oqsname(oid);
   else
-    xmss_name = xmssoid2oqsname(oid);
-  if (xmss_name == "") {
-    throw runtime_error(getName() + " failed to get oid from public key");
-  }
+    xmss_name = xmss_oid_to_oqsname(oid);
   auto ctx = std::unique_ptr<OQS_SIG_STFL, void(*)(OQS_SIG_STFL*)>(OQS_SIG_STFL_new(xmss_name.c_str()), OQS_SIG_STFL_free);
   if (!ctx) {
     throw runtime_error(getName() + " failed to get stateful context");
@@ -513,17 +507,14 @@ void LiboqsStflDNSCryptoKeyEngine::fromPublicKeyString(const std::string& conten
 {
   unsigned int oid;
   if (d_is_xmssmt)
-    oid = xmssmtkey2oid(content);
+    oid = xmssmt_key_to_oid(content);
   else
-    oid = xmsskey2oid(content);
+    oid = xmss_key_to_oid(content);
   std::string xmss_name;
   if (d_is_xmssmt)
-    xmss_name = xmssmtoid2oqsname(oid);
+    xmss_name = xmssmt_oid_to_oqsname(oid);
   else
-    xmss_name = xmssoid2oqsname(oid);
-  if (xmss_name == "") {
-    throw runtime_error(getName() + " failed to get oid from public key");
-  }
+    xmss_name = xmss_oid_to_oqsname(oid);
   auto ctx = std::unique_ptr<OQS_SIG_STFL, void(*)(OQS_SIG_STFL*)>(OQS_SIG_STFL_new(xmss_name.c_str()), OQS_SIG_STFL_free);
   if (!ctx) {
     throw runtime_error(getName() + " failed to get stateful context");

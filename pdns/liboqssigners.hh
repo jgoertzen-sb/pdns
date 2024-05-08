@@ -25,5 +25,5 @@
 
 #include "dns_random.hh"
 
-unsigned int xmssPdnsName2Param(const std::string &algorithm);
-unsigned int xmssmtPdnsName2Param(const std::string &algorithm);
+unsigned int xmss_pdnsname_to_param(const std::string &algorithm);
+unsigned int xmssmt_pdnsname_to_param(const std::string &algorithm);
