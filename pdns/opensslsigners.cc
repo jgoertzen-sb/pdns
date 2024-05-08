@@ -1839,16 +1839,17 @@ bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper
   (void)errorMessages;
   if (d_algorithm == DNSSECKeeper::FALCON512) {
     return (d_priv_len == 1281 && d_pub_len == 897 && d_sig_len == 666
-		    && d_algname == "falconpadded512");
+            && d_algname == "falconpadded512");
   }
   else if (d_algorithm == DNSSECKeeper::DILITHIUM2) {
     return (d_priv_len == 2528 && d_pub_len == 1312 && d_sig_len == 2420
-		    && d_algname == "dilithium2");
+            && d_algname == "dilithium2");
   }
   else if (d_algorithm == DNSSECKeeper::SPHINCSSHA256128S) {
     return (d_priv_len == 64 && d_pub_len == 32 && d_sig_len == 7856
-		    && d_algname == "sphincssha2128ssimple");
-  } else {
+            && d_algname == "sphincssha2128ssimple");
+  }
+  else {
     return false;
   }
 }
