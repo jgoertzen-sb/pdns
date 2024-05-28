@@ -290,7 +290,7 @@ public:
     d_stflprivkey(std::unique_ptr<OQS_SIG_STFL_SECRET_KEY, void (*)(OQS_SIG_STFL_SECRET_KEY*)>(nullptr, OQS_SIG_STFL_SECRET_KEY_free)),
     d_stflctx(std::unique_ptr<OQS_SIG_STFL, void (*)(OQS_SIG_STFL*)>(nullptr, OQS_SIG_STFL_free))
   {
-    switch(algo) {
+    switch (algo) {
     case DNSSECKeeper::XMSS:
       d_is_xmssmt = false;
       break;
