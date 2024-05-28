@@ -19,13 +19,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
+#include "liboqssigners.hh"
 #include "misc.hh"
 #include <memory>
 #include <optional>
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
-#include "liboqssigners.hh"
 #include "dnssecinfra.hh"
 #include "dnsseckeeper.hh"
 
@@ -152,18 +152,18 @@ static std::string xmss_oid_to_oqsname(unsigned int oid)
   throw runtime_error("unable to find xmss oqsname for oid: " + std::to_string(oid));
 }
 
-#define XMSS_OID_LEN 4
+const int kXmssOidLen = 4;
 
 static unsigned int xmss_key_to_oid(const std::string& key)
 {
   const unsigned char* raw_key = reinterpret_cast<const unsigned char*>(key.c_str());
   const size_t raw_key_len = key.length();
   unsigned int oid = 0;
-  if (XMSS_OID_LEN > raw_key_len) {
+  if (kXmssOidLen > raw_key_len) {
     return 0;
   }
-  for (int i = 0; i < XMSS_OID_LEN; i++) {
-    oid |= raw_key[XMSS_OID_LEN - i - 1] << (i * 8);
+  for (int i = 0; i < kXmssOidLen; i++) {
+    oid |= raw_key[kXmssOidLen - i - 1] << (i * 8);
   }
   return oid;
 }
@@ -275,8 +275,6 @@ static std::string xmssmt_oid_to_oqsname(unsigned int oid)
   throw runtime_error("unable to find xmssmt oqsname for oid: " + std::to_string(oid));
 }
 
-#define XMSS_OID_LEN 4
-
 static unsigned int xmssmt_key_to_oid(const std::string& key)
 {
   return xmss_key_to_oid(key);
@@ -292,14 +290,15 @@ public:
     d_stflprivkey(std::unique_ptr<OQS_SIG_STFL_SECRET_KEY, void (*)(OQS_SIG_STFL_SECRET_KEY*)>(nullptr, OQS_SIG_STFL_SECRET_KEY_free)),
     d_stflctx(std::unique_ptr<OQS_SIG_STFL, void (*)(OQS_SIG_STFL*)>(nullptr, OQS_SIG_STFL_free))
   {
-    if (algo == DNSSECKeeper::XMSS) {
-      d_is_xmssmt = false;
-    }
-    else if (algo == DNSSECKeeper::XMSSMT) {
-      d_is_xmssmt = true;
-    }
-    else {
-      throw runtime_error(getName() + " wrong algorithm given to XMSS and XMSSMT CryptoKeyEngine");
+    switch(algo) {
+      case DNSSECKeeper::XMSS:
+	d_is_xmssmt = false;
+	break;
+      case DNSSECKeeper::XMSSMT:
+	d_is_xmssmt = true;
+	break;
+      default:
+        throw runtime_error(getName() + " wrong algorithm given to XMSS and XMSSMT CryptoKeyEngine");
     }
   }
 
