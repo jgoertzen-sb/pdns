@@ -291,14 +291,14 @@ public:
     d_stflctx(std::unique_ptr<OQS_SIG_STFL, void (*)(OQS_SIG_STFL*)>(nullptr, OQS_SIG_STFL_free))
   {
     switch(algo) {
-      case DNSSECKeeper::XMSS:
-	d_is_xmssmt = false;
-	break;
-      case DNSSECKeeper::XMSSMT:
-	d_is_xmssmt = true;
-	break;
-      default:
-        throw runtime_error(getName() + " wrong algorithm given to XMSS and XMSSMT CryptoKeyEngine");
+    case DNSSECKeeper::XMSS:
+      d_is_xmssmt = false;
+      break;
+    case DNSSECKeeper::XMSSMT:
+      d_is_xmssmt = true;
+      break;
+    default:
+      throw runtime_error(getName() + " wrong algorithm given to XMSS and XMSSMT CryptoKeyEngine");
     }
   }
 
