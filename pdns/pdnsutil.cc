@@ -2292,11 +2292,11 @@ static bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
 
   // parse attribute
   string k_algo = ::arg()["default-ksk-algorithm"];
-  int k_size = ::arg().asNum("default-ksk-size");
+  int k_param = ::arg().asNum("default-ksk-size");
   string z_algo = ::arg()["default-zsk-algorithm"];
-  int z_size = ::arg().asNum("default-zsk-size");
+  int z_param = ::arg().asNum("default-zsk-size");
 
-  if (k_size < 0) {
+  if (k_param < 0) {
     throw runtime_error("KSK key size must be equal to or greater than 0");
   }
 
@@ -2304,7 +2304,7 @@ static bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
     throw runtime_error("Zero algorithms given for KSK+ZSK in total");
   }
 
-  if (z_size < 0) {
+  if (z_param < 0) {
     throw runtime_error("ZSK key size must be equal to or greater than 0");
   }
 
@@ -2312,6 +2312,8 @@ static bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
     cerr << "Zone '" << zone << "' already secure, remove keys with pdnsutil remove-zone-key if needed" << endl;
     return false;
   }
+
+
 
   DomainInfo di;
   UeberBackend B("default");
@@ -2327,8 +2329,11 @@ static bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
   }
 
   if (!k_algo.empty()) { // Add a KSK
-    if (k_size)
-      cout << "Securing zone with key size " << k_size << endl;
+    k_param = DNSSECKeeper::setupParam(k_algo, k_param);
+    if (k_param && k_algo != "xmss")
+      cout << "Securing zone with key size " << k_param << endl;
+    else if (k_param && k_algo == "xmss")
+      cout << "Securing zone with xmss oid " << k_param << endl;
     else
       cout << "Securing zone with default key size" << endl;
 
@@ -2336,7 +2341,7 @@ static bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
 
     int k_real_algo = DNSSECKeeper::shorthand2algorithm(k_algo);
 
-    if (!dk.addKey(zone, true, k_real_algo, id, k_size, true, true)) {
+    if (!dk.addKey(zone, true, k_real_algo, id, k_param, true, true)) {
       cerr << "No backend was able to secure '" << zone << "', most likely because no DNSSEC" << endl;
       cerr << "capable backends are loaded, or because the backends have DNSSEC disabled." << endl;
       cerr << "For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or" << endl;
@@ -2346,11 +2351,12 @@ static bool secureZone(DNSSECKeeper& dk, const DNSName& zone)
   }
 
   if (!z_algo.empty()) {
+    z_param = DNSSECKeeper::setupParam(z_algo, z_param);
     cout << "Adding " << (k_algo.empty() ? "CSK (256)" : "ZSK") << " with algorithm " << z_algo << endl;
 
     int z_real_algo = DNSSECKeeper::shorthand2algorithm(z_algo);
 
-    if (!dk.addKey(zone, false, z_real_algo, id, z_size, true, true)) {
+    if (!dk.addKey(zone, false, z_real_algo, id, z_param, true, true)) {
       cerr << "No backend was able to secure '" << zone << "', most likely because no DNSSEC" << endl;
       cerr << "capable backends are loaded, or because the backends have DNSSEC disabled." << endl;
       cerr << "For the Generic SQL backends, set the 'gsqlite3-dnssec', 'gmysql-dnssec' or" << endl;
@@ -3057,47 +3063,55 @@ try {
     // need to get algorithm, bits & ksk or zsk from commandline
     bool keyOrZone = false;
     int tmp_algo = 0;
-    int bits = 0;
+    int key_param = 0;
+    int tmp_param = 0;
     int algorithm = DNSSECKeeper::ECDSA256;
     bool active = false;
     bool published = true;
     for (unsigned int n = 2; n < cmds.size(); ++n) {
-      if (pdns_iequals(cmds.at(n), "zsk"))
+      std::string cmd = cmds.at(n);
+      if (pdns_iequals(cmd, "zsk"))
         keyOrZone = false;
-      else if (pdns_iequals(cmds.at(n), "ksk"))
+      else if (pdns_iequals(cmd, "ksk"))
         keyOrZone = true;
-      else if ((tmp_algo = DNSSECKeeper::shorthand2algorithm(cmds.at(n))) > 0) {
+      else if ((tmp_param = DNSSECKeeper::setupParam(cmd, key_param)) != key_param) {
+        key_param = tmp_param;
+	algorithm = DNSSECKeeper::shorthand2algorithm(cmd);
+      }
+      else if ((tmp_algo = DNSSECKeeper::shorthand2algorithm(cmd)) > 0) {
         algorithm = tmp_algo;
       }
-      else if (pdns_iequals(cmds.at(n), "active")) {
+      else if (pdns_iequals(cmd, "active")) {
         active = true;
       }
-      else if (pdns_iequals(cmds.at(n), "inactive") || pdns_iequals(cmds.at(n), "passive")) { // 'passive' eventually needs to be removed
+      else if (pdns_iequals(cmd, "inactive") || pdns_iequals(cmd, "passive")) { // 'passive' eventually needs to be removed
         active = false;
       }
-      else if (pdns_iequals(cmds.at(n), "published")) {
+      else if (pdns_iequals(cmd, "published")) {
         published = true;
       }
-      else if (pdns_iequals(cmds.at(n), "unpublished")) {
+      else if (pdns_iequals(cmd, "unpublished")) {
         published = false;
       }
-      else if (pdns::checked_stoi<int>(cmds.at(n)) != 0) {
-        pdns::checked_stoi_into(bits, cmds.at(n));
+      else if (pdns::checked_stoi<int>(cmd) != 0) {
+        pdns::checked_stoi_into(key_param, cmd);
       }
       else {
-        cerr << "Unknown algorithm, key flag or size '" << cmds.at(n) << "'" << endl;
+        cerr << "Unknown algorithm, key flag or size '" << cmd << "'" << endl;
         return EXIT_FAILURE;
       }
     }
     int64_t id{-1};
-    if (!dk.addKey(zone, keyOrZone, algorithm, id, bits, active, published)) {
+    if (!dk.addKey(zone, keyOrZone, algorithm, id, key_param, active, published)) {
       cerr << "Adding key failed, perhaps DNSSEC not enabled in configuration?" << endl;
       return 1;
     }
     else {
       cerr << "Added a " << (keyOrZone ? "KSK" : "ZSK") << " with algorithm = " << algorithm << ", active=" << active << endl;
-      if (bits)
-        cerr << "Requested specific key size of " << bits << " bits" << endl;
+      if (key_param && (algorithm == DNSSECKeeper::XMSS || algorithm == DNSSECKeeper::XMSSMT))
+        cerr << "Requested xmss(mt) key with oid " << key_param << endl;
+      else if (key_param)
+        cerr << "Requested specific key size of " << key_param << " bits" << endl;
       if (id == -1) {
         cerr << std::to_string(id) << ": Key was added, but backend does not support returning of key id" << endl;
       }

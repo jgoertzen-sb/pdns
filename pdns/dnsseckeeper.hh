@@ -29,6 +29,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/key_extractors.hpp>
 #include <boost/multi_index/sequenced_index.hpp>
+#include "liboqssigners.hh"
 #include "dnssecinfra.hh"
 #include "dnsrecords.hh"
 #include "ueberbackend.hh"
@@ -56,7 +57,9 @@ public:
     ED448=16,
     FALCON512=17,
     DILITHIUM2=18,
-    SPHINCSSHA256128S=19
+    SPHINCSSHA256128S=19,
+    XMSS=20,
+    XMSSMT=21,
   };
 
   enum dsdigestalgorithm_t : uint8_t {
@@ -117,6 +120,8 @@ public:
     if (pdns_iequals(algorithm, "falcon512")) return FALCON512;
     if (pdns_iequals(algorithm, "dilithium2")) return DILITHIUM2;
     if (pdns_iequals(algorithm, "sphincs+-sha256-128s")) return SPHINCSSHA256128S;
+    if (pdns_iequals(algorithm, "xmss")) return XMSS;
+    if (pdns_iequals(algorithm, "xmssmt")) return XMSSMT;
     if (pdns_iequals(algorithm, "indirect")) return 252;
     if (pdns_iequals(algorithm, "privatedns")) return 253;
     if (pdns_iequals(algorithm, "privateoid")) return 254;
@@ -165,6 +170,10 @@ public:
         return "dilithium2";
       case SPHINCSSHA256128S:
         return "sphincs+-sha256-128s";
+      case XMSS:
+        return "xmss";
+      case XMSSMT:
+	return "xmssmt";
       case 252:
         return "INDIRECT";
       case 253:
@@ -174,6 +183,19 @@ public:
       default:
         return "Unallocated/Reserved";
     }
+  }
+  
+  static int setupParam(string &algorithm, int param)
+  {
+    if (algorithm.rfind("xmssmt", 0) == 0) {
+      param = xmssmt_pdnsname_to_param(algorithm);
+      algorithm = "xmssmt";
+    }
+    else if (algorithm.rfind("xmss", 0) == 0) {
+      param = xmss_pdnsname_to_param(algorithm);
+      algorithm = "xmss";
+    }
+    return param;
   }
 
 private:
@@ -207,7 +229,7 @@ public:
   keyset_t getEntryPoints(const DNSName& zname);
   keyset_t getKeys(const DNSName& zone, bool useCache = true);
   DNSSECPrivateKey getKeyById(const DNSName& zone, unsigned int id);
-  bool addKey(const DNSName& zname, bool setSEPBit, int algorithm, int64_t& id, int bits=0, bool active=true, bool published=true);
+  bool addKey(const DNSName& zname, bool setSEPBit, int algorithm, int64_t& id, int key_param=0, bool active=true, bool published=true);
   bool addKey(const DNSName& zname, const DNSSECPrivateKey& dpk, int64_t& id, bool active=true, bool published=true);
   bool removeKey(const DNSName& zname, unsigned int id);
   bool activateKey(const DNSName& zname, unsigned int id);

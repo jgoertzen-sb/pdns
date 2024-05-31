@@ -243,6 +243,7 @@ pdns_server_SOURCES = \
 	iputils.cc iputils.hh \
 	ixfr.cc ixfr.hh \
 	json.cc json.hh \
+	liboqssigners.cc liboqssigners.hh \
 	lock.hh \
 	logger.cc logger.hh \
 	logging.hh \
@@ -376,6 +377,7 @@ pdnsutil_SOURCES = \
 	ipcipher.cc ipcipher.hh \
 	iputils.cc iputils.hh \
 	json.cc \
+	liboqssigners.cc liboqssigners.hh \
 	logger.cc \
 	lua-auth4.cc lua-auth4.hh \
 	lua-base4.cc lua-base4.hh \
@@ -1362,6 +1364,7 @@ testrunner_SOURCES = \
 	ipcipher.cc ipcipher.hh \
 	iputils.cc \
 	ixfr.cc ixfr.hh \
+	liboqssigners.cc liboqssigners.hh \
 	logger.cc \
 	lua-auth4.hh lua-auth4.cc \
 	lua-base4.hh lua-base4.cc \

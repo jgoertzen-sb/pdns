@@ -1773,7 +1773,7 @@ public:
       d_priv_len = 1281;
       d_pub_len = 897;
       d_sig_len = 666;
-      d_algname = "falcon512";
+      d_algname = "falconpadded512";
     }
     else if (d_algorithm == DNSSECKeeper::DILITHIUM2) {
       d_priv_len = 2528;
@@ -1837,7 +1837,21 @@ private:
 bool OpenSSLPQCDNSCryptoKeyEngine::checkKey(std::optional<std::reference_wrapper<vector<string>>> errorMessages) const
 {
   (void)errorMessages;
-  return (d_pqckey ? true : false);
+  if (d_algorithm == DNSSECKeeper::FALCON512) {
+    return (d_priv_len == 1281 && d_pub_len == 897 && d_sig_len == 666
+            && d_algname == "falconpadded512");
+  }
+  else if (d_algorithm == DNSSECKeeper::DILITHIUM2) {
+    return (d_priv_len == 2528 && d_pub_len == 1312 && d_sig_len == 2420
+            && d_algname == "dilithium2");
+  }
+  else if (d_algorithm == DNSSECKeeper::SPHINCSSHA256128S) {
+    return (d_priv_len == 64 && d_pub_len == 32 && d_sig_len == 7856
+            && d_algname == "sphincssha2128ssimple");
+  }
+  else {
+    return false;
+  }
 }
 
 void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
@@ -1856,12 +1870,12 @@ void OpenSSLPQCDNSCryptoKeyEngine::create(unsigned int bits)
   if (EVP_PKEY_keygen_init(pctx.get()) < 1) {
     throw runtime_error(getName() + " keygen initialization failed");
   }
-  EVP_PKEY* newKey = nullptr;
-  if (EVP_PKEY_keygen(pctx.get(), &newKey) < 1) {
+  EVP_PKEY* new_key = nullptr;
+  if (EVP_PKEY_keygen(pctx.get(), &new_key) < 1) {
     throw runtime_error(getName() + " key generation failed");
   }
 
-  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(newKey, EVP_PKEY_free);
+  d_pqckey = std::unique_ptr<EVP_PKEY, void (*)(EVP_PKEY*)>(new_key, EVP_PKEY_free);
 }
 
 DNSCryptoKeyEngine::storvector_t OpenSSLPQCDNSCryptoKeyEngine::convertToISCVector() const
@@ -1942,12 +1956,12 @@ bool OpenSSLPQCDNSCryptoKeyEngine::verify(const std::string& message, const std:
     throw runtime_error(getName() + " unable to initialize signer");
   }
 
-  string checkSignature = signature;
-  string checkMsg = message;
+  string check_signature = signature;
+  string check_msg = message;
 
   auto r = EVP_DigestVerify(mdctx.get(),
-                            reinterpret_cast<unsigned char*>(&checkSignature.at(0)), checkSignature.length(),
-                            reinterpret_cast<unsigned char*>(&checkMsg.at(0)), checkMsg.length());
+                            reinterpret_cast<unsigned char*>(&check_signature.at(0)), check_signature.length(),
+                            reinterpret_cast<unsigned char*>(&check_msg.at(0)), check_msg.length());
   if (r < 0) {
     throw runtime_error(getName() + " verification failure");
   }
@@ -1987,7 +2001,7 @@ void OpenSSLPQCDNSCryptoKeyEngine::fromISCMap(DNSKEYRecordContent& drc, std::map
   }
   auto ctx = std::unique_ptr<EVP_PKEY_CTX, void (*)(EVP_PKEY_CTX*)>(EVP_PKEY_CTX_new_from_name(NULL, d_algname.c_str(), NULL), EVP_PKEY_CTX_free);
   if (!ctx) {
-    throw std::runtime_error(getName() + " could not initalize PKEY_CTX");
+    throw std::runtime_error(getName() + " could not initialize PKEY_CTX");
   }
   EVP_PKEY* pk = nullptr;
   if (EVP_PKEY_fromdata_init(ctx.get()) <= 0 || EVP_PKEY_fromdata(ctx.get(), &pk, EVP_PKEY_KEY_PARAMETERS, params.get()) <= 0) {

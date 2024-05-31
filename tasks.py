@@ -230,12 +230,12 @@ def install_valgrind(c):
 def install_liboqs(c):
     c.sudo('apt-get install -y ' + ' '.join(oqs_build_deps))
     install_valgrind(c)
-    c.run('git clone https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs')
+    c.run('git clone --branch stateful-sigs https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs')
     c.run('mkdir /tmp/liboqs/build')
     with c.cd('/tmp/liboqs/build'):
         # checkout liboqs 0.9.2
         c.run('git checkout 62b58a3')
-        c.run('cmake -GNinja ..')
+        c.run('cmake -GNinja -DOQS_EXPERIMENTAL_ENABLE_SIG_STFL_KEY_SIG_GEN=ON -DOQS_ENABLE_SIG_STFL_XMSS=ON ..')
         c.run('ninja')
         c.run('ninja run_tests')
         c.run('sudo ninja install')

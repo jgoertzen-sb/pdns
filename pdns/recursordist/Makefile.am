@@ -64,6 +64,7 @@ EXTRA_DIST = \
 	effective_tld_names.dat \
 	epollmplexer.cc \
 	kqueuemplexer.cc \
+	liboqssigners.cc liboqssigners.hh \
 	lua_hpp.mk \
 	malloctrace.cc malloctrace.hh \
 	mkpubsuffixcc \
@@ -141,6 +142,7 @@ pdns_recursor_SOURCES = \
 	ixfr.cc ixfr.hh \
 	json.cc json.hh \
 	lazy_allocator.hh \
+	liboqssigners.cc liboqssigners.hh \
 	libssl.cc libssl.hh \
 	lock.hh \
 	logger.hh logger.cc \
@@ -292,6 +294,7 @@ testrunner_SOURCES = \
 	gss_context.cc gss_context.hh \
 	iputils.cc iputils.hh \
 	ixfr.cc ixfr.hh \
+	liboqssigners.cc liboqssigners.hh \
 	logger.cc logger.hh \
 	logging.hh logging.cc logr.hh \
 	misc.cc misc.hh \
