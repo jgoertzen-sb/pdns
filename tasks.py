@@ -70,7 +70,6 @@ auth_build_deps = [    # FIXME: perhaps we should be stealing these from the deb
     'libsqlite3-dev',
     'libyaml-cpp-dev',
     'libzmq3-dev',
-    'ruby-full',
     'ruby-bundler',
     'ruby-dev',
     'sqlite3',
@@ -699,7 +698,7 @@ def ci_auth_install_remotebackend_test_deps(c):
     with c.cd('modules/remotebackend'):
       # c.run('bundle config set path vendor/bundle')
       c.run('sudo ruby -S bundle install')
-    c.sudo('apt-get install -y socat')
+    c.sudo('apt-get install -y socat ruby-full')
 
 @task
 def ci_auth_run_unit_tests(c):
