@@ -235,8 +235,6 @@ def install_liboqs(c):
         c.run('git checkout 31bdf13d4b8717b143f9ed584dfb8faceb80ebd9')
     c.run('mkdir /tmp/liboqs/build')
     with c.cd('/tmp/liboqs/build'):
-        # checkout liboqs 0.9.2
-        c.run('git checkout 62b58a3')
         c.run('cmake -GNinja -DOQS_EXPERIMENTAL_ENABLE_SIG_STFL_KEY_SIG_GEN=ON -DOQS_ENABLE_SIG_STFL_XMSS=ON ..')
         c.run('ninja')
         c.run('ninja run_tests')
