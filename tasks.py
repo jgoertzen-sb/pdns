@@ -70,6 +70,7 @@ auth_build_deps = [    # FIXME: perhaps we should be stealing these from the deb
     'libsqlite3-dev',
     'libyaml-cpp-dev',
     'libzmq3-dev',
+    'ruby-full',
     'ruby-bundler',
     'ruby-dev',
     'sqlite3',

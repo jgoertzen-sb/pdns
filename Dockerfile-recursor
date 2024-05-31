@@ -26,13 +26,14 @@ RUN git clone --branch openssl-3.2.0 https://github.com/openssl/openssl.git open
 RUN cd openssl-source/ && ./Configure -lm no-docs --libdir=lib
 RUN cd openssl-source/ && make
 RUN cd openssl-source/ && make install
-RUN git clone --branch stateful-sigs https://github.com/open-quantum-safe/liboqs.git
+RUN git clone https://github.com/open-quantum-safe/liboqs.git
+RUN cd liboqs && git checkout 31bdf13d4b8717b143f9ed584dfb8faceb80ebd9
 RUN mkdir liboqs/build/
 RUN cd liboqs/build/ && cmake -GNinja -DOQS_ENABLE_SIG_STFL_XMSS=ON -DOQS_EXPERIMENTAL_ENABLE_SIG_STFL_KEY_SIG_GEN=ON ..
 RUN cd liboqs/build/ && ninja
 RUN cd liboqs/build/ && ninja install
 RUN git clone https://github.com/open-quantum-safe/oqs-provider.git
-#ENV LD_LIBRARY_PATH=/usr/local/lib
+RUN cd oqs-provider/ && git checkout e784ed12c69f0f6a73e185237d4259d566b5ed97
 RUN cd oqs-provider/ && cmake -S . -B _build
 RUN cd oqs-provider/ && cmake --build _build
 RUN cd oqs-provider/ && ctest --test-dir _build
