@@ -258,7 +258,7 @@ def install_oqs_provider(c):
         c.run('cmake -S . -B _build')
         c.run('cmake --build _build')
         c.run('ctest --test-dir _build')
-        c.run('sudo cmake --install _build')
+        c.run('sudo cmake --install _build --config DebPack')
 
 @task
 def install_doc_deps(c):
