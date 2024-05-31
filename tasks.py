@@ -231,7 +231,7 @@ def install_liboqs(c):
     c.sudo('apt-get install -y ' + ' '.join(oqs_build_deps))
     install_valgrind(c)
     c.run('git clone https://github.com/open-quantum-safe/liboqs.git /tmp/liboqs')
-    with c.cd('/tmp/liboqs')
+    with c.cd('/tmp/liboqs'):
         c.run('git checkout 31bdf13d4b8717b143f9ed584dfb8faceb80ebd9')
     c.run('mkdir /tmp/liboqs/build')
     with c.cd('/tmp/liboqs/build'):
