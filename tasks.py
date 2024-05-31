@@ -256,6 +256,7 @@ def install_openssl32(c):
 def install_oqs_provider(c):
     c.run('git clone https://github.com/open-quantum-safe/oqs-provider.git /tmp/oqs-provider')
     with c.cd('/tmp/oqs-provider'):
+        c.run('git checkout e784ed12c69f0f6a73e185237d4259d566b5ed97')
         c.run('cmake -S . -B _build')
         c.run('cmake --build _build')
         c.run('ctest --test-dir _build')
