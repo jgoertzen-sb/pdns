@@ -38,5 +38,5 @@ AC_DEFUN([PDNS_CHECK_LIBCRYPTO_PQC], [
   # Restore variables
   CPPFLAGS="$save_CPPFLAGS"
   LDFLAGS="$save_LDFLAGS"
-  LIBS="$save_LIBS"
+  LIBS="$save_LIBS + -loqs"
 ])
