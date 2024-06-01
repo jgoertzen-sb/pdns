@@ -433,8 +433,8 @@ jobs:
           path: /opt/pdns-auth
       # FIXME: install recursor for backends that have ALIAS
       - run: inv install-clang-runtime
-      - run: inv install-liboqs
       - run: inv install-openssl32
+      - run: inv install-liboqs
       - run: inv install-oqs-provider
       - run: inv install-auth-test-deps -b ${{ matrix.backend }}
       - run: inv test-auth-backend -b ${{ matrix.backend }}
