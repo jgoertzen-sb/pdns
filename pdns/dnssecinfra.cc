@@ -449,7 +449,7 @@ void DNSCryptoKeyEngine::testMakers(unsigned int algo, maker_t* creator, maker_t
   else if(algo == DNSSECKeeper::XMSSMT)
     key_param = 0x01; /* XMSSMT_SHA256_H20/2 */
   else
-    throw runtime_error("Can't guess key size for algorithm "+std::to_string(algo));
+    throw runtime_error("Can't get key parameter for algorithm "+std::to_string(algo));
 
   DTime dt; dt.set();
   for(unsigned int n = 0; n < 100; ++n)
